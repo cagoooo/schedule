@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /bookings/{booking} {
+      // 所有人可讀取預約資料
+      allow read: if true;
+      
+      // 新增預約時驗證必填欄位
+      allow create: if request.resource.data.booker != null
+                    && request.resource.data.booker is string
+                    && request.resource.data.booker.size() > 0
+                    && request.resource.data.date != null
+                    && request.resource.data.periods != null
+                    && request.resource.data.periods.size() > 0
+                    && request.resource.data.reason != null;
+      
+      // 允許更新與刪除（前端已有密碼驗證）
+      allow update, delete: if true;
+    }
+  }
+}
