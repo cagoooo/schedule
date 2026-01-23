@@ -39,6 +39,9 @@ let currentWeekStart = getMonday(new Date());
 let bookings = [];
 let selectedDate = null;
 let isLoading = false;
+let displayMode = 'week'; // 'week' 或 'range'
+let rangeStartDate = null;
+let rangeEndDate = null;
 
 // ===== 工具函數 =====
 
@@ -96,23 +99,31 @@ function getWeekdayName(date) {
 // ===== Firebase 資料存取 =====
 
 /**
- * 從 Firestore 載入當週預約資料
+ * 從 Firestore 載入預約資料
  */
 async function loadBookingsFromFirebase() {
     if (isLoading) return;
     isLoading = true;
 
     try {
-        // 計算當週日期範圍
-        const weekStart = formatDate(currentWeekStart);
-        const weekEnd = new Date(currentWeekStart);
-        weekEnd.setDate(currentWeekStart.getDate() + 6);
-        const weekEndStr = formatDate(weekEnd);
+        let queryStart, queryEnd;
 
-        // 查詢當週的預約
+        if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
+            // 區間模式：使用選擇的日期範圍
+            queryStart = formatDate(rangeStartDate);
+            queryEnd = formatDate(rangeEndDate);
+        } else {
+            // 週模式：使用當週日期
+            queryStart = formatDate(currentWeekStart);
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 6);
+            queryEnd = formatDate(weekEnd);
+        }
+
+        // 查詢日期範圍內的預約
         const snapshot = await bookingsCollection
-            .where('date', '>=', weekStart)
-            .where('date', '<=', weekEndStr)
+            .where('date', '>=', queryStart)
+            .where('date', '<=', queryEnd)
             .get();
 
         bookings = [];
@@ -207,7 +218,7 @@ function getBookingForPeriod(date, periodId) {
 // ===== UI 渲染 =====
 
 /**
- * 渲染週曆
+ * 渲染日曆（支援單週或多週模式）
  */
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
@@ -216,10 +227,39 @@ function renderCalendar() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 生成一週的日期欄位
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(currentWeekStart);
-        date.setDate(currentWeekStart.getDate() + i);
+    let startDate, endDate, totalDays;
+
+    if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
+        // 區間模式：顯示選擇的日期範圍
+        startDate = new Date(rangeStartDate);
+        endDate = new Date(rangeEndDate);
+        totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        // 更新標籤顯示
+        document.getElementById('currentWeekLabel').textContent =
+            `${formatDate(startDate)} ~ ${formatDate(endDate)} (${totalDays} 天)`;
+
+        // 更新 grid 樣式以適應不同週數
+        const weeks = Math.ceil(totalDays / 7);
+        grid.style.gridTemplateColumns = `repeat(7, minmax(120px, 1fr))`;
+    } else {
+        // 週模式：顯示一週
+        startDate = new Date(currentWeekStart);
+        endDate = new Date(currentWeekStart);
+        endDate.setDate(endDate.getDate() + 6);
+        totalDays = 7;
+
+        // 更新週標籤
+        document.getElementById('currentWeekLabel').textContent =
+            `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+
+        grid.style.gridTemplateColumns = `repeat(7, minmax(140px, 1fr))`;
+    }
+
+    // 生成日期欄位
+    for (let i = 0; i < totalDays; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
 
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isToday = isSameDay(date, today);
@@ -264,12 +304,6 @@ function renderCalendar() {
         dayEl.appendChild(bookingsEl);
         grid.appendChild(dayEl);
     }
-
-    // 更新週標籤
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(currentWeekStart.getDate() + 6);
-    document.getElementById('currentWeekLabel').textContent =
-        `${formatDate(currentWeekStart)} ~ ${formatDate(weekEnd)}`;
 
     // 綁定預約按鈕事件
     document.querySelectorAll('.btn-book').forEach(btn => {
@@ -536,22 +570,66 @@ function showToast(message, type = 'info') {
 // ===== 事件綁定 =====
 
 function initEventListeners() {
-    // 週導航
+    // 週導航（回到週模式）
     document.getElementById('btnPrevWeek').addEventListener('click', () => {
+        displayMode = 'week';
+        rangeStartDate = null;
+        rangeEndDate = null;
         currentWeekStart.setDate(currentWeekStart.getDate() - 7);
         loadBookingsFromFirebase();
     });
 
     document.getElementById('btnNextWeek').addEventListener('click', () => {
+        displayMode = 'week';
+        rangeStartDate = null;
+        rangeEndDate = null;
         currentWeekStart.setDate(currentWeekStart.getDate() + 7);
         loadBookingsFromFirebase();
     });
 
-    // 查詢按鈕
+    // 查詢按鈕（區間模式）
     document.getElementById('btnSearch').addEventListener('click', () => {
-        const startDate = document.getElementById('startDate').value;
-        if (startDate) {
-            currentWeekStart = getMonday(new Date(startDate));
+        const startDateValue = document.getElementById('startDate').value;
+        const endDateValue = document.getElementById('endDate').value;
+
+        if (startDateValue && endDateValue) {
+            const start = new Date(startDateValue);
+            const end = new Date(endDateValue);
+
+            // 檢查日期順序
+            if (start > end) {
+                showToast('開始日期不能晚於結束日期', 'warning');
+                return;
+            }
+
+            // 計算天數
+            const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (days > 31) {
+                showToast('查詢範圍不能超過 31 天', 'warning');
+                return;
+            }
+
+            if (days <= 7) {
+                // 7 天以內使用週模式
+                displayMode = 'week';
+                rangeStartDate = null;
+                rangeEndDate = null;
+                currentWeekStart = getMonday(start);
+            } else {
+                // 超過 7 天使用區間模式
+                displayMode = 'range';
+                rangeStartDate = start;
+                rangeEndDate = end;
+            }
+
+            loadBookingsFromFirebase();
+        } else if (startDateValue) {
+            // 只有開始日期，使用週模式
+            displayMode = 'week';
+            rangeStartDate = null;
+            rangeEndDate = null;
+            currentWeekStart = getMonday(new Date(startDateValue));
             loadBookingsFromFirebase();
         }
     });
