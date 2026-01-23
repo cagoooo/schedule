@@ -634,11 +634,6 @@ function initEventListeners() {
         }
     });
 
-    // 返回按鈕
-    document.getElementById('btnBack').addEventListener('click', () => {
-        history.back();
-    });
-
     // 彈窗操作
     document.getElementById('btnModalCancel').addEventListener('click', closeBookingModal);
     document.getElementById('btnModalSubmit').addEventListener('click', submitBooking);
@@ -770,6 +765,12 @@ async function exportToCSV() {
 // ===== 初始化 =====
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 強制設定為當週（避免快取問題）
+    currentWeekStart = getMonday(new Date());
+    displayMode = 'week';
+    rangeStartDate = null;
+    rangeEndDate = null;
+
     initEventListeners();
     loadBookingsFromFirebase();
 });
