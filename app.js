@@ -651,7 +651,7 @@ function initEventListeners() {
     });
 
     // ===== 密碼驗證彈窗事件 =====
-    const ADMIN_PASSWORD = 'smessmes';
+    const ADMIN_PASSWORD = 'ssmmeess';
 
     document.getElementById('btnPasswordCancel').addEventListener('click', closePasswordModal);
 
