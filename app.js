@@ -191,11 +191,55 @@ async function doLogout() {
 // ===== Firebase 資料存取 =====
 
 /**
+ * 顯示骨架屏載入動畫
+ */
+function renderSkeleton() {
+    if (viewMode === 'week') {
+        const grid = document.getElementById('calendarGrid');
+        if (grid) {
+            grid.innerHTML = '';
+            // Render 7 skeleton days
+            for (let i = 0; i < 7; i++) {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day skeleton-day';
+                dayEl.innerHTML = `
+                    <div class="day-header">
+                        <div class="skeleton skeleton-text short"></div>
+                    </div>
+                    <div class="day-bookings">
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
+                        <div class="skeleton skeleton-card"></div>
+                    </div>
+                `;
+                grid.appendChild(dayEl);
+            }
+        }
+    } else {
+        const grid = document.getElementById('monthCalendarGrid');
+        if (grid) {
+            grid.innerHTML = '';
+            // Render 35 skeleton cells
+            for (let i = 0; i < 35; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'month-day skeleton-cell';
+                cell.innerHTML = `
+                    <div class="skeleton skeleton-text short" style="width: 30%;"></div>
+                    <div class="skeleton skeleton-text" style="width: 60%; margin-top: auto;"></div>
+                `;
+                grid.appendChild(cell);
+            }
+        }
+    }
+}
+
+/**
  * 從 Firestore 載入預約資料
  */
 async function loadBookingsFromFirebase() {
     if (isLoading) return;
     isLoading = true;
+    renderSkeleton();
 
     try {
         let queryStart, queryEnd;
@@ -233,6 +277,7 @@ async function loadBookingsFromFirebase() {
  * 載入整月預約資料
  */
 async function loadMonthBookings() {
+    renderSkeleton();
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
 
@@ -542,10 +587,12 @@ function switchView(mode) {
 
         // 顯示週曆
         calendarGrid.classList.remove('hidden');
+        calendarGrid.classList.add('fade-in');
         calendarGrid.style.removeProperty('display'); // 清除 inline style，讓 CSS 控制
 
         // 隱藏月曆並清空內容
         monthCalendar.classList.add('hidden');
+        monthCalendar.classList.remove('fade-in');
         monthCalendar.style.removeProperty('display'); // 清除 inline style
         document.getElementById('monthCalendarGrid').innerHTML = '';
 
@@ -555,11 +602,13 @@ function switchView(mode) {
 
         // 隱藏週曆並清空內容
         calendarGrid.classList.add('hidden');
+        calendarGrid.classList.remove('fade-in');
         calendarGrid.style.removeProperty('display'); // 清除 inline style
         calendarGrid.innerHTML = '';
 
         // 顯示月曆
         monthCalendar.classList.remove('hidden');
+        monthCalendar.classList.add('fade-in');
         monthCalendar.style.removeProperty('display'); // 清除 inline style
 
         loadMonthBookings();
