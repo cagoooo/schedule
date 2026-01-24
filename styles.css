@@ -2,6 +2,7 @@
 .hidden {
     display: none !important;
 }
+
 /* ===== ?典?霈??閮?===== */
 :root {
     --primary-gradient: linear-gradient(135deg, #4a9ebb 0%, #2d7d9a 50%, #1a5f7a 100%);
@@ -664,7 +665,7 @@ body {
     background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
 }
 
-/* ===== RWD ?踵?撘?===== */
+/* ===== RWD 響應式設計 ===== */
 @media (max-width: 1024px) {
     .control-row {
         flex-direction: column;
@@ -677,14 +678,44 @@ body {
 }
 
 @media (max-width: 768px) {
+    .header {
+        padding: 0.75rem 1rem;
+    }
+
     .header-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0;
+        position: relative;
     }
 
     .header-title {
         font-size: 1.1rem;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        margin: 0;
+    }
+
+    .desktop-text,
+    #adminLoginText {
+        display: none;
+    }
+
+    .btn-back,
+    .btn-admin {
+        padding: 0.5rem;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    .btn-back:hover,
+    .btn-admin:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: none;
     }
 
     .main-content {
@@ -720,7 +751,7 @@ body {
     }
 }
 
-/* ===== ?臬?? ===== */
+/* ===== 匯出按鈕 ===== */
 .btn-export {
     display: flex;
     align-items: center;
@@ -746,7 +777,7 @@ body {
     transform: translateY(0);
 }
 
-/* ===== 撖Ⅳ撽?敶? ===== */
+/* ===== 密碼驗證彈窗 ===== */
 .password-modal-overlay {
     position: fixed;
     inset: 0;
@@ -876,6 +907,7 @@ body {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
+
 /* ===== 管理員登入按鈕 ===== */
 .btn-admin {
     display: flex;
@@ -1594,6 +1626,7 @@ body {
    全局 RWD 手機版優化 (max-width: 600px)
    ========================================================== */
 @media (max-width: 600px) {
+
     /* ===== Header 優化 ===== */
     .header-content {
         flex-wrap: wrap;
@@ -1696,21 +1729,6 @@ body {
         font-size: 0.9rem;
     }
 
-    .view-toggle {
-        width: 100%;
-        justify-content: center;
-    }
-
-    /* ===== 週曆視圖優化 ===== */
-    .calendar-grid {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 0.5rem;
-    }
-
-    .calendar-day {
-        min-width: 140px;
-    }
 
     .day-header {
         padding: 0.5rem;
@@ -1850,87 +1868,6 @@ body {
     }
 
     .stats-card {
-        padding: 1rem;
-    }
-
-    .stats-card h4 {
-        font-size: 0.9rem;
-    }
-
-    .pie-chart {
-        width: 100px;
-        height: 100px;
-    }
-
-    .pie-legend {
-        font-size: 0.8rem;
-    }
-
-    .bar-label {
-        width: 60px;
-        font-size: 0.75rem;
-    }
-
-    .bar-container {
-        height: 20px;
-    }
-
-    .trend-chart {
-        height: 80px;
-    }
-
-    .stats-summary {
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-    }
-
-    .summary-value {
-        font-size: 1.25rem;
-    }
-
-    .summary-label {
-        font-size: 0.8rem;
-    }
-
-    /* ===== Toast 優化 ===== */
-    .toast {
-        left: 1rem;
-        right: 1rem;
-        max-width: none;
-        font-size: 0.85rem;
-        padding: 0.75rem 1rem;
-    }
-}
-
-/* 極小螢幕優化 (max-width: 380px) */
-@media (max-width: 380px) {
-    .header-title {
-        font-size: 0.9rem;
-    }
-
-    .calendar-day {
-        min-width: 120px;
-    }
-
-    .month-day {
-        min-height: 45px;
-    }
-
-    .btn-search,
-    .btn-export,
-    .btn-stats {
-        font-size: 0.85rem;
-    }
-}
-
-
-/* ==========================================================
-   手機端週曆直向排列優化 (max-width: 600px)
-   ========================================================== */
-@media (max-width: 600px) {
-    /* 移除容器水平捲動 */
-    .calendar-container {
-        overflow-x: hidden;
         padding: 1rem;
     }
 

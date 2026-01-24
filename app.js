@@ -171,7 +171,8 @@ async function doLogin() {
         } else if (error.code === 'auth/invalid-email') {
             msg = 'Email 格式錯誤';
         }
-        document.getElementById('authError').textContent = msg;
+        document.getElementById('authError').textContent = `${msg} (${error.code})`;
+        console.error('完整錯誤資訊:', error);
     }
 }
 
@@ -339,7 +340,13 @@ function getBookingForPeriod(date, periodId) {
 /**
  * 渲染週曆
  */
+/**
+ * 渲染週曆
+ */
 function renderCalendar() {
+    // 防止非週曆模式下渲染
+    if (viewMode !== 'week') return;
+
     const grid = document.getElementById('calendarGrid');
     grid.innerHTML = '';
 
@@ -355,8 +362,6 @@ function renderCalendar() {
 
         document.getElementById('currentWeekLabel').textContent =
             `${formatDate(startDate)} ~ ${formatDate(endDate)} (${totalDays} 天)`;
-
-        grid.style.gridTemplateColumns = `repeat(7, minmax(120px, 1fr))`;
     } else {
         startDate = new Date(currentWeekStart);
         endDate = new Date(currentWeekStart);
@@ -365,8 +370,6 @@ function renderCalendar() {
 
         document.getElementById('currentWeekLabel').textContent =
             `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
-
-        grid.style.gridTemplateColumns = `repeat(7, minmax(140px, 1fr))`;
     }
 
     for (let i = 0; i < totalDays; i++) {
@@ -449,6 +452,9 @@ function renderCalendar() {
  * 渲染月曆
  */
 function renderMonthCalendar() {
+    // 防止非月曆模式下渲染
+    if (viewMode !== 'month') return;
+
     const grid = document.getElementById('monthCalendarGrid');
     grid.innerHTML = '';
 
@@ -521,23 +527,41 @@ function renderMonthCalendar() {
  * 切換視圖模式
  */
 function switchView(mode) {
+    console.log('Switching view to:', mode);
     viewMode = mode;
 
     // 更新按鈕狀態
     document.getElementById('btnViewWeek').classList.toggle('active', mode === 'week');
     document.getElementById('btnViewMonth').classList.toggle('active', mode === 'month');
 
-    // 使用 class 控制顯示/隱藏（避免 CSS !important 覆蓋問題）
     const calendarGrid = document.getElementById('calendarGrid');
     const monthCalendar = document.getElementById('monthCalendar');
 
     if (mode === 'week') {
+        console.log('Showing Week View');
+
+        // 顯示週曆
         calendarGrid.classList.remove('hidden');
+        calendarGrid.style.removeProperty('display'); // 清除 inline style，讓 CSS 控制
+
+        // 隱藏月曆並清空內容
         monthCalendar.classList.add('hidden');
+        monthCalendar.style.removeProperty('display'); // 清除 inline style
+        document.getElementById('monthCalendarGrid').innerHTML = '';
+
         loadBookingsFromFirebase();
     } else {
+        console.log('Showing Month View');
+
+        // 隱藏週曆並清空內容
         calendarGrid.classList.add('hidden');
+        calendarGrid.style.removeProperty('display'); // 清除 inline style
+        calendarGrid.innerHTML = '';
+
+        // 顯示月曆
         monthCalendar.classList.remove('hidden');
+        monthCalendar.style.removeProperty('display'); // 清除 inline style
+
         loadMonthBookings();
     }
 
