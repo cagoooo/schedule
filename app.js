@@ -527,14 +527,26 @@ function switchView(mode) {
     document.getElementById('btnViewWeek').classList.toggle('active', mode === 'week');
     document.getElementById('btnViewMonth').classList.toggle('active', mode === 'month');
 
-    // 顯示/隱藏對應視圖
-    document.getElementById('calendarGrid').style.display = mode === 'week' ? 'grid' : 'none';
-    document.getElementById('monthCalendar').style.display = mode === 'month' ? 'block' : 'none';
+    // 使用 class 控制顯示/隱藏（避免 CSS !important 覆蓋問題）
+    const calendarGrid = document.getElementById('calendarGrid');
+    const monthCalendar = document.getElementById('monthCalendar');
 
     if (mode === 'week') {
+        calendarGrid.classList.remove('hidden');
+        monthCalendar.classList.add('hidden');
         loadBookingsFromFirebase();
     } else {
+        calendarGrid.classList.add('hidden');
+        monthCalendar.classList.remove('hidden');
         loadMonthBookings();
+    }
+
+    // 自動滾動到日曆區域（改善手機端 UX）
+    const calendarContainer = document.querySelector('.calendar-container');
+    if (calendarContainer) {
+        setTimeout(() => {
+            calendarContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
     }
 }
 

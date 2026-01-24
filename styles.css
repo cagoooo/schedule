@@ -1,4 +1,8 @@
-﻿/* ===== ?典?霈??閮?===== */
+﻿/* ===== 通用工具類別 ===== */
+.hidden {
+    display: none !important;
+}
+/* ===== ?典?霈??閮?===== */
 :root {
     --primary-gradient: linear-gradient(135deg, #4a9ebb 0%, #2d7d9a 50%, #1a5f7a 100%);
     --primary-color: #4a9ebb;

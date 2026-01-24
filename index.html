@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂預約系統</title>
-    <meta name="description" content="學校禮堂線上預約借用系統，查詢與登記禮堂使用時段">
+    <title>蝳桀???蝟餌絞</title>
+    <meta name="description" content="摮豢蝳桀?蝺????蝟餌絞嚗閰Ｚ??餉?蝳桀?雿輻?挾">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,14 +14,14 @@
 </head>
 
 <body>
-    <!-- 頂部導航列 -->
+    <!-- ?撠??-->
     <header class="header">
         <div class="header-content">
             <a href="https://www.smes.tyc.edu.tw/" class="btn-back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
-                回上一頁
+                ??銝??
             </a>
             <h1 class="header-title">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -31,34 +31,34 @@
                     <line x1="3" y1="10" x2="21" y2="10" />
                     <path d="M9 16l2 2 4-4" />
                 </svg>
-                禮堂預約系統
+                蝳桀???蝟餌絞
             </h1>
-            <!-- 管理員登入按鈕 -->
+            <!-- 蝞∠??∠?交???-->
             <button class="btn-admin" id="btnAdminLogin">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                 </svg>
-                <span id="adminLoginText">管理員</span>
+                <span id="adminLoginText">蝞∠???/span>
             </button>
         </div>
     </header>
 
-    <!-- 主要內容區 -->
+    <!-- 銝餉??批捆? -->
     <main class="main-content">
-        <!-- 查詢控制區 -->
+        <!-- ?亥岷?批? -->
         <section class="control-panel">
             <div class="control-row">
                 <div class="control-group">
-                    <label for="startDate">預約日期：</label>
+                    <label for="startDate">???交?嚗?/label>
                     <input type="date" id="startDate" class="date-input">
                     <span class="date-separator">~</span>
                     <input type="date" id="endDate" class="date-input">
                 </div>
                 <div class="control-group">
-                    <label for="roomSelect">專科教室：</label>
+                    <label for="roomSelect">撠??恕嚗?/label>
                     <select id="roomSelect" class="room-select">
-                        <option value="禮堂">禮堂</option>
+                        <option value="蝳桀?">蝳桀?</option>
                     </select>
                 </div>
                 <button class="btn-search" id="btnSearch">
@@ -66,7 +66,7 @@
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
-                    查詢
+                    ?亥岷
                 </button>
                 <button class="btn-export" id="btnExport">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -74,7 +74,7 @@
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    匯出 CSV
+                    ?臬 CSV
                 </button>
                 <button class="btn-stats" id="btnStats">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -82,13 +82,13 @@
                         <line x1="12" y1="20" x2="12" y2="4" />
                         <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
-                    統計
+                    蝯梯?
                 </button>
             </div>
-            <p class="date-hint" id="dateHint">（可預約範圍為 2025/08/01 ~ 2026/01/31）</p>
+            <p class="date-hint" id="dateHint">嚗??蝭???2025/08/01 ~ 2026/01/31嚗?/p>
         </section>
 
-        <!-- 視圖切換與日曆區域 -->
+        <!-- 閬????????-->
         <section class="calendar-container">
             <div class="calendar-header">
                 <div class="calendar-nav">
@@ -106,35 +106,35 @@
                         </svg>
                     </button>
                 </div>
-                <!-- 視圖切換按鈕 -->
+                <!-- 閬????? -->
                 <div class="view-toggle">
-                    <button class="view-btn active" id="btnViewWeek" data-view="week">週</button>
-                    <button class="view-btn" id="btnViewMonth" data-view="month">月</button>
+                    <button class="view-btn active" id="btnViewWeek" data-view="week">??/button>
+                    <button class="view-btn" id="btnViewMonth" data-view="month">??/button>
                 </div>
             </div>
-            <!-- 週曆視圖 -->
+            <!-- ?望?閬? -->
             <div class="calendar-grid" id="calendarGrid">
-                <!-- 由 JavaScript 動態生成 -->
+                <!-- ??JavaScript ???? -->
             </div>
-            <!-- 月曆視圖 -->
-            <div class="month-calendar" id="monthCalendar" style="display: none;">
+            <!-- ??閬? -->
+            <div class="month-calendar hidden" id="monthCalendar">
                 <div class="month-calendar-header">
-                    <div class="month-weekday">日</div>
-                    <div class="month-weekday">一</div>
-                    <div class="month-weekday">二</div>
-                    <div class="month-weekday">三</div>
-                    <div class="month-weekday">四</div>
-                    <div class="month-weekday">五</div>
-                    <div class="month-weekday">六</div>
+                    <div class="month-weekday">??/div>
+                    <div class="month-weekday">銝</div>
+                    <div class="month-weekday">鈭?/div>
+                    <div class="month-weekday">銝?/div>
+                    <div class="month-weekday">??/div>
+                    <div class="month-weekday">鈭?/div>
+                    <div class="month-weekday">??/div>
                 </div>
                 <div class="month-calendar-grid" id="monthCalendarGrid">
-                    <!-- 由 JavaScript 動態生成 -->
+                    <!-- ??JavaScript ???? -->
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- 預約彈窗 -->
+    <!-- ??敶? -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div class="modal-header">
@@ -143,7 +143,7 @@
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
-                    取消
+                    ??
                 </button>
                 <button class="btn-submit" id="btnModalSubmit">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -151,60 +151,60 @@
                         <polyline points="15 3 21 3 21 9" />
                         <line x1="10" y1="14" x2="21" y2="3" />
                     </svg>
-                    預約
+                    ??
                 </button>
             </div>
             <div class="modal-body">
                 <div class="modal-info">
                     <div class="info-row">
-                        <span class="info-label">禮堂預約系統</span>
+                        <span class="info-label">蝳桀???蝟餌絞</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <div class="form-row">
-                        <span class="form-label">專科教室：</span>
-                        <span class="form-value" id="modalRoom">禮堂</span>
+                        <span class="form-label">撠??恕嚗?/span>
+                        <span class="form-value" id="modalRoom">蝳桀?</span>
                     </div>
                     <div class="form-row">
-                        <span class="form-label">預約時間：</span>
+                        <span class="form-label">????嚗?/span>
                         <span class="form-value" id="modalDate">2025/12/04</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label required">*節次：</label>
+                    <label class="form-label required">*蝭甈∴?</label>
                     <div class="period-checkboxes" id="periodCheckboxes">
-                        <!-- 由 JavaScript 動態生成 -->
+                        <!-- ??JavaScript ???? -->
                     </div>
                 </div>
                 <div class="form-group">
                     <div class="form-row">
-                        <span class="form-label">預約者：</span>
-                        <input type="text" id="bookerName" class="form-input" placeholder="請輸入姓名">
+                        <span class="form-label">????</span>
+                        <input type="text" id="bookerName" class="form-input" placeholder="隢撓?亙???>
                     </div>
                 </div>
                 <div class="form-group repeat-group">
                     <label class="checkbox-label">
                         <input type="checkbox" id="repeatBooking">
-                        重複預約
+                        ????
                     </label>
-                    <span class="repeat-info">頻率：<span id="repeatFrequency">每週四</span></span>
+                    <span class="repeat-info">?餌?嚗?span id="repeatFrequency">瘥勗?</span></span>
                     <div class="repeat-end">
-                        <label>結束日期：</label>
+                        <label>蝯??交?嚗?/label>
                         <input type="date" id="repeatEndDate" class="form-input" disabled>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label required">*預約理由：</label>
-                    <textarea id="bookingReason" class="form-textarea" placeholder="請輸入預約理由"></textarea>
+                    <label class="form-label required">*???嚗?/label>
+                    <textarea id="bookingReason" class="form-textarea" placeholder="隢撓?仿?蝝???></textarea>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast 通知 -->
+    <!-- Toast ? -->
     <div class="toast" id="toast"></div>
 
-    <!-- 管理員登入彈窗 -->
+    <!-- 蝞∠??∠?亙?蝒?-->
     <div class="auth-modal-overlay" id="authModalOverlay">
         <div class="auth-modal">
             <div class="auth-modal-header">
@@ -212,20 +212,20 @@
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
-                <h3>管理員登入</h3>
+                <h3>蝞∠??∠??/h3>
             </div>
-            <p class="auth-modal-desc">請輸入管理員帳號密碼</p>
+            <p class="auth-modal-desc">隢撓?亦恣?撣唾?撖Ⅳ</p>
             <input type="email" id="authEmail" class="auth-input" placeholder="Email">
-            <input type="password" id="authPassword" class="auth-input" placeholder="密碼">
+            <input type="password" id="authPassword" class="auth-input" placeholder="撖Ⅳ">
             <p class="auth-error" id="authError"></p>
             <div class="auth-modal-actions">
-                <button class="btn-auth-cancel" id="btnAuthCancel">取消</button>
-                <button class="btn-auth-confirm" id="btnAuthConfirm">登入</button>
+                <button class="btn-auth-cancel" id="btnAuthCancel">??</button>
+                <button class="btn-auth-confirm" id="btnAuthConfirm">?餃</button>
             </div>
         </div>
     </div>
 
-    <!-- 刪除確認彈窗 -->
+    <!-- ?芷蝣箄?敶? -->
     <div class="delete-modal-overlay" id="deleteModalOverlay">
         <div class="delete-modal">
             <div class="delete-modal-header">
@@ -233,17 +233,17 @@
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 </svg>
-                <h3>預約詳情</h3>
+                <h3>??閰單?</h3>
             </div>
             <div class="delete-booking-info" id="deleteBookingInfo"></div>
             <div class="delete-modal-actions">
-                <button class="btn-delete-cancel" id="btnDeleteCancel">返回</button>
-                <button class="btn-delete-confirm" id="btnDeleteConfirm">確認取消</button>
+                <button class="btn-delete-cancel" id="btnDeleteCancel">餈?</button>
+                <button class="btn-delete-confirm" id="btnDeleteConfirm">蝣箄???</button>
             </div>
         </div>
     </div>
 
-    <!-- 統計彈窗 -->
+    <!-- 蝯梯?敶? -->
     <div class="stats-modal-overlay" id="statsModalOverlay">
         <div class="stats-modal">
             <div class="stats-modal-header">
@@ -253,7 +253,7 @@
                         <line x1="12" y1="20" x2="12" y2="4" />
                         <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
-                    預約統計
+                    ??蝯梯?
                 </h3>
                 <button class="btn-stats-close" id="btnStatsClose">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -265,17 +265,17 @@
             <div class="stats-modal-body">
                 <div class="stats-row">
                     <div class="stats-card">
-                        <h4>節次使用率</h4>
+                        <h4>蝭甈∩蝙?函?</h4>
                         <div class="pie-chart" id="periodPieChart"></div>
                         <div class="pie-legend" id="periodLegend"></div>
                     </div>
                     <div class="stats-card">
-                        <h4>預約者排行</h4>
+                        <h4>????銵?/h4>
                         <div class="bar-chart" id="bookerBarChart"></div>
                     </div>
                 </div>
                 <div class="stats-card stats-full">
-                    <h4>本月預約趨勢</h4>
+                    <h4>?祆???頞典</h4>
                     <div class="trend-chart" id="trendChart"></div>
                 </div>
                 <div class="stats-summary" id="statsSummary"></div>
