@@ -2003,3 +2003,56 @@ body {
         min-width: auto;
     }
 }
+
+/* ===== 手機端底部預約按鈕 ===== */
+.day-footer {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    /* 隱藏 header 中的預約按鈕 */
+    .day-header .btn-book {
+        display: none !important;
+    }
+
+    /* 顯示底部預約按鈕 */
+    .day-footer {
+        display: block;
+        padding: 0.75rem;
+        border-top: 1px dashed var(--border-color);
+    }
+
+    .btn-book-mobile {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: var(--primary-gradient);
+        border: none;
+        border-radius: var(--radius-md);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition-fast);
+    }
+
+    .btn-book-mobile:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .btn-book-mobile:active {
+        transform: translateY(0);
+    }
+}
+
+/* 桌面端隱藏手機按鈕 */
+@media (min-width: 601px) {
+    .day-footer {
+        display: none !important;
+    }
+}

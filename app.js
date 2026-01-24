@@ -411,10 +411,33 @@ function renderCalendar() {
         });
 
         dayEl.appendChild(bookingsEl);
+
+        // 新增底部預約按鈕（手機端專用）
+        const footerEl = document.createElement('div');
+        footerEl.className = 'day-footer';
+        footerEl.innerHTML = `
+            <button class="btn-book-mobile" data-date="${formatDate(date)}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                點擊預約此日
+            </button>
+        `;
+        dayEl.appendChild(footerEl);
+
         grid.appendChild(dayEl);
     }
 
     document.querySelectorAll('.btn-book').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openBookingModal(btn.dataset.date);
+        });
+    });
+
+    // 手機端底部預約按鈕
+    document.querySelectorAll('.btn-book-mobile').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             openBookingModal(btn.dataset.date);
