@@ -76,6 +76,14 @@
                     </svg>
                     匯出 CSV
                 </button>
+                <button class="btn-stats" id="btnStats">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    統計
+                </button>
             </div>
             <p class="date-hint" id="dateHint">（可預約範圍為 2025/08/01 ~ 2026/01/31）</p>
         </section>
@@ -231,6 +239,46 @@
             <div class="delete-modal-actions">
                 <button class="btn-delete-cancel" id="btnDeleteCancel">返回</button>
                 <button class="btn-delete-confirm" id="btnDeleteConfirm">確認取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統計彈窗 -->
+    <div class="stats-modal-overlay" id="statsModalOverlay">
+        <div class="stats-modal">
+            <div class="stats-modal-header">
+                <h3>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    預約統計
+                </h3>
+                <button class="btn-stats-close" id="btnStatsClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="stats-modal-body">
+                <div class="stats-row">
+                    <div class="stats-card">
+                        <h4>節次使用率</h4>
+                        <div class="pie-chart" id="periodPieChart"></div>
+                        <div class="pie-legend" id="periodLegend"></div>
+                    </div>
+                    <div class="stats-card">
+                        <h4>預約者排行</h4>
+                        <div class="bar-chart" id="bookerBarChart"></div>
+                    </div>
+                </div>
+                <div class="stats-card stats-full">
+                    <h4>本月預約趨勢</h4>
+                    <div class="trend-chart" id="trendChart"></div>
+                </div>
+                <div class="stats-summary" id="statsSummary"></div>
             </div>
         </div>
     </div>

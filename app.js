@@ -873,6 +873,13 @@ function initEventListeners() {
     // 匯出 CSV
     document.getElementById('btnExport').addEventListener('click', exportToCSV);
 
+    // 統計按鈕
+    document.getElementById('btnStats').addEventListener('click', openStatsModal);
+    document.getElementById('btnStatsClose').addEventListener('click', closeStatsModal);
+    document.getElementById('statsModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'statsModalOverlay') closeStatsModal();
+    });
+
     // 初始化日期選擇器
     document.getElementById('startDate').value = formatDateISO(currentWeekStart);
     const weekEnd = new Date(currentWeekStart);
@@ -938,6 +945,218 @@ async function exportToCSV() {
         console.error('匯出失敗:', error);
         showToast('匯出失敗，請稍後再試', 'error');
     }
+}
+
+// ===== 統計功能 =====
+
+const CHART_COLORS = [
+    '#4a9ebb', '#5cb8d6', '#7bc9e0', '#9ad9ea',
+    '#f44336', '#ff9800', '#4caf50', '#9c27b0',
+    '#2196f3', '#00bcd4'
+];
+
+/**
+ * 開啟統計彈窗
+ */
+function openStatsModal() {
+    document.getElementById('statsModalOverlay').classList.add('active');
+    loadStatsData();
+}
+
+/**
+ * 關閉統計彈窗
+ */
+function closeStatsModal() {
+    document.getElementById('statsModalOverlay').classList.remove('active');
+}
+
+/**
+ * 載入統計資料並渲染圖表
+ */
+async function loadStatsData() {
+    try {
+        showToast('正在載入統計資料...', 'info');
+
+        // 查詢所有預約資料
+        const snapshot = await bookingsCollection.get();
+
+        if (snapshot.empty) {
+            showToast('沒有預約資料', 'warning');
+            return;
+        }
+
+        const allBookings = [];
+        snapshot.forEach(doc => {
+            allBookings.push({ id: doc.id, ...doc.data() });
+        });
+
+        // 統計節次使用率
+        const periodStats = {};
+        PERIODS.forEach(p => { periodStats[p.id] = 0; });
+
+        // 統計預約者
+        const bookerStats = {};
+
+        // 統計本月趨勢
+        const today = new Date();
+        const currentMonthStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const trendStats = {};
+        for (let i = 1; i <= daysInMonth; i++) {
+            trendStats[i] = 0;
+        }
+
+        allBookings.forEach(booking => {
+            // 節次統計
+            booking.periods.forEach(periodId => {
+                if (periodStats[periodId] !== undefined) {
+                    periodStats[periodId]++;
+                }
+            });
+
+            // 預約者統計
+            const booker = booking.booker || '未知';
+            bookerStats[booker] = (bookerStats[booker] || 0) + booking.periods.length;
+
+            // 本月趨勢
+            if (booking.date && booking.date.startsWith(currentMonthStr)) {
+                const day = parseInt(booking.date.split('/')[2]);
+                if (trendStats[day] !== undefined) {
+                    trendStats[day] += booking.periods.length;
+                }
+            }
+        });
+
+        // 渲染圓餅圖
+        renderPeriodPieChart(periodStats);
+
+        // 渲染長條圖
+        renderBookerBarChart(bookerStats);
+
+        // 渲染趨勢圖
+        renderTrendChart(trendStats);
+
+        // 渲染摘要
+        renderStatsSummary(allBookings, periodStats);
+
+    } catch (error) {
+        console.error('載入統計資料失敗:', error);
+        showToast('載入統計資料失敗', 'error');
+    }
+}
+
+/**
+ * 渲染節次使用率圓餅圖
+ */
+function renderPeriodPieChart(periodStats) {
+    const pieChart = document.getElementById('periodPieChart');
+    const legend = document.getElementById('periodLegend');
+
+    const total = Object.values(periodStats).reduce((a, b) => a + b, 0);
+    if (total === 0) {
+        pieChart.innerHTML = '<div style="text-align:center;color:#999;padding:2rem;">無資料</div>';
+        legend.innerHTML = '';
+        return;
+    }
+
+    // 計算各區段角度並排序
+    const sortedPeriods = PERIODS
+        .map((p, i) => ({ ...p, count: periodStats[p.id], color: CHART_COLORS[i % CHART_COLORS.length] }))
+        .filter(p => p.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+    // 建立 conic-gradient
+    let gradientParts = [];
+    let currentAngle = 0;
+    sortedPeriods.forEach(p => {
+        const percent = (p.count / total) * 100;
+        gradientParts.push(`${p.color} ${currentAngle}deg ${currentAngle + percent * 3.6}deg`);
+        currentAngle += percent * 3.6;
+    });
+
+    pieChart.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+
+    // 建立圖例
+    legend.innerHTML = sortedPeriods.slice(0, 5).map(p => `
+        <div class="pie-legend-item">
+            <span class="pie-legend-color" style="background:${p.color}"></span>
+            <span>${p.name}</span>
+            <span class="pie-legend-value">${p.count} 節</span>
+        </div>
+    `).join('');
+}
+
+/**
+ * 渲染預約者長條圖
+ */
+function renderBookerBarChart(bookerStats) {
+    const chart = document.getElementById('bookerBarChart');
+
+    const sorted = Object.entries(bookerStats)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    if (sorted.length === 0) {
+        chart.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">無資料</div>';
+        return;
+    }
+
+    const maxValue = sorted[0][1];
+
+    chart.innerHTML = sorted.map(([name, count], i) => {
+        const percent = (count / maxValue) * 100;
+        return `
+            <div class="bar-item">
+                <span class="bar-label" title="${name}">${name}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width:${percent}%;background:${CHART_COLORS[i % CHART_COLORS.length]}">
+                        <span class="bar-value">${count}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * 渲染本月趨勢圖
+ */
+function renderTrendChart(trendStats) {
+    const chart = document.getElementById('trendChart');
+
+    const values = Object.values(trendStats);
+    const maxValue = Math.max(...values, 1);
+
+    chart.innerHTML = Object.entries(trendStats).map(([day, count]) => {
+        const height = (count / maxValue) * 100;
+        return `<div class="trend-bar" style="height:${Math.max(height, 4)}%" data-value="${day}日: ${count}節" title="${day}日: ${count}節"></div>`;
+    }).join('');
+}
+
+/**
+ * 渲染統計摘要
+ */
+function renderStatsSummary(allBookings, periodStats) {
+    const summary = document.getElementById('statsSummary');
+
+    const totalBookings = allBookings.length;
+    const totalPeriods = Object.values(periodStats).reduce((a, b) => a + b, 0);
+    const uniqueBookers = new Set(allBookings.map(b => b.booker)).size;
+
+    summary.innerHTML = `
+        <div class="summary-item">
+            <div class="summary-value">${totalBookings}</div>
+            <div class="summary-label">總預約筆數</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value">${totalPeriods}</div>
+            <div class="summary-label">總預約節次</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value">${uniqueBookers}</div>
+            <div class="summary-label">不同預約者</div>
+        </div>
+    `;
 }
 
 // ===== 初始化 =====
