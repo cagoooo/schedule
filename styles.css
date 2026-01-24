@@ -872,3 +872,421 @@ body {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
+/* ===== 管理員登入按鈕 ===== */
+.btn-admin {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition-fast);
+    backdrop-filter: blur(4px);
+    margin-left: auto;
+}
+
+.btn-admin:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-admin.logged-in {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+/* ===== 視圖切換按鈕 ===== */
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.view-toggle {
+    display: flex;
+    background: var(--bg-color);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.view-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.view-btn:hover {
+    color: var(--primary-color);
+}
+
+.view-btn.active {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ===== 月曆視圖 ===== */
+.month-calendar {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.month-calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.month-weekday {
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.month-weekday:first-child,
+.month-weekday:last-child {
+    color: var(--accent-color);
+}
+
+.month-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.month-day {
+    min-height: 80px;
+    padding: 0.5rem;
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    background: var(--card-bg);
+}
+
+.month-day:nth-child(7n) {
+    border-right: none;
+}
+
+.month-day:hover {
+    background: linear-gradient(135deg, rgba(74, 158, 187, 0.08) 0%, rgba(92, 184, 214, 0.05) 100%);
+}
+
+.month-day.other-month {
+    background: #fafafa;
+    color: var(--text-muted);
+}
+
+.month-day.today {
+    background: linear-gradient(135deg, rgba(74, 158, 187, 0.15) 0%, rgba(92, 184, 214, 0.1) 100%);
+}
+
+.month-day.weekend {
+    background: #fffafa;
+}
+
+.month-day-date {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.month-day.weekend .month-day-date,
+.month-day.other-month.weekend .month-day-date {
+    color: var(--accent-color);
+}
+
+.month-day.other-month .month-day-date {
+    color: var(--text-muted);
+}
+
+.month-booking-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.booking-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-color);
+}
+
+.booking-count {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--primary-dark);
+    font-weight: 600;
+    background: linear-gradient(135deg, #e5f3f8 0%, #d5ebf2 100%);
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+    margin-top: 0.25rem;
+}
+
+/* ===== 登入彈窗 ===== */
+.auth-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 58, 74, 0.6);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition-normal);
+}
+
+.auth-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.auth-modal {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 400px;
+    padding: 2rem;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px) scale(0.95);
+    transition: var(--transition-normal);
+    text-align: center;
+}
+
+.auth-modal-overlay.active .auth-modal {
+    transform: translateY(0) scale(1);
+}
+
+.auth-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+.auth-modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.auth-modal-desc {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: inherit;
+    margin-bottom: 0.75rem;
+    transition: var(--transition-fast);
+}
+
+.auth-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 158, 187, 0.2);
+}
+
+.auth-error {
+    color: var(--accent-color);
+    font-size: 0.85rem;
+    min-height: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.auth-modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-auth-cancel,
+.btn-auth-confirm {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-auth-cancel {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    color: var(--text-secondary);
+}
+
+.btn-auth-cancel:hover {
+    background: #e5e5e5;
+}
+
+.btn-auth-confirm {
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-auth-confirm:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* ===== 刪除確認彈窗 ===== */
+.delete-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 58, 74, 0.6);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition-normal);
+}
+
+.delete-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.delete-modal {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 400px;
+    padding: 2rem;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px) scale(0.95);
+    transition: var(--transition-normal);
+    text-align: center;
+}
+
+.delete-modal-overlay.active .delete-modal {
+    transform: translateY(0) scale(1);
+}
+
+.delete-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    color: var(--accent-color);
+}
+
+.delete-modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.delete-booking-info {
+    background: linear-gradient(135deg, #fff5f5 0%, #fee5e5 100%);
+    border: 1px solid #ffcccc;
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.delete-modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-delete-cancel,
+.btn-delete-confirm {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-delete-cancel {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    color: var(--text-secondary);
+}
+
+.btn-delete-cancel:hover {
+    background: #e5e5e5;
+}
+
+.btn-delete-confirm {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    border: none;
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-delete-confirm:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* ===== 月曆 RWD ===== */
+@media (max-width: 768px) {
+    .calendar-header {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .month-day {
+        min-height: 60px;
+        padding: 0.35rem;
+    }
+
+    .month-day-date {
+        font-size: 0.85rem;
+    }
+
+    .booking-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .auth-modal,
+    .delete-modal {
+        padding: 1.5rem;
+    }
+}

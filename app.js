@@ -1,6 +1,6 @@
 /**
  * 禮堂預約系統 - 核心應用邏輯
- * 使用 Firebase Firestore 進行資料存取
+ * 使用 Firebase Firestore + Auth 進行資料存取與驗證
  */
 
 // ===== Firebase 設定 =====
@@ -16,6 +16,7 @@ const firebaseConfig = {
 // 初始化 Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 const bookingsCollection = db.collection('bookings');
 
 // ===== 常數設定 =====
@@ -36,12 +37,16 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 // ===== 全域狀態 =====
 let currentWeekStart = getMonday(new Date());
+let currentMonth = new Date();
 let bookings = [];
+let monthBookings = [];
 let selectedDate = null;
 let isLoading = false;
 let displayMode = 'week'; // 'week' 或 'range'
+let viewMode = 'week'; // 'week' 或 'month'
 let rangeStartDate = null;
 let rangeEndDate = null;
+let currentUser = null;
 
 // ===== 工具函數 =====
 
@@ -96,6 +101,92 @@ function getWeekdayName(date) {
     return WEEKDAYS[date.getDay()];
 }
 
+// ===== Firebase Auth =====
+
+/**
+ * 監聽登入狀態變化
+ */
+auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    updateAuthUI();
+});
+
+/**
+ * 更新登入 UI
+ */
+function updateAuthUI() {
+    const btn = document.getElementById('btnAdminLogin');
+    const text = document.getElementById('adminLoginText');
+
+    if (currentUser) {
+        btn.classList.add('logged-in');
+        text.textContent = '已登入';
+    } else {
+        btn.classList.remove('logged-in');
+        text.textContent = '管理員';
+    }
+}
+
+/**
+ * 開啟登入彈窗
+ */
+function openAuthModal() {
+    document.getElementById('authEmail').value = '';
+    document.getElementById('authPassword').value = '';
+    document.getElementById('authError').textContent = '';
+    document.getElementById('authModalOverlay').classList.add('active');
+    document.getElementById('authEmail').focus();
+}
+
+/**
+ * 關閉登入彈窗
+ */
+function closeAuthModal() {
+    document.getElementById('authModalOverlay').classList.remove('active');
+}
+
+/**
+ * 執行登入
+ */
+async function doLogin() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+
+    if (!email || !password) {
+        document.getElementById('authError').textContent = '請輸入帳號密碼';
+        return;
+    }
+
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        closeAuthModal();
+        showToast('登入成功！', 'success');
+    } catch (error) {
+        console.error('登入失敗:', error);
+        let msg = '登入失敗';
+        if (error.code === 'auth/user-not-found') {
+            msg = '帳號不存在';
+        } else if (error.code === 'auth/wrong-password') {
+            msg = '密碼錯誤';
+        } else if (error.code === 'auth/invalid-email') {
+            msg = 'Email 格式錯誤';
+        }
+        document.getElementById('authError').textContent = msg;
+    }
+}
+
+/**
+ * 執行登出
+ */
+async function doLogout() {
+    try {
+        await auth.signOut();
+        showToast('已登出', 'info');
+    } catch (error) {
+        console.error('登出失敗:', error);
+    }
+}
+
 // ===== Firebase 資料存取 =====
 
 /**
@@ -109,18 +200,15 @@ async function loadBookingsFromFirebase() {
         let queryStart, queryEnd;
 
         if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
-            // 區間模式：使用選擇的日期範圍
             queryStart = formatDate(rangeStartDate);
             queryEnd = formatDate(rangeEndDate);
         } else {
-            // 週模式：使用當週日期
             queryStart = formatDate(currentWeekStart);
             const weekEnd = new Date(currentWeekStart);
             weekEnd.setDate(currentWeekStart.getDate() + 6);
             queryEnd = formatDate(weekEnd);
         }
 
-        // 查詢日期範圍內的預約
         const snapshot = await bookingsCollection
             .where('date', '>=', queryStart)
             .where('date', '<=', queryEnd)
@@ -137,6 +225,37 @@ async function loadBookingsFromFirebase() {
         showToast('載入資料失敗，請重新整理頁面', 'error');
     } finally {
         isLoading = false;
+    }
+}
+
+/**
+ * 載入整月預約資料
+ */
+async function loadMonthBookings() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const queryStart = formatDate(firstDay);
+    const queryEnd = formatDate(lastDay);
+
+    try {
+        const snapshot = await bookingsCollection
+            .where('date', '>=', queryStart)
+            .where('date', '<=', queryEnd)
+            .get();
+
+        monthBookings = [];
+        snapshot.forEach(doc => {
+            monthBookings.push({ id: doc.id, ...doc.data() });
+        });
+
+        renderMonthCalendar();
+    } catch (error) {
+        console.error('載入月曆資料失敗:', error);
+        showToast('載入資料失敗', 'error');
     }
 }
 
@@ -218,7 +337,7 @@ function getBookingForPeriod(date, periodId) {
 // ===== UI 渲染 =====
 
 /**
- * 渲染日曆（支援單週或多週模式）
+ * 渲染週曆
  */
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
@@ -230,33 +349,26 @@ function renderCalendar() {
     let startDate, endDate, totalDays;
 
     if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
-        // 區間模式：顯示選擇的日期範圍
         startDate = new Date(rangeStartDate);
         endDate = new Date(rangeEndDate);
         totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-        // 更新標籤顯示
         document.getElementById('currentWeekLabel').textContent =
             `${formatDate(startDate)} ~ ${formatDate(endDate)} (${totalDays} 天)`;
 
-        // 更新 grid 樣式以適應不同週數
-        const weeks = Math.ceil(totalDays / 7);
         grid.style.gridTemplateColumns = `repeat(7, minmax(120px, 1fr))`;
     } else {
-        // 週模式：顯示一週
         startDate = new Date(currentWeekStart);
         endDate = new Date(currentWeekStart);
         endDate.setDate(endDate.getDate() + 6);
         totalDays = 7;
 
-        // 更新週標籤
         document.getElementById('currentWeekLabel').textContent =
             `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
 
         grid.style.gridTemplateColumns = `repeat(7, minmax(140px, 1fr))`;
     }
 
-    // 生成日期欄位
     for (let i = 0; i < totalDays; i++) {
         const date = new Date(startDate);
         date.setDate(startDate.getDate() + i);
@@ -267,7 +379,6 @@ function renderCalendar() {
         const dayEl = document.createElement('div');
         dayEl.className = `calendar-day${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}`;
 
-        // 日期標題
         const headerEl = document.createElement('div');
         headerEl.className = `day-header${isWeekend ? ' weekend' : ''}`;
         headerEl.innerHTML = `
@@ -279,13 +390,11 @@ function renderCalendar() {
         `;
         dayEl.appendChild(headerEl);
 
-        // 預約清單
         const bookingsEl = document.createElement('div');
         bookingsEl.className = 'day-bookings';
 
         const dayBookings = getBookingsByDate(date);
 
-        // 按時段順序顯示預約
         PERIODS.forEach(period => {
             const booking = dayBookings.find(b => b.periods.includes(period.id));
             if (booking) {
@@ -305,13 +414,105 @@ function renderCalendar() {
         grid.appendChild(dayEl);
     }
 
-    // 綁定預約按鈕事件
     document.querySelectorAll('.btn-book').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             openBookingModal(btn.dataset.date);
         });
     });
+}
+
+/**
+ * 渲染月曆
+ */
+function renderMonthCalendar() {
+    const grid = document.getElementById('monthCalendarGrid');
+    grid.innerHTML = '';
+
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    // 更新標題
+    document.getElementById('currentWeekLabel').textContent =
+        `${year}年${month + 1}月`;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 該月第一天
+    const firstDay = new Date(year, month, 1);
+    // 該月最後一天
+    const lastDay = new Date(year, month + 1, 0);
+
+    // 日曆起始日（該週日）
+    const startDay = new Date(firstDay);
+    startDay.setDate(firstDay.getDate() - firstDay.getDay());
+
+    // 日曆結束日（週六）
+    const endDay = new Date(lastDay);
+    endDay.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
+
+    // 統計每日預約數
+    const bookingCountByDate = {};
+    monthBookings.forEach(b => {
+        if (!bookingCountByDate[b.date]) {
+            bookingCountByDate[b.date] = 0;
+        }
+        bookingCountByDate[b.date] += b.periods.length;
+    });
+
+    // 生成日期格子
+    const currentDate = new Date(startDay);
+    while (currentDate <= endDay) {
+        const dateStr = formatDate(currentDate);
+        const isOtherMonth = currentDate.getMonth() !== month;
+        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+        const isToday = isSameDay(currentDate, today);
+        const bookingCount = bookingCountByDate[dateStr] || 0;
+
+        const dayEl = document.createElement('div');
+        dayEl.className = 'month-day';
+        if (isOtherMonth) dayEl.classList.add('other-month');
+        if (isWeekend) dayEl.classList.add('weekend');
+        if (isToday) dayEl.classList.add('today');
+
+        dayEl.innerHTML = `
+            <div class="month-day-date">${currentDate.getDate()}</div>
+            ${bookingCount > 0 ? `<span class="booking-count">${bookingCount} 節</span>` : ''}
+        `;
+
+        // 點擊跳轉週視圖
+        const clickDate = new Date(currentDate);
+        dayEl.addEventListener('click', () => {
+            viewMode = 'week';
+            currentWeekStart = getMonday(clickDate);
+            switchView('week');
+        });
+
+        grid.appendChild(dayEl);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+}
+
+/**
+ * 切換視圖模式
+ */
+function switchView(mode) {
+    viewMode = mode;
+
+    // 更新按鈕狀態
+    document.getElementById('btnViewWeek').classList.toggle('active', mode === 'week');
+    document.getElementById('btnViewMonth').classList.toggle('active', mode === 'month');
+
+    // 顯示/隱藏對應視圖
+    document.getElementById('calendarGrid').style.display = mode === 'week' ? 'grid' : 'none';
+    document.getElementById('monthCalendar').style.display = mode === 'month' ? 'block' : 'none';
+
+    if (mode === 'week') {
+        loadBookingsFromFirebase();
+    } else {
+        loadMonthBookings();
+    }
 }
 
 /**
@@ -349,7 +550,6 @@ function renderPeriodCheckboxes(date) {
 function openBookingModal(dateStr) {
     selectedDate = dateStr;
 
-    // 更新彈窗內容
     document.getElementById('modalDate').textContent = dateStr;
     document.getElementById('bookerName').value = '';
     document.getElementById('bookingReason').value = '';
@@ -357,14 +557,11 @@ function openBookingModal(dateStr) {
     document.getElementById('repeatEndDate').value = '';
     document.getElementById('repeatEndDate').disabled = true;
 
-    // 更新重複預約頻率顯示
     const date = parseDate(dateStr);
     document.getElementById('repeatFrequency').textContent = `每週${getWeekdayName(date)}`;
 
-    // 渲染節次選項
     renderPeriodCheckboxes(dateStr);
 
-    // 顯示彈窗
     document.getElementById('modalOverlay').classList.add('active');
 }
 
@@ -385,13 +582,11 @@ async function submitBooking() {
     const repeatChecked = document.getElementById('repeatBooking').checked;
     const repeatEndDate = document.getElementById('repeatEndDate').value;
 
-    // 取得選中的節次
     const selectedPeriods = [];
     document.querySelectorAll('#periodCheckboxes input:checked').forEach(input => {
         selectedPeriods.push(input.value);
     });
 
-    // 驗證
     if (!booker) {
         showToast('請輸入預約者姓名', 'warning');
         return;
@@ -407,7 +602,6 @@ async function submitBooking() {
         return;
     }
 
-    // 準備預約日期清單
     const datesToBook = [selectedDate];
 
     if (repeatChecked && repeatEndDate) {
@@ -415,7 +609,7 @@ async function submitBooking() {
         const endDate = new Date(repeatEndDate);
 
         let currentDate = new Date(startDate);
-        currentDate.setDate(currentDate.getDate() + 7); // 從下一週開始
+        currentDate.setDate(currentDate.getDate() + 7);
 
         while (currentDate <= endDate) {
             datesToBook.push(formatDate(currentDate));
@@ -423,13 +617,11 @@ async function submitBooking() {
         }
     }
 
-    // 顯示載入狀態
     const submitBtn = document.getElementById('btnModalSubmit');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span>處理中...</span>';
 
     try {
-        // 先檢查所有日期是否有衝突（從 Firestore 即時查詢）
         for (const dateStr of datesToBook) {
             const snapshot = await bookingsCollection
                 .where('date', '==', dateStr)
@@ -447,7 +639,6 @@ async function submitBooking() {
             }
         }
 
-        // 批次新增預約
         const batch = db.batch();
         for (const dateStr of datesToBook) {
             const docRef = bookingsCollection.doc();
@@ -461,7 +652,6 @@ async function submitBooking() {
         }
         await batch.commit();
 
-        // 重新載入並更新 UI
         await loadBookingsFromFirebase();
         closeBookingModal();
 
@@ -489,53 +679,60 @@ async function submitBooking() {
 }
 
 /**
- * 顯示預約詳情（可用於檢視/取消）
+ * 顯示預約詳情
  */
 let pendingDeleteBooking = null;
 let pendingDeletePeriod = null;
 
-async function showBookingDetail(booking, period) {
-    // 儲存待刪除的預約資訊
+function showBookingDetail(booking, period) {
     pendingDeleteBooking = booking;
     pendingDeletePeriod = period;
 
-    // 顯示預約資訊
-    document.getElementById('passwordBookingInfo').innerHTML = `
+    // 檢查是否已登入
+    if (!currentUser) {
+        // 未登入，先顯示登入提示
+        showToast('請先登入管理員帳號才能取消預約', 'warning');
+        openAuthModal();
+        return;
+    }
+
+    // 已登入，顯示刪除確認
+    document.getElementById('deleteBookingInfo').innerHTML = `
         <strong>日期：</strong>${booking.date}<br>
         <strong>節次：</strong>${period.name}<br>
         <strong>預約者：</strong>${booking.booker}<br>
         <strong>理由：</strong>${booking.reason || '無'}
     `;
 
-    // 清空密碼輸入與錯誤訊息
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('passwordError').textContent = '';
-
-    // 顯示密碼驗證彈窗
-    document.getElementById('passwordModalOverlay').classList.add('active');
-    document.getElementById('adminPassword').focus();
+    document.getElementById('deleteModalOverlay').classList.add('active');
 }
 
 /**
- * 執行刪除預約（密碼驗證成功後）
+ * 關閉刪除確認彈窗
+ */
+function closeDeleteModal() {
+    document.getElementById('deleteModalOverlay').classList.remove('active');
+    pendingDeleteBooking = null;
+    pendingDeletePeriod = null;
+}
+
+/**
+ * 執行刪除預約
  */
 async function executeDeleteBooking() {
     if (!pendingDeleteBooking || !pendingDeletePeriod) return;
 
     try {
-        // 移除該節次
         const newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
 
         if (newPeriods.length === 0) {
-            // 如果沒有剩餘節次，刪除整筆預約
             await deleteBookingFromFirebase(pendingDeleteBooking.id);
         } else {
-            // 更新預約
             await updateBookingInFirebase(pendingDeleteBooking.id, { periods: newPeriods });
         }
 
         await loadBookingsFromFirebase();
-        closePasswordModal();
+        closeDeleteModal();
         showToast('已取消預約', 'success');
     } catch (error) {
         console.error('取消預約失敗:', error);
@@ -543,20 +740,8 @@ async function executeDeleteBooking() {
     }
 }
 
-/**
- * 關閉密碼驗證彈窗
- */
-function closePasswordModal() {
-    document.getElementById('passwordModalOverlay').classList.remove('active');
-    pendingDeleteBooking = null;
-    pendingDeletePeriod = null;
-}
-
 // ===== Toast 通知 =====
 
-/**
- * 顯示 Toast 通知
- */
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     toast.textContent = message;
@@ -570,24 +755,38 @@ function showToast(message, type = 'info') {
 // ===== 事件綁定 =====
 
 function initEventListeners() {
-    // 週導航（回到週模式）
-    document.getElementById('btnPrevWeek').addEventListener('click', () => {
-        displayMode = 'week';
-        rangeStartDate = null;
-        rangeEndDate = null;
-        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-        loadBookingsFromFirebase();
+    // 導航按鈕
+    document.getElementById('btnPrev').addEventListener('click', () => {
+        if (viewMode === 'week') {
+            displayMode = 'week';
+            rangeStartDate = null;
+            rangeEndDate = null;
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            loadBookingsFromFirebase();
+        } else {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            loadMonthBookings();
+        }
     });
 
-    document.getElementById('btnNextWeek').addEventListener('click', () => {
-        displayMode = 'week';
-        rangeStartDate = null;
-        rangeEndDate = null;
-        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-        loadBookingsFromFirebase();
+    document.getElementById('btnNext').addEventListener('click', () => {
+        if (viewMode === 'week') {
+            displayMode = 'week';
+            rangeStartDate = null;
+            rangeEndDate = null;
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            loadBookingsFromFirebase();
+        } else {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            loadMonthBookings();
+        }
     });
 
-    // 查詢按鈕（區間模式）
+    // 視圖切換
+    document.getElementById('btnViewWeek').addEventListener('click', () => switchView('week'));
+    document.getElementById('btnViewMonth').addEventListener('click', () => switchView('month'));
+
+    // 查詢按鈕
     document.getElementById('btnSearch').addEventListener('click', () => {
         const startDateValue = document.getElementById('startDate').value;
         const endDateValue = document.getElementById('endDate').value;
@@ -596,13 +795,11 @@ function initEventListeners() {
             const start = new Date(startDateValue);
             const end = new Date(endDateValue);
 
-            // 檢查日期順序
             if (start > end) {
                 showToast('開始日期不能晚於結束日期', 'warning');
                 return;
             }
 
-            // 計算天數
             const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
             if (days > 31) {
@@ -611,101 +808,85 @@ function initEventListeners() {
             }
 
             if (days <= 7) {
-                // 7 天以內使用週模式
                 displayMode = 'week';
                 rangeStartDate = null;
                 rangeEndDate = null;
                 currentWeekStart = getMonday(start);
             } else {
-                // 超過 7 天使用區間模式
                 displayMode = 'range';
                 rangeStartDate = start;
                 rangeEndDate = end;
             }
 
-            loadBookingsFromFirebase();
+            viewMode = 'week';
+            switchView('week');
         } else if (startDateValue) {
-            // 只有開始日期，使用週模式
             displayMode = 'week';
             rangeStartDate = null;
             rangeEndDate = null;
             currentWeekStart = getMonday(new Date(startDateValue));
-            loadBookingsFromFirebase();
+            viewMode = 'week';
+            switchView('week');
         }
     });
 
-    // 彈窗操作
+    // 預約彈窗
     document.getElementById('btnModalCancel').addEventListener('click', closeBookingModal);
     document.getElementById('btnModalSubmit').addEventListener('click', submitBooking);
-
-    // 點擊遮罩關閉彈窗
     document.getElementById('modalOverlay').addEventListener('click', (e) => {
-        if (e.target.id === 'modalOverlay') {
-            closeBookingModal();
-        }
+        if (e.target.id === 'modalOverlay') closeBookingModal();
     });
 
-    // 重複預約勾選
+    // 重複預約
     document.getElementById('repeatBooking').addEventListener('change', (e) => {
         document.getElementById('repeatEndDate').disabled = !e.target.checked;
     });
 
-    // ===== 密碼驗證彈窗事件 =====
-    const ADMIN_PASSWORD = 'ssmmeess';
-
-    document.getElementById('btnPasswordCancel').addEventListener('click', closePasswordModal);
-
-    document.getElementById('btnPasswordConfirm').addEventListener('click', () => {
-        const password = document.getElementById('adminPassword').value;
-        if (password === ADMIN_PASSWORD) {
-            executeDeleteBooking();
+    // 管理員登入
+    document.getElementById('btnAdminLogin').addEventListener('click', () => {
+        if (currentUser) {
+            if (confirm('確定要登出嗎？')) {
+                doLogout();
+            }
         } else {
-            document.getElementById('passwordError').textContent = '密碼錯誤，請重新輸入';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('adminPassword').focus();
+            openAuthModal();
         }
     });
 
-    // 密碼輸入框 Enter 鍵確認
-    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('btnPasswordConfirm').click();
-        }
+    // 登入彈窗
+    document.getElementById('btnAuthCancel').addEventListener('click', closeAuthModal);
+    document.getElementById('btnAuthConfirm').addEventListener('click', doLogin);
+    document.getElementById('authModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'authModalOverlay') closeAuthModal();
+    });
+    document.getElementById('authPassword').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') doLogin();
     });
 
-    // 點擊遮罩關閉密碼彈窗
-    document.getElementById('passwordModalOverlay').addEventListener('click', (e) => {
-        if (e.target.id === 'passwordModalOverlay') {
-            closePasswordModal();
-        }
+    // 刪除確認彈窗
+    document.getElementById('btnDeleteCancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('btnDeleteConfirm').addEventListener('click', executeDeleteBooking);
+    document.getElementById('deleteModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'deleteModalOverlay') closeDeleteModal();
     });
 
-    // ===== 匯出 CSV 按鈕事件 =====
+    // 匯出 CSV
     document.getElementById('btnExport').addEventListener('click', exportToCSV);
 
     // 初始化日期選擇器
-    const today = new Date();
-
     document.getElementById('startDate').value = formatDateISO(currentWeekStart);
-
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(currentWeekStart.getDate() + 6);
     document.getElementById('endDate').value = formatDateISO(weekEnd);
-
-    // 移除日期限制，讓系統更通用
     document.getElementById('dateHint').textContent = '';
 }
 
 // ===== CSV 匯出功能 =====
 
-/**
- * 匯出所有預約資料為 CSV
- */
 async function exportToCSV() {
     try {
         showToast('正在匯出資料...', 'info');
 
-        // 查詢所有預約資料
         const snapshot = await bookingsCollection.orderBy('date').get();
 
         if (snapshot.empty) {
@@ -713,7 +894,6 @@ async function exportToCSV() {
             return;
         }
 
-        // 準備 CSV 資料
         const headers = ['日期', '節次', '預約者', '預約理由', '建立時間'];
         const rows = [headers.join(',')];
 
@@ -726,7 +906,6 @@ async function exportToCSV() {
                 ? new Date(booking.createdAt.toDate()).toLocaleString('zh-TW')
                 : '未知';
 
-            // 處理 CSV 中可能包含逗號的欄位
             const escapeCsv = (str) => {
                 if (str && (str.includes(',') || str.includes('"') || str.includes('\n'))) {
                     return `"${str.replace(/"/g, '""')}"`;
@@ -743,8 +922,7 @@ async function exportToCSV() {
             ].join(','));
         });
 
-        // 產生 CSV 檔案並下載
-        const csvContent = '\uFEFF' + rows.join('\n'); // 加入 BOM 讓 Excel 正確識別 UTF-8
+        const csvContent = '\uFEFF' + rows.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -765,13 +943,13 @@ async function exportToCSV() {
 // ===== 初始化 =====
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 強制設定為當週（避免快取問題）
     currentWeekStart = getMonday(new Date());
+    currentMonth = new Date();
     displayMode = 'week';
+    viewMode = 'week';
     rangeStartDate = null;
     rangeEndDate = null;
 
     initEventListeners();
     loadBookingsFromFirebase();
 });
-

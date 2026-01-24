@@ -5,7 +5,7 @@ service cloud.firestore {
       // 所有人可讀取預約資料
       allow read: if true;
       
-      // 新增預約時驗證必填欄位
+      // 新增預約：驗證必填欄位
       allow create: if request.resource.data.booker != null
                     && request.resource.data.booker is string
                     && request.resource.data.booker.size() > 0
@@ -14,8 +14,8 @@ service cloud.firestore {
                     && request.resource.data.periods.size() > 0
                     && request.resource.data.reason != null;
       
-      // 允許更新與刪除（前端已有密碼驗證）
-      allow update, delete: if true;
+      // 更新與刪除：需要已登入的管理員
+      allow update, delete: if request.auth != null;
     }
   }
 }
