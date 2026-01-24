@@ -41,13 +41,14 @@
 
 body {
     font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    line-height: 1.6;
-    min-height: 100vh;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
 }
 
-/* ===== ?撠??===== */
+/* ===== 頂部導航列 ===== */
 .header {
     background: var(--primary-gradient);
     color: white;
@@ -63,7 +64,9 @@ body {
     margin: 0 auto;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1.5rem;
+    position: relative;
 }
 
 .btn-back {
@@ -81,6 +84,7 @@ body {
     transition: var(--transition-fast);
     backdrop-filter: blur(4px);
     text-decoration: none;
+    z-index: 2;
 }
 
 .btn-back:hover {
@@ -92,26 +96,42 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    font-size: 1.4rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 1;
 }
 
-/* ===== 銝餉??批捆? ===== */
-.main-content {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 1.5rem;
+.header-title svg {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
-/* ===== ?亥岷?批? ===== */
-.control-panel {
-    background: var(--card-bg);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-color);
+.btn-admin {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition-fast);
+    backdrop-filter: blur(4px);
+    z-index: 2;
+}
+
+.btn-admin:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: white;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .control-row {
