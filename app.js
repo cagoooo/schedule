@@ -688,21 +688,21 @@ function showBookingDetail(booking, period) {
     pendingDeleteBooking = booking;
     pendingDeletePeriod = period;
 
-    // 檢查是否已登入
-    if (!currentUser) {
-        // 未登入，先顯示登入提示
-        showToast('請先登入管理員帳號才能取消預約', 'warning');
-        openAuthModal();
-        return;
-    }
-
-    // 已登入，顯示刪除確認
+    // 顯示預約詳情給所有人看
     document.getElementById('deleteBookingInfo').innerHTML = `
         <strong>日期：</strong>${booking.date}<br>
         <strong>節次：</strong>${period.name}<br>
         <strong>預約者：</strong>${booking.booker}<br>
         <strong>理由：</strong>${booking.reason || '無'}
     `;
+
+    // 根據登入狀態顯示不同的取消按鈕文字
+    const deleteBtn = document.getElementById('btnDeleteConfirm');
+    if (currentUser) {
+        deleteBtn.textContent = '取消預約';
+    } else {
+        deleteBtn.textContent = '登入後取消';
+    }
 
     document.getElementById('deleteModalOverlay').classList.add('active');
 }
@@ -721,6 +721,14 @@ function closeDeleteModal() {
  */
 async function executeDeleteBooking() {
     if (!pendingDeleteBooking || !pendingDeletePeriod) return;
+
+    // 檢查是否已登入
+    if (!currentUser) {
+        closeDeleteModal();
+        showToast('請先登入管理員帳號', 'warning');
+        openAuthModal();
+        return;
+    }
 
     try {
         const newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
