@@ -1585,3 +1585,336 @@ body {
         height: 120px;
     }
 }
+
+/* ==========================================================
+   全局 RWD 手機版優化 (max-width: 600px)
+   ========================================================== */
+@media (max-width: 600px) {
+    /* ===== Header 優化 ===== */
+    .header-content {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .btn-back {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-back svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .header-title {
+        font-size: 1rem;
+        gap: 0.4rem;
+        order: -1;
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 0.25rem;
+    }
+
+    .header-title svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .btn-admin {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    /* ===== 控制面板優化 ===== */
+    .control-panel {
+        padding: 1rem;
+    }
+
+    .control-row {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .control-group {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .control-group label {
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+    }
+
+    .date-input,
+    .room-select {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .date-separator {
+        text-align: center;
+        margin: 0.25rem 0;
+    }
+
+    .btn-search,
+    .btn-export,
+    .btn-stats {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .date-hint {
+        font-size: 0.75rem;
+        text-align: center;
+    }
+
+    /* ===== 日曆區域優化 ===== */
+    .calendar-container {
+        padding: 1rem;
+    }
+
+    .calendar-header {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .calendar-nav {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .current-week {
+        font-size: 0.9rem;
+    }
+
+    .view-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ===== 週曆視圖優化 ===== */
+    .calendar-grid {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.5rem;
+    }
+
+    .calendar-day {
+        min-width: 140px;
+    }
+
+    .day-header {
+        padding: 0.5rem;
+    }
+
+    .day-date {
+        font-size: 0.85rem;
+    }
+
+    .weekday {
+        font-size: 0.75rem;
+    }
+
+    .btn-book {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.75rem;
+    }
+
+    .booking-card {
+        padding: 0.4rem;
+    }
+
+    .booking-period {
+        font-size: 0.7rem;
+    }
+
+    .booking-name {
+        font-size: 0.75rem;
+    }
+
+    /* ===== 月曆視圖優化 ===== */
+    .month-weekday {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .month-day {
+        min-height: 50px;
+        padding: 0.25rem;
+    }
+
+    .month-day-date {
+        font-size: 0.8rem;
+    }
+
+    .booking-count {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.25rem;
+    }
+
+    /* ===== 預約彈窗優化 ===== */
+    .modal {
+        width: 95%;
+        max-height: 90vh;
+        border-radius: var(--radius-md);
+    }
+
+    .modal-header {
+        padding: 0.75rem 1rem;
+    }
+
+    .btn-cancel,
+    .btn-submit {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .form-label {
+        font-size: 0.85rem;
+    }
+
+    .form-input,
+    .form-textarea {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .period-checkboxes {
+        gap: 0.4rem;
+    }
+
+    .period-checkbox {
+        padding: 0.5rem;
+    }
+
+    .period-checkbox label {
+        font-size: 0.8rem;
+    }
+
+    /* ===== 登入/刪除/統計彈窗優化 ===== */
+    .auth-modal,
+    .delete-modal,
+    .stats-modal {
+        width: 95%;
+        margin: 1rem;
+        max-height: 90vh;
+    }
+
+    .auth-modal-header h3,
+    .delete-modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .auth-input {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .btn-auth-cancel,
+    .btn-auth-confirm,
+    .btn-delete-cancel,
+    .btn-delete-confirm {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    /* ===== 統計彈窗優化 ===== */
+    .stats-modal-header {
+        padding: 1rem;
+    }
+
+    .stats-modal-header h3 {
+        font-size: 1rem;
+    }
+
+    .stats-modal-body {
+        padding: 1rem;
+    }
+
+    .stats-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .stats-card {
+        padding: 1rem;
+    }
+
+    .stats-card h4 {
+        font-size: 0.9rem;
+    }
+
+    .pie-chart {
+        width: 100px;
+        height: 100px;
+    }
+
+    .pie-legend {
+        font-size: 0.8rem;
+    }
+
+    .bar-label {
+        width: 60px;
+        font-size: 0.75rem;
+    }
+
+    .bar-container {
+        height: 20px;
+    }
+
+    .trend-chart {
+        height: 80px;
+    }
+
+    .stats-summary {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .summary-value {
+        font-size: 1.25rem;
+    }
+
+    .summary-label {
+        font-size: 0.8rem;
+    }
+
+    /* ===== Toast 優化 ===== */
+    .toast {
+        left: 1rem;
+        right: 1rem;
+        max-width: none;
+        font-size: 0.85rem;
+        padding: 0.75rem 1rem;
+    }
+}
+
+/* 極小螢幕優化 (max-width: 380px) */
+@media (max-width: 380px) {
+    .header-title {
+        font-size: 0.9rem;
+    }
+
+    .calendar-day {
+        min-width: 120px;
+    }
+
+    .month-day {
+        min-height: 45px;
+    }
+
+    .btn-search,
+    .btn-export,
+    .btn-stats {
+        font-size: 0.85rem;
+    }
+}
