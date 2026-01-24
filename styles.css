@@ -1983,3 +1983,23 @@ body {
         background: linear-gradient(135deg, #fff8f8 0%, #fff0f0 100%);
     }
 }
+
+/* 修復手機端預約按鈕顯示 */
+@media (max-width: 600px) {
+    .day-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .btn-book {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        flex-shrink: 0;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        min-width: auto;
+    }
+}
