@@ -48,6 +48,63 @@ let rangeStartDate = null;
 let rangeEndDate = null;
 let currentUser = null;
 
+// ===== Rate Limiting 設定 =====
+const RATE_LIMIT = {
+    maxBookingsPerHour: 5,      // 每小時最多預約次數
+    maxBookingsPerDay: 10,      // 每天最多預約次數
+    storageKey: 'bookingRateLimit'
+};
+
+/**
+ * 取得或建立裝置識別碼
+ */
+function getDeviceId() {
+    let deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+        deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('deviceId', deviceId);
+    }
+    return deviceId;
+}
+
+/**
+ * 檢查是否超過預約頻率限制
+ */
+function checkRateLimit() {
+    const now = Date.now();
+    const hourAgo = now - 60 * 60 * 1000;
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    let records = JSON.parse(localStorage.getItem(RATE_LIMIT.storageKey) || '[]');
+
+    // 清理過期記錄
+    records = records.filter(time => time > dayAgo);
+    localStorage.setItem(RATE_LIMIT.storageKey, JSON.stringify(records));
+
+    // 計算各時段預約次數
+    const hourlyCount = records.filter(time => time > hourAgo).length;
+    const dailyCount = records.length;
+
+    if (hourlyCount >= RATE_LIMIT.maxBookingsPerHour) {
+        return { allowed: false, reason: `每小時最多 ${RATE_LIMIT.maxBookingsPerHour} 次預約，請稍後再試` };
+    }
+
+    if (dailyCount >= RATE_LIMIT.maxBookingsPerDay) {
+        return { allowed: false, reason: `每天最多 ${RATE_LIMIT.maxBookingsPerDay} 次預約，請明天再試` };
+    }
+
+    return { allowed: true };
+}
+
+/**
+ * 記錄一次預約
+ */
+function recordBooking() {
+    let records = JSON.parse(localStorage.getItem(RATE_LIMIT.storageKey) || '[]');
+    records.push(Date.now());
+    localStorage.setItem(RATE_LIMIT.storageKey, JSON.stringify(records));
+}
+
 // ===== 工具函數 =====
 
 /**
@@ -685,6 +742,13 @@ function closeBookingModal() {
  * 提交預約
  */
 async function submitBooking() {
+    // Rate Limiting 檢查
+    const rateCheck = checkRateLimit();
+    if (!rateCheck.allowed) {
+        showToast(rateCheck.reason, 'error');
+        return;
+    }
+
     const booker = document.getElementById('bookerName').value.trim();
     const reason = document.getElementById('bookingReason').value.trim();
     const repeatChecked = document.getElementById('repeatBooking').checked;
@@ -755,10 +819,12 @@ async function submitBooking() {
                 periods: selectedPeriods,
                 booker: booker,
                 reason: reason,
+                deviceId: getDeviceId(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
         await batch.commit();
+        recordBooking(); // 記錄本次預約用於 Rate Limiting
 
         await loadBookingsFromFirebase();
         closeBookingModal();
