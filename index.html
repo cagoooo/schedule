@@ -83,6 +83,13 @@
                     </svg>
                     統計
                 </button>
+                <button class="btn-history" id="btnHistory">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    歷史
+                </button>
             </div>
             <p class="date-hint" id="dateHint">（可預約範圍為 2025/08/01 ~ 2026/01/31）</p>
             <!-- 進階搜尋區塊 -->
@@ -230,6 +237,17 @@
                         <input type="date" id="repeatEndDate" class="form-input" disabled>
                     </div>
                 </div>
+                <div class="form-group batch-booking-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="batchBooking">
+                        批次預約（選擇多個日期）
+                    </label>
+                    <div class="batch-dates hidden" id="batchDatesContainer">
+                        <p class="batch-hint">點擊下方日曆選擇多個日期：</p>
+                        <div class="batch-calendar" id="batchCalendar"></div>
+                        <div class="selected-dates" id="selectedDatesDisplay"></div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="form-label required">*預約理由：</label>
                     <textarea id="bookingReason" class="form-textarea" placeholder="請輸入預約理由"></textarea>
@@ -341,6 +359,37 @@
             <div class="search-modal-body">
                 <div class="search-result-summary" id="searchResultSummary"></div>
                 <div class="search-result-list" id="searchResultList">
+                    <!-- 由 JavaScript 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 歷史記錄彈窗 -->
+    <div class="history-modal-overlay" id="historyModalOverlay">
+        <div class="history-modal">
+            <div class="history-modal-header">
+                <h3>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    預約歷史記錄
+                </h3>
+                <button class="btn-history-close" id="btnHistoryClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="history-modal-body">
+                <div class="history-filters">
+                    <input type="month" id="historyMonth" class="history-month-input">
+                    <button class="btn-history-load" id="btnHistoryLoad">載入</button>
+                </div>
+                <div class="history-list" id="historyList">
                     <!-- 由 JavaScript 動態生成 -->
                 </div>
             </div>

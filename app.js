@@ -1535,6 +1535,217 @@ function initSearchEventListeners() {
     });
 }
 
+
+
+// ===== 歷史記錄功能 =====
+
+/**
+ * 開啟歷史記錄彈窗
+ */
+function openHistoryModal() {
+    document.getElementById('historyModalOverlay').classList.add('active');
+    // 預設載入當月
+    const now = new Date();
+    document.getElementById('historyMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    loadHistoryData();
+}
+
+/**
+ * 關閉歷史記錄彈窗
+ */
+function closeHistoryModal() {
+    document.getElementById('historyModalOverlay').classList.remove('active');
+}
+
+/**
+ * 載入歷史記錄資料
+ */
+async function loadHistoryData() {
+    const monthInput = document.getElementById('historyMonth').value;
+    if (!monthInput) {
+        showToast('請選擇月份', 'warning');
+        return;
+    }
+
+    const [year, month] = monthInput.split('-');
+    const startDate = `${year}/${month}/01`;
+    const endDate = `${year}/${month}/31`;
+
+    showToast('正在載入歷史記錄...', 'info');
+
+    try {
+        const snapshot = await bookingsCollection
+            .where('date', '>=', startDate)
+            .where('date', '<=', endDate)
+            .orderBy('date', 'desc')
+            .get();
+
+        const historyList = document.getElementById('historyList');
+
+        if (snapshot.empty) {
+            historyList.innerHTML = `
+                <div style="text-align:center; padding:2rem; color:var(--text-muted);">
+                    <p>該月份沒有預約記錄</p>
+                </div>
+            `;
+            return;
+        }
+
+        historyList.innerHTML = '';
+        snapshot.forEach(doc => {
+            const booking = doc.data();
+            const periodNames = booking.periods
+                .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
+                .join('、');
+
+            historyList.innerHTML += `
+                <div class="history-item">
+                    <span class="history-date">${booking.date}</span>
+                    <span class="history-period">${periodNames}</span>
+                    <span class="history-booker">${booking.booker || '未知'}</span>
+                    <span class="history-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
+                </div>
+            `;
+        });
+
+        showToast(`已載入 ${snapshot.size} 筆記錄`, 'success');
+    } catch (error) {
+        console.error('載入歷史記錄失敗:', error);
+        showToast('載入失敗，請稍後再試', 'error');
+    }
+}
+
+/**
+ * 初始化歷史記錄事件監聽器
+ */
+function initHistoryEventListeners() {
+    document.getElementById('btnHistory').addEventListener('click', openHistoryModal);
+    document.getElementById('btnHistoryClose').addEventListener('click', closeHistoryModal);
+    document.getElementById('historyModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'historyModalOverlay') closeHistoryModal();
+    });
+    document.getElementById('btnHistoryLoad').addEventListener('click', loadHistoryData);
+}
+
+// ===== 批次預約功能 =====
+
+let batchSelectedDates = [];
+
+/**
+ * 初始化批次預約功能
+ */
+function initBatchBooking() {
+    const batchCheckbox = document.getElementById('batchBooking');
+    const batchContainer = document.getElementById('batchDatesContainer');
+
+    if (!batchCheckbox || !batchContainer) return;
+
+    batchCheckbox.addEventListener('change', () => {
+        if (batchCheckbox.checked) {
+            batchContainer.classList.remove('hidden');
+            renderBatchCalendar();
+        } else {
+            batchContainer.classList.add('hidden');
+            batchSelectedDates = [];
+            updateSelectedDatesDisplay();
+        }
+    });
+}
+
+/**
+ * 渲染批次預約日曆
+ */
+function renderBatchCalendar() {
+    const calendar = document.getElementById('batchCalendar');
+    if (!calendar) return;
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    // 取得該月第一天和最後一天
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    // 星期標題
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    let html = weekdays.map(d => `<div class="batch-calendar-day" style="background:#f0f0f0;cursor:default;">${d}</div>`).join('');
+
+    // 填充空白
+    for (let i = 0; i < firstDay.getDay(); i++) {
+        html += '<div class="batch-calendar-day disabled"></div>';
+    }
+
+    // 日期
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+        const isSelected = batchSelectedDates.includes(dateStr);
+        const isPast = new Date(year, month, day) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        html += `
+            <div class="batch-calendar-day ${isSelected ? 'selected' : ''} ${isPast ? 'disabled' : ''}" 
+                 data-date="${dateStr}" 
+                 ${!isPast ? 'onclick="toggleBatchDate(this)"' : ''}>
+                ${day}
+            </div>
+        `;
+    }
+
+    calendar.innerHTML = html;
+}
+
+/**
+ * 切換批次選取日期
+ */
+function toggleBatchDate(element) {
+    const date = element.dataset.date;
+    const index = batchSelectedDates.indexOf(date);
+
+    if (index > -1) {
+        batchSelectedDates.splice(index, 1);
+        element.classList.remove('selected');
+    } else {
+        batchSelectedDates.push(date);
+        element.classList.add('selected');
+    }
+
+    updateSelectedDatesDisplay();
+}
+
+/**
+ * 更新已選日期顯示
+ */
+function updateSelectedDatesDisplay() {
+    const display = document.getElementById('selectedDatesDisplay');
+    if (!display) return;
+
+    if (batchSelectedDates.length === 0) {
+        display.innerHTML = '<p style="color:var(--text-muted);">尚未選擇日期</p>';
+        return;
+    }
+
+    batchSelectedDates.sort();
+    display.innerHTML = batchSelectedDates.map(date => `
+        <span class="selected-date-tag">
+            ${date}
+            <button onclick="removeBatchDate('${date}')">×</button>
+        </span>
+    `).join('');
+}
+
+/**
+ * 移除批次選取的日期
+ */
+function removeBatchDate(date) {
+    const index = batchSelectedDates.indexOf(date);
+    if (index > -1) {
+        batchSelectedDates.splice(index, 1);
+        renderBatchCalendar();
+        updateSelectedDatesDisplay();
+    }
+}
+
+
 // ===== 初始化 =====
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1547,5 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initEventListeners();
     initSearchEventListeners();
+    initHistoryEventListeners();
+    initBatchBooking();
     loadBookingsFromFirebase();
 });
