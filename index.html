@@ -85,6 +85,44 @@
                 </button>
             </div>
             <p class="date-hint" id="dateHint">（可預約範圍為 2025/08/01 ~ 2026/01/31）</p>
+            <!-- 進階搜尋區塊 -->
+            <div class="search-panel">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input type="text" id="searchInput" class="search-input" placeholder="搜尋預約者姓名...">
+                    <button class="search-clear-btn hidden" id="searchClearBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <select id="searchPeriodFilter" class="search-filter-select">
+                    <option value="">所有節次</option>
+                    <option value="morning">晨間/早會</option>
+                    <option value="period1">第一節</option>
+                    <option value="period2">第二節</option>
+                    <option value="period3">第三節</option>
+                    <option value="period4">第四節</option>
+                    <option value="lunch">午餐/午休</option>
+                    <option value="period5">第五節</option>
+                    <option value="period6">第六節</option>
+                    <option value="period7">第七節</option>
+                    <option value="period8">第八節</option>
+                </select>
+                <button class="btn-search-advanced" id="btnAdvancedSearch">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    搜尋預約
+                </button>
+            </div>
         </section>
 
         <!-- 視圖切換與日曆區域 -->
@@ -278,6 +316,33 @@
                     <div class="trend-chart" id="trendChart"></div>
                 </div>
                 <div class="stats-summary" id="statsSummary"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜尋結果彈窗 -->
+    <div class="search-modal-overlay" id="searchModalOverlay">
+        <div class="search-modal">
+            <div class="search-modal-header">
+                <h3>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    搜尋結果
+                </h3>
+                <button class="btn-search-close" id="btnSearchClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="search-modal-body">
+                <div class="search-result-summary" id="searchResultSummary"></div>
+                <div class="search-result-list" id="searchResultList">
+                    <!-- 由 JavaScript 動態生成 -->
+                </div>
             </div>
         </div>
     </div>

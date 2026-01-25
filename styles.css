@@ -327,22 +327,44 @@ body {
     color: var(--accent-color);
 }
 
+/* 預約按鈕 - 優化版 */
 .btn-book {
-    font-size: 0.85rem;
-    color: var(--primary-color);
-    background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: white;
+    background: var(--primary-gradient);
     border: none;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    text-decoration: underline;
-    font-weight: 500;
-    transition: var(--transition-fast);
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+    transition: all 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn-book::before {
+    content: '+';
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .btn-book:hover {
-    color: var(--primary-dark);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
 }
 
-/* ???∠? */
+.btn-book:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+/* 預約卡片區域 */
 .day-bookings {
     flex: 1;
     padding: 0.5rem;
@@ -2330,6 +2352,343 @@ body {
     padding: 0.5rem;
 }
 
+/* ===== 進階搜尋功能 ===== */
 
+/* 搜尋面板 */
+.search-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
 
+/* 搜尋輸入框容器 */
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
+}
 
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.6rem 2.5rem 0.6rem 2.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: white;
+    transition: var(--transition-fast);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+
+.search-clear-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+/* 節次篩選下拉選單 */
+.search-filter-select {
+    padding: 0.6rem 2rem 0.6rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: white;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    transition: var(--transition-fast);
+    min-width: 140px;
+}
+
+.search-filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+/* 進階搜尋按鈕 */
+.btn-search-advanced {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-search-advanced:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-search-advanced:active {
+    transform: scale(0.95);
+}
+
+/* 搜尋結果彈窗 */
+.search-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 58, 74, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition-normal);
+}
+
+.search-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.search-modal {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px) scale(0.95);
+    transition: var(--transition-normal);
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-modal-overlay.active .search-modal {
+    transform: translateY(0) scale(1);
+}
+
+.search-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.search-modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.btn-search-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: var(--transition-fast);
+}
+
+.btn-search-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.search-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: calc(80vh - 80px);
+}
+
+/* 搜尋結果摘要 */
+.search-result-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.search-result-summary .count {
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+/* 搜尋結果列表 */
+.search-result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    cursor: pointer;
+}
+
+.search-result-item:hover {
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    transform: translateX(4px);
+}
+
+.search-result-date {
+    min-width: 100px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.search-result-period {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.search-result-booker {
+    flex: 1;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.search-result-reason {
+    max-width: 200px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-no-result {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+
+.search-no-result svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.search-no-result p {
+    font-size: 1.1rem;
+}
+
+/* 搜尋結果高亮 */
+.search-highlight {
+    background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
+    padding: 0.1rem 0.25rem;
+    border-radius: 2px;
+}
+
+/* RWD 響應式 - 搜尋面板 */
+@media (max-width: 768px) {
+    .search-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-input-wrapper {
+        max-width: none;
+    }
+
+    .search-filter-select {
+        width: 100%;
+    }
+
+    .btn-search-advanced {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .search-modal {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    .search-modal-body {
+        padding: 1rem;
+    }
+
+    .search-result-item {
+        flex-wrap: wrap;
+    }
+
+    .search-result-reason {
+        max-width: none;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+}

@@ -1341,6 +1341,200 @@ function renderStatsSummary(allBookings, periodStats) {
     `;
 }
 
+// ===== 進階搜尋功能 =====
+
+/**
+ * 開啟搜尋結果彈窗
+ */
+function openSearchModal() {
+    document.getElementById('searchModalOverlay').classList.add('active');
+}
+
+/**
+ * 關閉搜尋結果彈窗
+ */
+function closeSearchModal() {
+    document.getElementById('searchModalOverlay').classList.remove('active');
+}
+
+/**
+ * 執行進階搜尋
+ */
+async function executeAdvancedSearch() {
+    const searchInput = document.getElementById('searchInput').value.trim();
+    const periodFilter = document.getElementById('searchPeriodFilter').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    // 驗證至少有一個搜尋條件
+    if (!searchInput && !periodFilter && !startDate && !endDate) {
+        showToast('請輸入搜尋條件', 'warning');
+        return;
+    }
+
+    showToast('正在搜尋...', 'info');
+
+    try {
+        // 建立查詢
+        let query = bookingsCollection;
+
+        // 日期範圍篩選
+        if (startDate) {
+            query = query.where('date', '>=', startDate.replace(/-/g, '/'));
+        }
+        if (endDate) {
+            query = query.where('date', '<=', endDate.replace(/-/g, '/'));
+        }
+
+        const snapshot = await query.get();
+        let results = [];
+
+        snapshot.forEach(doc => {
+            const booking = { id: doc.id, ...doc.data() };
+
+            // 預約者姓名篩選（客戶端過濾）
+            if (searchInput) {
+                if (!booking.booker || !booking.booker.toLowerCase().includes(searchInput.toLowerCase())) {
+                    return;
+                }
+            }
+
+            // 節次篩選
+            if (periodFilter) {
+                if (!booking.periods || !booking.periods.includes(periodFilter)) {
+                    return;
+                }
+            }
+
+            results.push(booking);
+        });
+
+        // 按日期排序
+        results.sort((a, b) => a.date.localeCompare(b.date));
+
+        // 渲染搜尋結果
+        renderSearchResults(results, searchInput);
+        openSearchModal();
+
+    } catch (error) {
+        console.error('搜尋失敗:', error);
+        showToast('搜尋失敗，請稍後再試', 'error');
+    }
+}
+
+/**
+ * 渲染搜尋結果
+ */
+function renderSearchResults(results, searchTerm) {
+    const summaryEl = document.getElementById('searchResultSummary');
+    const listEl = document.getElementById('searchResultList');
+
+    // 渲染摘要
+    summaryEl.innerHTML = `
+        <span>找到 <span class="count">${results.length}</span> 筆預約記錄</span>
+    `;
+
+    // 渲染結果列表
+    if (results.length === 0) {
+        listEl.innerHTML = `
+            <div class="search-no-result">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <p>沒有找到符合條件的預約記錄</p>
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = results.map(booking => {
+        const periodNames = booking.periods
+            .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
+            .join('、');
+
+        // 高亮搜尋詞
+        let bookerDisplay = booking.booker;
+        if (searchTerm) {
+            const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+            bookerDisplay = booking.booker.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+
+        return `
+            <div class="search-result-item" data-booking-id="${booking.id}" data-date="${booking.date}">
+                <span class="search-result-date">${booking.date}</span>
+                <span class="search-result-period">${periodNames}</span>
+                <span class="search-result-booker">${bookerDisplay}</span>
+                <span class="search-result-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
+            </div>
+        `;
+    }).join('');
+
+    // 綁定點擊事件 - 跳轉到該週
+    listEl.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const dateStr = item.dataset.date;
+            const date = parseDate(dateStr);
+            currentWeekStart = getMonday(date);
+            viewMode = 'week';
+            closeSearchModal();
+            switchView('week');
+        });
+    });
+}
+
+/**
+ * 轉義正則表達式特殊字符
+ */
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 初始化搜尋功能事件監聽器
+ */
+function initSearchEventListeners() {
+    const searchInput = document.getElementById('searchInput');
+    const searchClearBtn = document.getElementById('searchClearBtn');
+    const btnAdvancedSearch = document.getElementById('btnAdvancedSearch');
+    const btnSearchClose = document.getElementById('btnSearchClose');
+    const searchModalOverlay = document.getElementById('searchModalOverlay');
+
+    // 搜尋輸入框 - 顯示/隱藏清除按鈕
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.trim()) {
+            searchClearBtn.classList.remove('hidden');
+        } else {
+            searchClearBtn.classList.add('hidden');
+        }
+    });
+
+    // 清除按鈕
+    searchClearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        searchClearBtn.classList.add('hidden');
+        searchInput.focus();
+    });
+
+    // 搜尋按鈕
+    btnAdvancedSearch.addEventListener('click', executeAdvancedSearch);
+
+    // Enter 鍵觸發搜尋
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            executeAdvancedSearch();
+        }
+    });
+
+    // 關閉搜尋結果彈窗
+    btnSearchClose.addEventListener('click', closeSearchModal);
+    searchModalOverlay.addEventListener('click', (e) => {
+        if (e.target.id === 'searchModalOverlay') {
+            closeSearchModal();
+        }
+    });
+}
+
 // ===== 初始化 =====
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1352,5 +1546,6 @@ document.addEventListener('DOMContentLoaded', () => {
     rangeEndDate = null;
 
     initEventListeners();
+    initSearchEventListeners();
     loadBookingsFromFirebase();
 });
