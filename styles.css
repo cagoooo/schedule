@@ -5,29 +5,29 @@
 
 /* ===== ?典?霈??閮?===== */
 :root {
-    --primary-gradient: linear-gradient(135deg, #4a9ebb 0%, #2d7d9a 50%, #1a5f7a 100%);
-    --primary-color: #4a9ebb;
-    --primary-dark: #2d7d9a;
-    --primary-darker: #1a5f7a;
-    --secondary-color: #5cb8d6;
-    --accent-color: #ff6b6b;
-    --success-color: #4caf50;
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-color: #667eea;
+    --primary-dark: #5a67d8;
+    --primary-darker: #4c51bf;
+    --secondary-color: #a78bfa;
+    --accent-color: #f56565;
+    --success-color: #48bb78;
     --warning-color: #ff9800;
 
-    --bg-color: #e8f4f8;
+    --bg-color: #f0f5ff;
     --card-bg: #ffffff;
-    --border-color: #b8d4e3;
-    --text-primary: #1a3a4a;
-    --text-secondary: #5a7a8a;
-    --text-muted: #8aa0b0;
+    --border-color: #e2e8f0;
+    --text-primary: #2d3748;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
 
-    --shadow-sm: 0 2px 8px rgba(26, 95, 122, 0.1);
-    --shadow-md: 0 4px 16px rgba(26, 95, 122, 0.15);
-    --shadow-lg: 0 8px 32px rgba(26, 95, 122, 0.2);
+    --shadow-sm: 0 2px 10px rgba(102, 126, 234, 0.15);
+    --shadow-md: 0 4px 20px rgba(102, 126, 234, 0.2);
+    --shadow-lg: 0 10px 40px rgba(102, 126, 234, 0.25);
 
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
 
     --transition-fast: 0.15s ease;
     --transition-normal: 0.25s ease;
@@ -309,7 +309,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
 }
 
 .day-date {
@@ -354,7 +354,7 @@ body {
 }
 
 .booking-card {
-    background: linear-gradient(135deg, #f0f9fc 0%, #e5f3f8 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     border: 1px solid var(--border-color);
     border-left: 3px solid var(--primary-color);
     border-radius: var(--radius-sm);
@@ -368,7 +368,7 @@ body {
 }
 
 .booking-card:hover {
-    background: linear-gradient(135deg, #e5f3f8 0%, #d5ebf2 100%);
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
     transform: translateX(2px);
 }
 
@@ -468,7 +468,7 @@ body {
 }
 
 .modal-info {
-    background: linear-gradient(135deg, #f0f9fc 0%, #e5f3f8 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 1rem 1.5rem;
@@ -592,7 +592,7 @@ body {
 }
 
 .period-checkbox input:checked+label {
-    background: linear-gradient(135deg, #e5f3f8 0%, #d5ebf2 100%);
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
     border-color: var(--primary-color);
     color: var(--primary-dark);
 }
@@ -1006,7 +1006,7 @@ body {
 .month-calendar-header {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1093,7 +1093,7 @@ body {
     font-size: 0.75rem;
     color: var(--primary-dark);
     font-weight: 600;
-    background: linear-gradient(135deg, #e5f3f8 0%, #d5ebf2 100%);
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
     padding: 0.15rem 0.4rem;
     border-radius: var(--radius-sm);
     margin-top: 0.25rem;
@@ -1412,7 +1412,7 @@ body {
     align-items: center;
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
-    background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
 }
 
 .stats-modal-header h3 {
@@ -1455,7 +1455,7 @@ body {
 }
 
 .stats-card {
-    background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 1.25rem;
@@ -1604,7 +1604,7 @@ body {
 }
 
 .summary-item {
-    background: linear-gradient(135deg, #e5f3f8 0%, #d5ebf2 100%);
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
     padding: 1rem;
     border-radius: var(--radius-md);
     text-align: center;
@@ -2007,7 +2007,7 @@ body {
         display: block !important;
         padding: 0.75rem;
         border-top: 1px dashed var(--border-color);
-        background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     }
 
     .btn-book-mobile {
@@ -2202,7 +2202,7 @@ body {
         display: block !important;
         padding: 0.75rem;
         border-top: 1px dashed var(--border-color);
-        background: linear-gradient(135deg, #f8fbfc 0%, #f0f7fa 100%);
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
     }
 
     .btn-book-mobile {
@@ -2329,3 +2329,7 @@ body {
     min-height: 120px;
     padding: 0.5rem;
 }
+
+
+
+
