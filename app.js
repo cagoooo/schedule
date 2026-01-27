@@ -1422,28 +1422,28 @@ function closeSearchModal() {
 async function executeAdvancedSearch() {
     const searchInput = document.getElementById('searchInput').value.trim();
     const periodFilter = document.getElementById('searchPeriodFilter').value;
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
+
+    // 自動設定搜尋範圍：今天起至未來 180 天
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + 180);
+
+    const startDateStr = formatDate(today);
+    const endDateStr = formatDate(futureDate);
 
     // 驗證至少有一個搜尋條件
-    if (!searchInput && !periodFilter && !startDate && !endDate) {
-        showToast('請輸入搜尋條件', 'warning');
+    if (!searchInput && !periodFilter) {
+        showToast('請輸入搜尋關鍵字或選擇節次', 'warning');
         return;
     }
 
-    showToast('正在搜尋...', 'info');
+    showToast('正在搜尋未來半年內的預約...', 'info');
 
     try {
-        // 建立查詢
-        let query = bookingsCollection;
-
-        // 日期範圍篩選
-        if (startDate) {
-            query = query.where('date', '>=', startDate.replace(/-/g, '/'));
-        }
-        if (endDate) {
-            query = query.where('date', '<=', endDate.replace(/-/g, '/'));
-        }
+        // 建立查詢 (直接查未來半年)
+        let query = bookingsCollection
+            .where('date', '>=', startDateStr)
+            .where('date', '<=', endDateStr);
 
         const snapshot = await query.get();
         let results = [];
@@ -1451,9 +1451,13 @@ async function executeAdvancedSearch() {
         snapshot.forEach(doc => {
             const booking = { id: doc.id, ...doc.data() };
 
-            // 預約者姓名篩選（客戶端過濾）
+            // 關鍵字篩選（同時搜尋姓名與理由）
             if (searchInput) {
-                if (!booking.booker || !booking.booker.toLowerCase().includes(searchInput.toLowerCase())) {
+                const keyword = searchInput.toLowerCase();
+                const matchBooker = booking.booker && booking.booker.toLowerCase().includes(keyword);
+                const matchReason = booking.reason && booking.reason.toLowerCase().includes(keyword);
+
+                if (!matchBooker && !matchReason) {
                     return;
                 }
             }
