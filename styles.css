@@ -1051,13 +1051,16 @@ body {
 }
 
 .month-day {
-    min-height: 80px;
-    padding: 0.5rem;
+    min-height: 100px;
+    padding: 0.25rem;
     border-right: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: var(--transition-fast);
     background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .month-day:nth-child(7n) {
@@ -1081,10 +1084,15 @@ body {
     background: #fffafa;
 }
 
+.month-day-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0.25rem;
+}
+
 .month-day-date {
     font-weight: 600;
-    font-size: 1rem;
-    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
     color: var(--text-primary);
 }
 
@@ -1097,28 +1105,51 @@ body {
     color: var(--text-muted);
 }
 
-.month-booking-dots {
+.month-day-bookings {
     display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
 }
 
-.booking-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--primary-color);
-}
-
-.booking-count {
-    display: inline-block;
+.month-booking-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(102, 126, 234, 0.1);
+    border-left: 2px solid var(--primary-color);
+    padding: 2px 4px;
+    border-radius: 2px;
     font-size: 0.75rem;
-    color: var(--primary-dark);
-    font-weight: 600;
-    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-    padding: 0.15rem 0.4rem;
-    border-radius: var(--radius-sm);
-    margin-top: 0.25rem;
+    overflow: hidden;
+}
+
+.mb-period {
+    background: var(--primary-color);
+    color: white;
+    padding: 0 4px;
+    border-radius: 2px;
+    font-weight: 700;
+    font-size: 0.7rem;
+    min-width: 16px;
+    text-align: center;
+}
+
+.mb-booker {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.month-booking-more {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 2px 0;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 2px;
 }
 
 /* ===== 登入彈窗 ===== */
@@ -2957,15 +2988,15 @@ body {
         width: 95%;
         max-height: 90vh;
     }
-    
+
     .history-filters {
         flex-direction: column;
     }
-    
+
     .history-item {
         flex-wrap: wrap;
     }
-    
+
     .history-reason {
         max-width: none;
         width: 100%;

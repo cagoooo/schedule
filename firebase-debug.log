@@ -1,0 +1,26 @@
+[debug] [2026-01-27T03:41:06.256Z] ----------------------------------------------------------------------
+[debug] [2026-01-27T03:41:06.258Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\smes\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js serve
+[debug] [2026-01-27T03:41:06.258Z] CLI Version:   15.1.0
+[debug] [2026-01-27T03:41:06.258Z] Platform:      win32
+[debug] [2026-01-27T03:41:06.258Z] Node Version:  v24.12.0
+[debug] [2026-01-27T03:41:06.259Z] Time:          Tue Jan 27 2026 11:41:06 GMT+0800 (台北標準時間)
+[debug] [2026-01-27T03:41:06.259Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-01-27T03:41:07.127Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-01-27T03:41:07.127Z] > authorizing via signed-in user (cagooo@gmail.com)
+[debug] [2026-01-27T03:41:07.127Z] [iam] checking project schedule-10ed3 for permissions ["firebase.projects.get"]
+[debug] [2026-01-27T03:41:07.128Z] Checked if tokens are valid: false, expires at: 1769482872620
+[debug] [2026-01-27T03:41:07.128Z] Checked if tokens are valid: false, expires at: 1769482872620
+[debug] [2026-01-27T03:41:07.128Z] > refreshing access token with scopes: []
+[debug] [2026-01-27T03:41:07.129Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-01-27T03:41:07.129Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-27T03:41:07.186Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-01-27T03:41:07.186Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-27T03:41:07.214Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3:testIamPermissions [none]
+[debug] [2026-01-27T03:41:07.214Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3:testIamPermissions x-goog-quota-user=projects/schedule-10ed3
+[debug] [2026-01-27T03:41:07.215Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2026-01-27T03:41:07.424Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3:testIamPermissions 200
+[debug] [2026-01-27T03:41:07.425Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2026-01-27T03:41:07.427Z] Checked if tokens are valid: true, expires at: 1769488866186
+[debug] [2026-01-27T03:41:07.427Z] Checked if tokens are valid: true, expires at: 1769488866186
+[debug] [2026-01-27T03:41:07.427Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/schedule-10ed3 [none]

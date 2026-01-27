@@ -599,7 +599,40 @@ function renderMonthCalendar() {
         const isOtherMonth = currentDate.getMonth() !== month;
         const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
         const isToday = isSameDay(currentDate, today);
-        const bookingCount = bookingCountByDate[dateStr] || 0;
+
+        // 取得當日所有預約
+        const dayBookings = monthBookings.filter(b => b.date === dateStr);
+
+        // 整理預約顯示資料 (展開每個節次)
+        let displayItems = [];
+        dayBookings.forEach(booking => {
+            booking.periods.forEach(periodId => {
+                const periodName = PERIODS.find(p => p.id === periodId)?.name || periodId;
+                // 簡化節次名稱顯示
+                let shortPeriodName = periodName;
+                if (periodName.includes('第一節')) shortPeriodName = '1';
+                else if (periodName.includes('第二節')) shortPeriodName = '2';
+                else if (periodName.includes('第三節')) shortPeriodName = '3';
+                else if (periodName.includes('第四節')) shortPeriodName = '4';
+                else if (periodName.includes('第五節')) shortPeriodName = '5';
+                else if (periodName.includes('第六節')) shortPeriodName = '6';
+                else if (periodName.includes('第七節')) shortPeriodName = '7';
+                else if (periodName.includes('第八節')) shortPeriodName = '8';
+                else if (periodName.includes('晨間')) shortPeriodName = '晨';
+                else if (periodName.includes('午餐')) shortPeriodName = '午';
+
+                displayItems.push({
+                    periodId: periodId,
+                    periodName: shortPeriodName,
+                    booker: booking.booker,
+                    fullPeriodName: periodName
+                });
+            });
+        });
+
+        // 排序節次
+        const periodOrder = PERIODS.map(p => p.id);
+        displayItems.sort((a, b) => periodOrder.indexOf(a.periodId) - periodOrder.indexOf(b.periodId));
 
         const dayEl = document.createElement('div');
         dayEl.className = 'month-day';
@@ -607,9 +640,35 @@ function renderMonthCalendar() {
         if (isWeekend) dayEl.classList.add('weekend');
         if (isToday) dayEl.classList.add('today');
 
+        let bookingsHtml = '';
+        if (displayItems.length > 0) {
+            bookingsHtml = `<div class="month-day-bookings">`;
+            // 最多顯示 3 筆，超過顯示更多
+            const maxDisplay = 3;
+            displayItems.slice(0, maxDisplay).forEach(item => {
+                bookingsHtml += `
+                    <div class="month-booking-item" title="${item.fullPeriodName} - ${item.booker}">
+                        <span class="mb-period">${item.periodName}</span>
+                        <span class="mb-booker">${item.booker}</span>
+                    </div>
+                `;
+            });
+
+            if (displayItems.length > maxDisplay) {
+                bookingsHtml += `
+                    <div class="month-booking-more">
+                        +${displayItems.length - maxDisplay} 更多
+                    </div>
+                `;
+            }
+            bookingsHtml += `</div>`;
+        }
+
         dayEl.innerHTML = `
-            <div class="month-day-date">${currentDate.getDate()}</div>
-            ${bookingCount > 0 ? `<span class="booking-count">${bookingCount} 節</span>` : ''}
+            <div class="month-day-header">
+                <span class="month-day-date">${currentDate.getDate()}</span>
+            </div>
+            ${bookingsHtml}
         `;
 
         // 點擊跳轉週視圖
@@ -984,8 +1043,8 @@ function initEventListeners() {
 
             const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-            if (days > 31) {
-                showToast('查詢範圍不能超過 31 天', 'warning');
+            if (days > 180) {
+                showToast('查詢範圍不能超過 180 天', 'warning');
                 return;
             }
 
