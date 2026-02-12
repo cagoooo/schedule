@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>建立管理員帳號</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f0f2f5;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4a9ebb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #3a8eab;
+        }
+
+        .message {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .success {
+            color: #4caf50;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>建立管理員帳號</h2>
+        <input type="email" id="email" placeholder="Email" value="ipad@mail2.smes.tyc.edu.tw">
+        <input type="password" id="password" placeholder="密碼">
+        <button onclick="createAccount()">建立帳號</button>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="config.js"></script>
+    <script>
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        async function createAccount() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const msgEl = document.getElementById('message');
+
+            if (!email || !password) {
+                msgEl.textContent = '請輸入 Email 和密碼';
+                msgEl.className = 'message error';
+                return;
+            }
+
+            try {
+                await auth.createUserWithEmailAndPassword(email, password);
+                msgEl.textContent = '帳號建立成功！請回到首頁登入。';
+                msgEl.className = 'message success';
+            } catch (error) {
+                console.error(error);
+                let errorMsg = error.message;
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMsg = '此 Email 已被註冊';
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    errorMsg = '錯誤：請先到 Firebase Console 啟用 "Email/Password" 登入方式';
+                }
+                msgEl.textContent = `建立失敗: ${errorMsg} (${error.code})`;
+                msgEl.className = 'message error';
+            }
+        }
+    </script>
+</body>
+
+</html>

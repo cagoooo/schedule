@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /bookings/{booking} {
+      // 所有人可讀取預約資料
+      allow read: if true;
+      
+      // 新增預約：完整欄位驗證
+      allow create: if isValidBooking();
+      
+      // 更新與刪除：需要已登入的管理員
+      allow update, delete: if request.auth != null;
+      
+      // ===== 驗證函數 =====
+      function isValidBooking() {
+        let data = request.resource.data;
+        return 
+          // 必填欄位存在性
+          data.keys().hasAll(['booker', 'date', 'periods', 'reason'])
+          // 欄位數量限制（防止惡意欄位注入）
+          && data.keys().size() <= 6
+          // booker 驗證：字串、非空、長度限制
+          && data.booker is string
+          && data.booker.size() >= 1
+          && data.booker.size() <= 50
+          // date 驗證：字串、格式 YYYY/MM/DD
+          && data.date is string
+          && data.date.matches('^[0-9]{4}/[0-9]{2}/[0-9]{2}$')
+          // periods 驗證：陣列、非空、最多10個節次
+          && data.periods is list
+          && data.periods.size() >= 1
+          && data.periods.size() <= 10
+          // reason 驗證：字串、長度限制
+          && data.reason is string
+          && data.reason.size() <= 200
+          // createdAt 驗證（若存在）
+          && (!('createdAt' in data.keys()) || data.createdAt == request.time)
+          // deviceId 驗證（Rate Limiting 用）
+          && (!('deviceId' in data.keys()) || (data.deviceId is string && data.deviceId.size() <= 64));
+      }
+    }
+
+    match /roomSettings/{settingId} {
+      // 所有人可讀取場地設定 (用以視覺化不開放時段)
+      allow read: if true;
+      // 僅限管理員可建立與更新
+      allow write: if request.auth != null;
+    }
+  }
+}
