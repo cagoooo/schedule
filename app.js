@@ -3,15 +3,7 @@
  * 使用 Firebase Firestore + Auth 進行資料存取與驗證
  */
 
-// ===== Firebase 設定 =====
-const firebaseConfig = {
-    apiKey: "AIzaSyAZsa34-uV2eWPjOykUU2_4dJDy-Sq7p2E",
-    authDomain: "schedule-10ed3.firebaseapp.com",
-    projectId: "schedule-10ed3",
-    storageBucket: "schedule-10ed3.firebasestorage.app",
-    messagingSenderId: "495024952462",
-    appId: "1:495024952462:web:96058ecdd4c18fb78fe5df"
-};
+// Firebase 設定已移至 config.js 並由 .gitignore 排除
 
 // 初始化 Firebase
 firebase.initializeApp(firebaseConfig);
