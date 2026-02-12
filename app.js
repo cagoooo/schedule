@@ -1634,11 +1634,11 @@ function renderPeriodPieChart(periodStats) {
 
     pieChart.style.background = `conic-gradient(${gradientParts.join(', ')})`;
 
-    // 建立圖例
-    legend.innerHTML = sortedPeriods.slice(0, 5).map(p => `
+    // 建立圖例 (更新為新的類別)
+    legend.innerHTML = sortedPeriods.slice(0, 6).map(p => `
         <div class="pie-legend-item">
             <span class="pie-legend-color" style="background:${p.color}"></span>
-            <span>${p.name}</span>
+            <span class="pie-legend-name">${p.name}</span>
             <span class="pie-legend-value">${p.count} 節</span>
         </div>
     `).join('');
@@ -1665,11 +1665,12 @@ function renderBookerBarChart(bookerStats) {
         const percent = (count / maxValue) * 100;
         return `
             <div class="bar-item">
-                <span class="bar-label" title="${name}">${name}</span>
+                <div class="bar-info">
+                    <span class="bar-label" title="${name}">${name}</span>
+                    <span class="bar-value">${count} 節</span>
+                </div>
                 <div class="bar-container">
-                    <div class="bar-fill" style="width:${percent}%;background:${CHART_COLORS[i % CHART_COLORS.length]}">
-                        <span class="bar-value">${count}</span>
-                    </div>
+                    <div class="bar-fill" style="width:${percent}%;background:${CHART_COLORS[i % CHART_COLORS.length]}"></div>
                 </div>
             </div>
         `;
@@ -1702,17 +1703,17 @@ function renderStatsSummary(allBookings, periodStats) {
     const uniqueBookers = new Set(allBookings.map(b => b.booker)).size;
 
     summary.innerHTML = `
-        <div class="summary-item">
-            <div class="summary-value">${totalBookings}</div>
-            <div class="summary-label">總預約筆數</div>
+        <div class="summary-card">
+            <span class="summary-value">${totalBookings}</span>
+            <span class="summary-label">總預約筆數</span>
         </div>
-        <div class="summary-item">
-            <div class="summary-value">${totalPeriods}</div>
-            <div class="summary-label">總預約節次</div>
+        <div class="summary-card">
+            <span class="summary-value">${totalPeriods}</span>
+            <span class="summary-label">總預約節次</span>
         </div>
-        <div class="summary-item">
-            <div class="summary-value">${uniqueBookers}</div>
-            <div class="summary-label">不同預約者</div>
+        <div class="summary-card">
+            <span class="summary-value">${uniqueBookers}</span>
+            <span class="summary-label">不同預約者</span>
         </div>
     `;
 }
