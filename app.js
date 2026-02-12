@@ -707,12 +707,10 @@ function renderMonthCalendar() {
             ${bookingsHtml}
         `;
 
-        // 點擊跳轉週視圖
-        const clickDate = new Date(currentDate);
+        // 點擊直接開啟預約彈窗 (優化 UX)
+        const clickDateStr = dateStr;
         dayEl.addEventListener('click', () => {
-            viewMode = 'week';
-            currentWeekStart = getMonday(clickDate);
-            switchView('week');
+            openBookingModal(clickDateStr);
         });
 
         grid.appendChild(dayEl);
