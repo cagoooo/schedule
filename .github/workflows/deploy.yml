@@ -10,19 +10,27 @@ permissions:
 
 jobs:
   build-and-deploy:
+    permissions:
+      pages: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 📥
         uses: actions/checkout@v4
+
+      - name: Setup Pages ⚙️
+        uses: actions/configure-pages@v4
 
       - name: Generate Config 🔐
         run: |
           echo "${{ secrets.FIREBASE_CONFIG }}" > config.js
           echo "✓ config.js has been dynamically generated from Secrets"
 
-      - name: Deploy to GitHub Pages 🚀
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload artifact 📦
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          publish_branch: gh-pages  # 部署到 gh-pages 分支
+          path: './'
+
+      - name: Deploy to GitHub Pages 🚀
+        id: deployment
+        uses: actions/deploy-pages@v4
