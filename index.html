@@ -32,15 +32,25 @@
                 禮堂預約系統
             </h1>
 
-            <!-- 管理員登入按鈕 -->
-            <button class="btn-admin" id="btnAdminLogin">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span id="adminLoginText">管理員</span>
-            </button>
-        </div>
+            <!-- 管理員預約管理 -->
+            <div class="header-admin" id="headerAdmin">
+                <span id="adminName" class="admin-name"></span>
+                <button class="btn-setting" id="btnOpenSettings" title="設定不開放時段" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z">
+                        </path>
+                    </svg>
+                </button>
+                <button class="btn-admin" id="btnAdminLogin">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span id="adminLoginText">管理員</span>
+                </button>
+            </div>
     </header>
 
     <!-- 主要內容區 -->
@@ -290,8 +300,10 @@
                 <h3>管理員登入</h3>
             </div>
             <form id="authForm">
-                <input type="email" id="authEmail" class="auth-input" placeholder="Email" required>
-                <input type="password" id="authPassword" class="auth-input" placeholder="密碼" required>
+                <input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="username"
+                    required>
+                <input type="password" id="authPassword" class="auth-input" placeholder="密碼"
+                    autocomplete="current-password" required>
                 <p class="auth-error" id="authError"></p>
                 <div class="auth-modal-actions">
                     <button type="button" class="btn-auth-cancel" id="btnAuthCancel">取消</button>
@@ -413,6 +425,61 @@
                 <div class="history-list" id="historyList">
                     <!-- 由 JavaScript 動態生成 -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 不開放時段設定彈窗 -->
+    <div class="settings-modal-overlay" id="settingsModalOverlay">
+        <div class="settings-modal">
+            <div class="settings-modal-header">
+                <h3>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    管理不開放時段 - <span id="settingsRoomName">禮堂</span>
+                </h3>
+                <button class="btn-settings-close" id="btnSettingsClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-modal-body">
+                <p class="settings-desc">勾選下方時段以設定為該場地「固定不開放預約」之時間（例如：固定課程時間）。</p>
+                <div class="settings-table-container">
+                    <table class="settings-table" id="settingsTable">
+                        <thead>
+                            <tr>
+                                <th>節次</th>
+                                <th>星期日</th>
+                                <th>星期一</th>
+                                <th>星期二</th>
+                                <th>星期三</th>
+                                <th>星期四</th>
+                                <th>星期五</th>
+                                <th>星期六</th>
+                            </tr>
+                        </thead>
+                        <tbody id="settingsTableBody">
+                            <!-- 由 JavaScript 動態生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="settings-modal-footer">
+                <button class="btn-settings-save" id="btnSaveSettings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    存檔
+                </button>
             </div>
         </div>
     </div>

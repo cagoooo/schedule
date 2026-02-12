@@ -2801,6 +2801,212 @@ body {
     }
 }
 
+/* ===== 不開放時段設定彈窗 ===== */
+.settings-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    padding: 1rem;
+}
+
+.settings-modal-overlay.active {
+    display: flex;
+    animation: fadeIn var(--transition-normal);
+}
+
+.settings-modal {
+    background: var(--card-bg);
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-xl);
+    animation: scaleIn var(--transition-normal);
+    overflow: hidden;
+}
+
+.settings-modal-header {
+    padding: 1.25rem 1.5rem;
+    background: var(--primary-gradient);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.settings-modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.btn-settings-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: var(--transition-fast);
+}
+
+.btn-settings-close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+.settings-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.settings-desc {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.settings-table-container {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    min-width: 600px;
+}
+
+.settings-table th,
+.settings-table td {
+    padding: 0.75rem;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.settings-table th {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.settings-table td:first-child {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+.unavailable-check {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.settings-modal-footer {
+    padding: 1rem 1.5rem;
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border-color);
+}
+
+.btn-settings-save {
+    background: var(--success);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.btn-settings-save:hover {
+    background: var(--success);
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-setting {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-setting:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(15deg);
+}
+
+.header-admin {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* ===== 日曆不開放狀態 ===== */
+.month-day.unavailable,
+.day-periods .period-item.unavailable {
+    background-color: #f5f5f5 !important;
+    cursor: not-allowed !important;
+    position: relative;
+    opacity: 0.8;
+}
+
+.period-item.unavailable {
+    border-left: 4px solid #ccc !important;
+    background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%) !important;
+    pointer-events: none;
+}
+
+.unavailable-badge {
+    background: #999;
+    color: white;
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* 手機端寬度適配 */
+@media (max-width: 600px) {
+    .settings-modal {
+        max-height: 95vh;
+    }
+
+    .settings-table th,
+    .settings-table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
+}
+
 /* ===== 歷史記錄功能 ===== */
 
 .btn-history {

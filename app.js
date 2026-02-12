@@ -47,6 +47,7 @@ let viewMode = 'week'; // 'week' 或 'month'
 let rangeStartDate = null;
 let rangeEndDate = null;
 let currentUser = null;
+let unavailableSlots = []; // 當前場地的不開放時段 (例如: ["mon_period1", "wed_lunch"])
 
 // ===== Rate Limiting 設定 =====
 const RATE_LIMIT = {
@@ -178,9 +179,11 @@ function updateAuthUI() {
     if (currentUser) {
         btn.classList.add('logged-in');
         text.textContent = '已登入';
+        document.getElementById('btnOpenSettings').style.display = 'flex';
     } else {
         btn.classList.remove('logged-in');
         text.textContent = '管理員';
+        document.getElementById('btnOpenSettings').style.display = 'none';
     }
 }
 
@@ -315,12 +318,15 @@ async function loadBookingsFromFirebase() {
         const snapshot = await bookingsCollection
             .where('date', '>=', queryStart)
             .where('date', '<=', queryEnd)
-            .where('room', '==', room) // 加入場地過濾
             .get();
 
         bookings = [];
         snapshot.forEach(doc => {
-            bookings.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            // 相容性處理：若無 room 欄位，預設為「禮堂」；僅加入符合當前選擇場地的預約
+            if ((data.room || '禮堂') === room) {
+                bookings.push({ id: doc.id, ...data });
+            }
         });
 
         renderCalendar();
@@ -358,13 +364,19 @@ async function loadMonthBookings() {
         const snapshot = await bookingsCollection
             .where('date', '>=', queryStart)
             .where('date', '<=', queryEnd)
-            .where('room', '==', room) // 加入場地過濾
             .get();
 
         monthBookings = [];
         snapshot.forEach(doc => {
-            monthBookings.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            // 相容性處理：若無 room 欄位，預設為「禮堂」
+            if ((data.room || '禮堂') === room) {
+                monthBookings.push({ id: doc.id, ...data });
+            }
         });
+
+        // 載入場地不開放設定
+        await loadRoomSettings(room);
 
         renderMonthCalendar();
     } catch (error) {
@@ -515,6 +527,10 @@ function renderCalendar() {
 
         PERIODS.forEach(period => {
             const booking = dayBookings.find(b => b.periods.includes(period.id));
+            const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
+            const slotId = `${dayId}_${period.id}`;
+            const isUnavailable = unavailableSlots.includes(slotId);
+
             if (booking) {
                 const cardEl = document.createElement('div');
                 cardEl.className = 'booking-card';
@@ -524,6 +540,15 @@ function renderCalendar() {
                 `;
                 cardEl.title = `預約理由：${booking.reason || '無'}`;
                 cardEl.addEventListener('click', () => showBookingDetail(booking, period));
+                bookingsEl.appendChild(cardEl);
+            } else if (isUnavailable) {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'booking-card unavailable';
+                cardEl.innerHTML = `
+                    <span class="booking-period">${period.name}</span>
+                    <span class="unavailable-badge">固定不開放</span>
+                `;
+                cardEl.title = `此時段已設定為固定不開放預約`;
                 bookingsEl.appendChild(cardEl);
             }
         });
@@ -608,6 +633,15 @@ function renderMonthCalendar() {
     // 生成日期格子
     const currentDate = new Date(startDay);
     while (currentDate <= endDay) {
+        // 判斷是否為不開放時段
+        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][currentDate.getDay()];
+        const isUnavailable = unavailableSlots.some(slot => slot.startsWith(dayId));
+
+        if (isUnavailable) {
+            // 在月曆模式下，如果該天有任一節次被封鎖，我們雖然不鎖全天，但渲染時需注意
+            // 這裡簡單處理：只要有預約或不開放，都會顯示在月曆格子內
+        }
+
         const dateStr = formatDate(currentDate);
         const isOtherMonth = currentDate.getMonth() !== month;
         const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
@@ -849,6 +883,19 @@ async function submitBooking() {
 
     const room = document.getElementById('modalRoomSelect').value;
     const datesToBook = [selectedDate];
+
+    // 檢查固定不開放時段
+    for (const dateStr of [selectedDate]) {
+        const dateObj = parseDate(dateStr);
+        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
+        for (const periodId of selectedPeriods) {
+            const slotId = `${dayId}_${periodId}`;
+            if (unavailableSlots.includes(slotId)) {
+                showToast(`${dateStr} 的 ${PERIODS.find(p => p.id === periodId).name} 為固定禁排時段`, 'error');
+                return;
+            }
+        }
+    }
 
     if (repeatChecked && repeatEndDate) {
         const startDate = parseDate(selectedDate);
@@ -1253,9 +1300,14 @@ async function loadStatsData() {
             return;
         }
 
+        const room = getSelectedRoom();
         const allBookings = [];
         snapshot.forEach(doc => {
-            allBookings.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            // 僅統計當前選擇場地的資料
+            if ((data.room || '禮堂') === room) {
+                allBookings.push({ id: doc.id, ...data });
+            }
         });
 
         // 統計節次使用率
@@ -1835,6 +1887,89 @@ function removeBatchDate(date) {
     }
 }
 
+
+/**
+ * 開啟不開放時段設定彈窗
+ */
+async function openSettingsModal() {
+    const room = getSelectedRoom();
+    document.getElementById('settingsRoomName').textContent = room;
+    renderSettingsTable();
+    document.getElementById('settingsModalOverlay').classList.add('active');
+}
+
+/**
+ * 關閉設定彈窗
+ */
+function closeSettingsModal() {
+    document.getElementById('settingsModalOverlay').classList.remove('active');
+}
+
+/**
+ * 渲染設定表格矩陣
+ */
+function renderSettingsTable() {
+    const tbody = document.getElementById('settingsTableBody');
+    const dayIds = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+    tbody.innerHTML = PERIODS.map(period => `
+        <tr>
+            <td>${period.name}</td>
+            ${dayIds.map(dayId => {
+        const slotId = `${dayId}_${period.id}`;
+        const isChecked = unavailableSlots.includes(slotId);
+        return `<td><input type="checkbox" class="unavailable-check" data-slot="${slotId}" ${isChecked ? 'checked' : ''}></td>`;
+    }).join('')}
+        </tr>
+    `).join('');
+}
+
+/**
+ * 載入場地設定
+ */
+async function loadRoomSettings(room) {
+    try {
+        const doc = await db.collection('roomSettings').doc(room).get();
+        if (doc.exists) {
+            unavailableSlots = doc.data().unavailableSlots || [];
+        } else {
+            unavailableSlots = [];
+        }
+    } catch (error) {
+        console.error('載入場地設定失敗:', error);
+        unavailableSlots = [];
+    }
+}
+
+/**
+ * 儲存場地設定
+ */
+async function saveRoomSettings() {
+    const room = getSelectedRoom();
+    const checks = document.querySelectorAll('.unavailable-check:checked');
+    const newSlots = Array.from(checks).map(cb => cb.dataset.slot);
+
+    try {
+        showToast('正在儲存設定...', 'info');
+        await db.collection('roomSettings').doc(room).set({
+            unavailableSlots: newSlots,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        unavailableSlots = newSlots;
+        showToast('設定已儲存', 'success');
+        closeSettingsModal();
+
+        // 重新整理目前的畫面
+        if (viewMode === 'week') {
+            loadBookingsFromFirebase();
+        } else {
+            loadMonthBookings();
+        }
+    } catch (error) {
+        console.error('儲存場地設定失敗:', error);
+        showToast('儲存失敗: ' + error.message, 'error');
+    }
+}
 
 // ===== 初始化 =====
 
