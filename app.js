@@ -529,9 +529,6 @@ function renderCalendar() {
 
         PERIODS.forEach(period => {
             const booking = dayBookings.find(b => b.periods.includes(period.id));
-            const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
-            const slotId = `${dayId}_${period.id}`;
-            const isUnavailable = unavailableSlots.includes(slotId);
 
             if (booking) {
                 const cardEl = document.createElement('div');
@@ -542,15 +539,6 @@ function renderCalendar() {
                 `;
                 cardEl.title = `預約理由：${booking.reason || '無'}`;
                 cardEl.addEventListener('click', () => showBookingDetail(booking, period));
-                bookingsEl.appendChild(cardEl);
-            } else if (isUnavailable) {
-                const cardEl = document.createElement('div');
-                cardEl.className = 'booking-card unavailable';
-                cardEl.innerHTML = `
-                    <span class="booking-period">${period.name}</span>
-                    <span class="unavailable-badge">固定不開放</span>
-                `;
-                cardEl.title = `此時段已設定為固定不開放預約`;
                 bookingsEl.appendChild(cardEl);
             }
         });
@@ -799,16 +787,26 @@ function renderPeriodCheckboxes(date) {
         const isBooked = isPeriodBooked(parseDate(date), period.id);
         const booker = getBookerForPeriod(parseDate(date), period.id);
 
+        // 檢查固定不開放
+        const dateObj = parseDate(date);
+        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
+        const slotId = `${dayId}_${period.id}`;
+        const isUnavailable = unavailableSlots.includes(slotId);
+
+        const isDisabled = isBooked || isUnavailable;
+        const statusTip = isUnavailable ? '固定不開放時段' : (isBooked ? `已被 ${booker} 預約` : '可預約');
+
         const checkboxEl = document.createElement('div');
-        checkboxEl.className = 'period-checkbox';
+        checkboxEl.className = `period-checkbox ${isUnavailable ? 'unavailable' : ''}`;
         checkboxEl.innerHTML = `
             <input type="checkbox" 
                    id="period_${period.id}" 
                    value="${period.id}"
-                   ${isBooked ? 'disabled' : ''}>
+                   ${isDisabled ? 'disabled' : ''}>
             <label for="period_${period.id}"
-                   title="${isBooked ? `已被 ${booker} 預約` : '可預約'}">
+                   title="${statusTip}">
                 ${period.name}
+                ${isUnavailable ? '<span class="lock-icon">🔒</span>' : ''}
             </label>
         `;
         container.appendChild(checkboxEl);
