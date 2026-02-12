@@ -13,16 +13,21 @@ const bookingsCollection = db.collection('bookings');
 
 // ===== 常數設定 =====
 const PERIODS = [
-    { id: 'morning', name: '晨間/早會/導師時間' },
-    { id: 'period1', name: '第一節' },
-    { id: 'period2', name: '第二節' },
-    { id: 'period3', name: '第三節' },
-    { id: 'period4', name: '第四節' },
-    { id: 'lunch', name: '午餐/午休時段' },
-    { id: 'period5', name: '第五節' },
-    { id: 'period6', name: '第六節' },
-    { id: 'period7', name: '第七節' },
-    { id: 'period8', name: '第八節' }
+    { id: 'morning', name: '晨間/早會', time: '07:50~08:30' },
+    { id: 'period1', name: '第一節', time: '08:40~09:20' },
+    { id: 'period2', name: '第二節', time: '09:30~10:10' },
+    { id: 'period3', name: '第三節', time: '10:30~11:10' },
+    { id: 'period4', name: '第四節', time: '11:20~12:00' },
+    { id: 'lunch', name: '午餐/午休', time: '12:00~12:40' },
+    { id: 'period5', name: '第五節', time: '13:00~13:40' },
+    { id: 'period6', name: '第六節', time: '13:50~14:30' },
+    { id: 'period7', name: '第七節', time: '14:40~15:20' },
+    { id: 'period8', name: '第八節', time: '15:30~16:10' }
+];
+
+const ROOMS = [
+    "禮堂", "智慧教室C304", "電腦教室(一)C212", "電腦教室(二)C213", "森林小屋",
+    "三年級IPAD車(28台)", "四年級IPAD車(28台)", "五年級IPAD車(28台)", "六年級IPAD車(29台)", "校史室"
 ];
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -172,10 +177,12 @@ function updateAuthUI() {
         btn.classList.add('logged-in');
         text.textContent = '已登入';
         document.getElementById('btnOpenSettings').style.display = 'flex';
+        document.getElementById('btnOpenDashboard').style.display = 'flex';
     } else {
         btn.classList.remove('logged-in');
         text.textContent = '管理員';
         document.getElementById('btnOpenSettings').style.display = 'none';
+        document.getElementById('btnOpenDashboard').style.display = 'none';
     }
 }
 
@@ -1200,6 +1207,184 @@ function initEventListeners() {
     weekEnd.setDate(currentWeekStart.getDate() + 6);
     document.getElementById('endDate').value = formatDateISO(weekEnd);
     document.getElementById('dateHint').textContent = '';
+
+    // 儀表板事件綁定
+    document.getElementById('btnOpenDashboard').addEventListener('click', openDashboard);
+    document.getElementById('btnDashboardClose').addEventListener('click', closeDashboard);
+    document.getElementById('btnDashRefresh').addEventListener('click', loadDashboardData);
+    document.getElementById('dashboardModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'dashboardModalOverlay') closeDashboard();
+    });
+}
+
+// ===== 儀表板功能 =====
+
+/**
+ * 開啟儀表板
+ */
+function openDashboard() {
+    document.getElementById('dashboardModalOverlay').classList.add('active');
+    loadDashboardData();
+}
+
+/**
+ * 關閉儀表板
+ */
+function closeDashboard() {
+    document.getElementById('dashboardModalOverlay').classList.remove('active');
+}
+
+/**
+ * 載入儀表板數據
+ */
+async function loadDashboardData() {
+    const refreshBtn = document.getElementById('btnDashRefresh');
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '載入中...';
+
+    try {
+        const todayStr = formatDate(new Date());
+
+        // 1. 取得今日所有預約
+        const snapshot = await bookingsCollection.where('date', '==', todayStr).get();
+        const todayBookings = [];
+        snapshot.forEach(doc => {
+            todayBookings.push(doc.data());
+        });
+
+        // 2. 計算當前時段
+        const currentPeriod = getCurrentPeriod();
+        document.getElementById('dashCurrentPeriod').textContent = currentPeriod
+            ? `${currentPeriod.name} (${currentPeriod.time})`
+            : '非預約時段';
+
+        // 3. 更新數據卡
+        document.getElementById('dashTodayCount').textContent = todayBookings.length;
+
+        // 4. 計算並渲染場地狀態
+        renderRoomStatus(todayBookings, currentPeriod);
+
+        // 5. 渲染今日熱度圖
+        renderTodayTrend(todayBookings);
+
+        // 6. 更新時間
+        const now = new Date();
+        document.getElementById('dashUpdateTime').textContent =
+            `最後更新：${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+    } catch (error) {
+        console.error('載入儀表板失敗:', error);
+        showToast('載入失敗', 'error');
+    } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '重新整理';
+    }
+}
+
+/**
+ * 取得當前節次
+ */
+function getCurrentPeriod() {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    for (const period of PERIODS) {
+        const [start, end] = period.time.split('~');
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+
+        const startTime = startH * 60 + startM;
+        const endTime = endH * 60 + endM;
+
+        if (currentTime >= startTime && currentTime <= endTime) {
+            return period;
+        }
+    }
+    return null;
+}
+
+/**
+ * 渲染場地即時狀態
+ */
+function renderRoomStatus(bookings, currentPeriod) {
+    const grid = document.getElementById('dashboardRoomGrid');
+    grid.innerHTML = '';
+
+    let activecount = 0;
+
+    ROOMS.forEach(roomName => {
+        let status = 'idle'; // idle, active
+        let currentUser = '目前空閒';
+        let periodName = '';
+
+        if (currentPeriod) {
+            const booking = bookings.find(b =>
+                (b.room || '禮堂') === roomName &&
+                b.periods.includes(currentPeriod.id)
+            );
+
+            if (booking) {
+                status = 'active';
+                currentUser = booking.booker;
+                periodName = currentPeriod.name;
+                activecount++;
+            }
+        }
+
+        const card = document.createElement('div');
+        card.className = `room-status-card ${status}`;
+        card.innerHTML = `
+            <div class="room-header">
+                <span class="room-name">${roomName}</span>
+                <span class="room-status-badge">${status === 'active' ? '使用中' : '空閒'}</span>
+            </div>
+            <div class="room-user" title="${currentUser}">
+                ${status === 'active' ? '👤 ' + currentUser : '🟢 可預約'}
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+
+    document.getElementById('dashActiveRooms').textContent = activecount;
+}
+
+/**
+ * 渲染今日熱度趨勢
+ */
+function renderTodayTrend(bookings) {
+    const chart = document.getElementById('dashTrendChart');
+    if (!chart) return;
+
+    // 初始化計數
+    const counts = {};
+    PERIODS.forEach(p => counts[p.id] = 0);
+
+    // 統計
+    bookings.forEach(b => {
+        b.periods.forEach(pid => {
+            if (counts[pid] !== undefined) counts[pid]++;
+        });
+    });
+
+    const maxVal = Math.max(...Object.values(counts), 1); // 避免除以 0
+
+    chart.innerHTML = PERIODS.map((p, i) => {
+        const count = counts[p.id];
+        const height = (count / maxVal) * 100;
+        const color = CHART_COLORS[i % CHART_COLORS.length];
+
+        return `
+            <div class="trend-bar-wrapper" style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
+                <div class="trend-bar" style="height:${Math.max(height, 5)}%;width:60%;background:${color};border-radius:4px 4px 0 0;" title="${p.name}: ${count}筆"></div>
+                <span style="font-size:0.7em;color:#666;">${p.name.substring(0, 2)}</span>
+            </div>
+        `;
+    }).join('');
+
+    chart.style.display = 'flex';
+    chart.style.alignItems = 'flex-end';
+    chart.style.height = '100%';
+    chart.style.gap = '4px';
 }
 
 // ===== CSV 匯出功能 =====
