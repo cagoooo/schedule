@@ -2921,19 +2921,19 @@ body {
 
 .settings-modal-footer {
     padding: 1rem 1.5rem;
-    background: var(--bg-secondary);
+    background: #f8fafc;
     display: flex;
     justify-content: flex-end;
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
-    /* 重要：防止頁尾被擠壓導致按鈕消失 */
 }
 
 .btn-settings-save {
-    background: var(--success);
-    color: white;
+    background: var(--success-color);
+    /* 修正變數名 */
+    color: white !important;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 2rem;
     border-radius: var(--radius-md);
     cursor: pointer;
     display: flex;
@@ -2944,10 +2944,10 @@ body {
 }
 
 .btn-settings-save:hover {
-    background: var(--success);
+    background: var(--success-color);
     filter: brightness(1.1);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
 }
 
 .btn-setting {
