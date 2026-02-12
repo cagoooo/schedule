@@ -25,9 +25,15 @@ jobs:
         uses: actions/configure-pages@v4
 
       - name: Generate Config 🔐
+        shell: bash
+        env:
+          CONFIG_CONTENT: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          echo "${{ secrets.FIREBASE_CONFIG }}" > config.js
-          echo "✓ config.js has been dynamically generated from Secrets"
+          printf "%s\n" "$CONFIG_CONTENT" > config.js
+          echo "✓ config.js has been dynamically generated"
+
+      - name: Remove ignore rules for deployment 🔓
+        run: rm .gitignore
 
       - name: Upload artifact 📦
         uses: actions/upload-pages-artifact@v3
