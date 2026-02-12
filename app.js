@@ -429,11 +429,24 @@ async function updateBookingInFirebase(bookingId, data) {
 // ===== 資料查詢 =====
 
 /**
+ * 取得整合後的目前所有載入預約 (去重)
+ */
+function getAllLoadedBookings() {
+    const combined = [...bookings, ...monthBookings];
+    const uniqueMap = new Map();
+    combined.forEach(b => {
+        if (b.id) uniqueMap.set(b.id, b);
+    });
+    return Array.from(uniqueMap.values());
+}
+
+/**
  * 取得指定日期的預約清單
  */
 function getBookingsByDate(date) {
     const dateStr = formatDate(date);
-    return bookings.filter(b => b.date === dateStr);
+    const room = getSelectedRoom();
+    return getAllLoadedBookings().filter(b => b.date === dateStr && b.room === room);
 }
 
 /**
@@ -441,7 +454,8 @@ function getBookingsByDate(date) {
  */
 function isPeriodBooked(date, periodId) {
     const dateStr = formatDate(date);
-    return bookings.some(b => b.date === dateStr && b.periods.includes(periodId));
+    const room = getSelectedRoom();
+    return getAllLoadedBookings().some(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
 }
 
 /**
@@ -450,7 +464,7 @@ function isPeriodBooked(date, periodId) {
 function getBookerForPeriod(date, periodId) {
     const dateStr = formatDate(date);
     const room = getSelectedRoom();
-    const booking = bookings.find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
+    const booking = getAllLoadedBookings().find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
     return booking ? booking.booker : null;
 }
 
@@ -460,7 +474,7 @@ function getBookerForPeriod(date, periodId) {
 function getBookingForPeriod(date, periodId) {
     const dateStr = formatDate(date);
     const room = getSelectedRoom();
-    return bookings.find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
+    return getAllLoadedBookings().find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
 }
 
 // ===== UI 渲染 =====
