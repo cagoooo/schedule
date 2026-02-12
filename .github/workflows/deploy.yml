@@ -31,7 +31,6 @@ jobs:
         run: |
           printf "%s\n" "$CONFIG_CONTENT" > config.js
           echo "✓ config.js has been dynamically generated"
-
       - name: Remove ignore rules for deployment 🔓
         run: rm .gitignore
 

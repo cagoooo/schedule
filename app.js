@@ -1304,7 +1304,7 @@ function getCurrentPeriod() {
 }
 
 /**
- * 渲染場地即時狀態
+ * 渲染場地即時狀態 (UI Optimized)
  */
 function renderRoomStatus(bookings, currentPeriod) {
     const grid = document.getElementById('dashboardRoomGrid');
@@ -1333,23 +1333,33 @@ function renderRoomStatus(bookings, currentPeriod) {
 
         const card = document.createElement('div');
         card.className = `room-status-card ${status}`;
+
+        // 狀態燈號與文字
+        const statusBadgeHtml = status === 'active'
+            ? `<span class="room-status-badge"><span class="status-pulse" style="width:8px;height:8px;margin-right:6px;"></span>使用中</span>`
+            : `<span class="room-status-badge">空閒</span>`;
+
         card.innerHTML = `
             <div class="room-header">
                 <span class="room-name">${roomName}</span>
-                <span class="room-status-badge">${status === 'active' ? '使用中' : '空閒'}</span>
+                ${statusBadgeHtml}
             </div>
             <div class="room-user" title="${currentUser}">
-                ${status === 'active' ? '👤 ' + currentUser : '🟢 可預約'}
+                ${status === 'active'
+                ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> ${currentUser}`
+                : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> 可預約`}
             </div>
         `;
         grid.appendChild(card);
     });
 
-    document.getElementById('dashActiveRooms').textContent = activecount;
+    // 更新使用中場地數
+    const activeEl = document.getElementById('dashActiveRooms');
+    if (activeEl) activeEl.textContent = activecount;
 }
 
 /**
- * 渲染今日熱度趨勢
+ * 渲染今日熱度趨勢 (UI Optimized & Rainbow)
  */
 function renderTodayTrend(bookings) {
     const chart = document.getElementById('dashTrendChart');
@@ -1368,23 +1378,23 @@ function renderTodayTrend(bookings) {
 
     const maxVal = Math.max(...Object.values(counts), 1); // 避免除以 0
 
+    // 生成 HTML (樣式完全由 CSS 控制)
     chart.innerHTML = PERIODS.map((p, i) => {
         const count = counts[p.id];
         const height = (count / maxVal) * 100;
-        const color = CHART_COLORS[i % CHART_COLORS.length];
 
         return `
-            <div class="trend-bar-wrapper" style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
-                <div class="trend-bar" style="height:${Math.max(height, 5)}%;width:60%;background:${color};border-radius:4px 4px 0 0;" title="${p.name}: ${count}筆"></div>
-                <span style="font-size:0.7em;color:#666;">${p.name.substring(0, 2)}</span>
+            <div class="trend-bar-wrapper">
+                <div class="trend-value">${count > 0 ? count : ''}</div>
+                <div class="trend-bar" style="height:${Math.max(height, 5)}%;" title="${p.name}: ${count}筆"></div>
+                <div class="trend-label">${p.name.substring(0, 2)}</div>
             </div>
         `;
     }).join('');
 
-    chart.style.display = 'flex';
-    chart.style.alignItems = 'flex-end';
-    chart.style.height = '100%';
-    chart.style.gap = '4px';
+    // 移除舊的行內樣式，這些現在都由 CSS .bar-chart 控制
+    chart.style = '';
+    chart.className = 'bar-chart';
 }
 
 // ===== CSV 匯出功能 =====

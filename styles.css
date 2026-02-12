@@ -3366,13 +3366,36 @@ body {
         margin-top: 0.5rem;
     }
 }
-/* ===== 數據儀表板 ===== */
+
+/* ===== 數據儀表板 (UI Optimized) ===== */
+
+/* 新增配色變數 (Educational App Theme) */
+:root {
+    --dash-primary: #4F46E5;
+    /* Indigo */
+    --dash-primary-light: #EEF2FF;
+    --dash-accent: #F97316;
+    /* Orange */
+    --dash-accent-light: #FFF7ED;
+    --dash-success: #22C55E;
+    --dash-success-light: #F0FDF4;
+    --dash-danger: #EF4444;
+    --dash-danger-light: #FEF2F2;
+    --dash-bg: #F8FAFC;
+    --dash-card-bg: #FFFFFF;
+    --dash-text-main: #1E293B;
+    --dash-text-sub: #64748B;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
 
 .dashboard-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(8px);
+    background: rgba(15, 23, 42, 0.4);
+    /* 降低遮罩透明度，突顯 Modal */
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3388,17 +3411,19 @@ body {
 }
 
 .dashboard-modal {
-    background: #f8fafc;
-    border-radius: var(--radius-lg);
+    background: var(--dash-bg);
+    border-radius: 24px;
+    /* 更圓潤的角 */
     width: 95%;
-    max-width: 1000px;
-    max-height: 90vh;
+    max-width: 1100px;
+    max-height: 92vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     transform: scale(0.95);
     transition: var(--transition-normal);
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .dashboard-modal-overlay.active .dashboard-modal {
@@ -3409,7 +3434,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
+    padding: 1.25rem 2rem;
     background: white;
     border-bottom: 1px solid var(--border-color);
 }
@@ -3418,16 +3443,17 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    font-size: 1.25rem;
-    color: var(--text-primary);
-    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--dash-text-main);
+    font-weight: 800;
+    letter-spacing: -0.025em;
 }
 
 .btn-dashboard-close {
     background: transparent;
     border: 1px solid var(--border-color);
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -3440,52 +3466,98 @@ body {
 .btn-dashboard-close:hover {
     background: #f1f5f9;
     color: var(--text-primary);
+    transform: rotate(90deg);
 }
 
 .dashboard-modal-body {
-    padding: 1.5rem;
+    padding: 2rem;
     overflow-y: auto;
     flex: 1;
+    background: var(--dash-bg);
 }
 
-/* 指標卡片 */
+/* Bento Grid 佈局 */
 .dashboard-metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
+    /* 強制三欄 */
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
-.metric-card {
-    background: white;
-    padding: 1.25rem;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    transition: transform 0.2s ease;
+@media (max-width: 768px) {
+    .dashboard-metrics {
+        grid-template-columns: 1fr;
+    }
 }
 
+/* 指標卡片 (Glassmorphism + Gradient) */
+.metric-card {
+    background: var(--dash-card-bg);
+    padding: 1.5rem;
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--dash-primary);
+    opacity: 0.8;
+}
+
+.metric-card:nth-child(2)::before {
+    background: var(--dash-primary);
+}
+
+/* Indigo */
+.metric-card:nth-child(3)::before {
+    background: var(--dash-accent);
+}
+
+/* Orange */
+
 .metric-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .metric-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    font-size: 1.5rem;
 }
 
-.metric-icon.blue { background: #eff6ff; color: #3b82f6; }
-.metric-icon.purple { background: #f3e8ff; color: #a855f7; }
-.metric-icon.red { background: #fef2f2; color: #ef4444; }
+.metric-icon.blue {
+    background: var(--dash-primary-light);
+    color: var(--dash-primary);
+}
+
+.metric-icon.purple {
+    background: #F3E8FF;
+    color: #9333EA;
+}
+
+.metric-icon.red {
+    background: var(--dash-danger-light);
+    color: var(--dash-danger);
+}
 
 .metric-info {
     display: flex;
@@ -3494,32 +3566,34 @@ body {
 
 .metric-label {
     font-size: 0.9rem;
-    color: var(--text-secondary);
+    color: var(--dash-text-sub);
     margin-bottom: 0.25rem;
+    font-weight: 500;
 }
 
 .metric-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--dash-text-main);
     line-height: 1.2;
+    letter-spacing: -0.02em;
 }
 
 /* 儀表板區塊 */
 .dashboard-section {
-    background: white;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    background: var(--dash-card-bg);
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     padding: 1.5rem;
     margin-bottom: 1.5rem;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .section-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1.25rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--dash-text-main);
+    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -3528,9 +3602,9 @@ body {
 /* 呼吸燈動畫 */
 .status-pulse {
     display: inline-block;
-    width: 10px;
-    height: 10px;
-    background-color: #ef4444;
+    width: 12px;
+    height: 12px;
+    background-color: var(--dash-danger);
     border-radius: 50%;
     box-shadow: 0 0 0 rgba(239, 68, 68, 0.4);
     animation: pulse 2s infinite;
@@ -3540,84 +3614,282 @@ body {
     0% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
     }
+
     70% {
         box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
     }
+
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
 }
 
-/* 即時監控網格 */
+/* 即時監控網格 (Bento Grid) */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
+    /* 預設四欄 */
     gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .room-status-card {
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 1rem;
+    border-radius: 16px;
+    padding: 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    justify-content: space-between;
+    gap: 0.75rem;
     transition: all 0.2s ease;
-    border-left: 4px solid #cbd5e1; /* 預設灰色 */
+    border-left: 5px solid #cbd5e1;
+    background: white;
+    min-height: 110px;
+}
+
+.room-status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .room-status-card.active {
-    border-left-color: #ef4444;
-    background: #fef2f2;
+    border-left-color: var(--dash-danger);
+    background: var(--dash-danger-light);
 }
 
 .room-status-card.idle {
-    border-left-color: #22c55e;
-    background: #f0fdf4;
+    border-left-color: var(--dash-success);
+    background: var(--dash-success-light);
+}
+
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
 }
 
 .room-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--dash-text-main);
+    line-height: 1.3;
 }
 
 .room-status-badge {
     display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
     width: fit-content;
+    white-space: nowrap;
 }
 
 .room-status-card.active .room-status-badge {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: white;
+    color: var(--dash-danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .room-status-card.idle .room-status-badge {
-    background: #dcfce7;
-    color: #15803d;
+    background: white;
+    color: var(--dash-success);
+    border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .room-user {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
+    font-size: 0.9rem;
+    color: var(--dash-text-sub);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
-/* 圖表容器 */
+/* 圖表容器 - 讓圖表更突出 */
 .dashboard-chart-container {
-    height: 250px;
+    height: 320px;
     width: 100%;
+    margin-top: 1rem;
+    overflow-x: auto;
+    /* RWD 水平捲動 */
+    padding-bottom: 0.5rem;
+    /* 預留捲軸空間 */
+}
+
+/* 隱藏捲軸但保留功能 (Chrome, Safari, Opera) */
+.dashboard-chart-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.dashboard-chart-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dashboard-chart-container::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.bar-chart {
+    display: flex;
+    /* 改為水平排列 */
+    align-items: flex-end;
+    /* 底部對齊 */
+    height: 100%;
+    min-width: 600px;
+    /* 確保最小寬度，觸發捲動 */
+    gap: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+.trend-bar-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    gap: 0.5rem;
+    min-width: 32px;
+    /* 防止過度壓縮 */
+}
+
+.trend-value {
+    font-size: 0.75rem;
+    color: var(--dash-text-sub);
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trend-bar-wrapper:hover .trend-value {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.trend-bar {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    cursor: pointer;
+    min-height: 4px;
+    /* 確保數值為 0 時仍有一條線 */
+}
+
+.trend-bar:hover {
+    filter: brightness(1.1);
+    transform: scaleX(1.1);
+    z-index: 10;
+}
+
+.trend-label {
+    font-size: 0.75rem;
+    color: var(--dash-text-sub);
+    font-family: monospace;
+    margin-top: 0.25rem;
+}
+
+/* Rainbow Spectrum 漸層色系 */
+.trend-bar-wrapper:nth-child(15n+1) .trend-bar {
+    background: linear-gradient(180deg, #EF4444 0%, #F87171 100%);
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+2) .trend-bar {
+    background: linear-gradient(180deg, #F97316 0%, #FB923C 100%);
+    box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+3) .trend-bar {
+    background: linear-gradient(180deg, #F59E0B 0%, #FBBF24 100%);
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+4) .trend-bar {
+    background: linear-gradient(180deg, #EAB308 0%, #FACC15 100%);
+    box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+5) .trend-bar {
+    background: linear-gradient(180deg, #84CC16 0%, #A3E635 100%);
+    box-shadow: 0 4px 6px -1px rgba(132, 204, 22, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+6) .trend-bar {
+    background: linear-gradient(180deg, #22C55E 0%, #4ADE80 100%);
+    box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+7) .trend-bar {
+    background: linear-gradient(180deg, #10B981 0%, #34D399 100%);
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+8) .trend-bar {
+    background: linear-gradient(180deg, #14B8A6 0%, #2DD4BF 100%);
+    box-shadow: 0 4px 6px -1px rgba(20, 184, 166, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+9) .trend-bar {
+    background: linear-gradient(180deg, #06B6D4 0%, #22D3EE 100%);
+    box-shadow: 0 4px 6px -1px rgba(6, 182, 212, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+10) .trend-bar {
+    background: linear-gradient(180deg, #0EA5E9 0%, #38BDF8 100%);
+    box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+11) .trend-bar {
+    background: linear-gradient(180deg, #3B82F6 0%, #60A5FA 100%);
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+12) .trend-bar {
+    background: linear-gradient(180deg, #6366F1 0%, #818CF8 100%);
+    box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+13) .trend-bar {
+    background: linear-gradient(180deg, #8B5CF6 0%, #A78BFA 100%);
+    box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+14) .trend-bar {
+    background: linear-gradient(180deg, #A855F7 0%, #C084FC 100%);
+    box-shadow: 0 4px 6px -1px rgba(168, 85, 247, 0.3);
+}
+
+.trend-bar-wrapper:nth-child(15n+15) .trend-bar {
+    background: linear-gradient(180deg, #D946EF 0%, #E879F9 100%);
+    box-shadow: 0 4px 6px -1px rgba(217, 70, 239, 0.3);
 }
 
 /* 底部列 */
 .dashboard-footer {
-    padding: 1rem 1.5rem;
+    padding: 1rem 2rem;
     background: white;
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -3626,24 +3898,28 @@ body {
 }
 
 .dashboard-time {
-    color: var(--text-muted);
+    color: var(--dash-text-sub);
     font-size: 0.9rem;
+    font-family: monospace;
+    /* 時間用等寬字型 */
 }
 
 .btn-refresh {
     background: white;
     border: 1px solid var(--border-color);
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    color: var(--dash-text-main);
     cursor: pointer;
-    font-weight: 500;
+    font-weight: 600;
     transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .btn-refresh:hover {
-    background: #f8fafc;
-    border-color: var(--primary-color);
-    color: var(--primary-color);
+    background: var(--dash-bg);
+    border-color: var(--dash-primary);
+    color: var(--dash-primary);
 }
-
