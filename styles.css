@@ -1776,7 +1776,7 @@ body {
     flex: 1;
 }
 
-.pie-chart {
+.stats-pie-chart {
     width: 180px;
     height: 180px;
     border-radius: 50%;
@@ -1785,7 +1785,7 @@ body {
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.pie-chart::after {
+.stats-pie-chart::after {
     content: '';
     position: absolute;
     inset: 40px;
@@ -1834,7 +1834,7 @@ body {
     color: var(--primary-color);
 }
 
-.bar-chart {
+.stats-bar-chart {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -1886,7 +1886,7 @@ body {
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
 }
 
-.trend-chart {
+.stats-trend-chart {
     height: 180px;
     display: flex;
     align-items: flex-end;
@@ -2459,16 +2459,16 @@ body {
         padding: 1.25rem;
     }
 
-    .pie-chart {
+    .stats-pie-chart {
         width: 150px;
         height: 150px;
     }
 
-    .pie-chart::after {
+    .stats-pie-chart::after {
         inset: 35px;
     }
 
-    .trend-chart {
+    .stats-trend-chart {
         height: 140px;
         gap: 3px;
     }
