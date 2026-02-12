@@ -553,7 +553,7 @@ function renderCalendar() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                點擊預約此日
+                預約 ${formatDate(date).slice(5)} (${getWeekdayName(date)})
             </button>
         `;
         dayEl.appendChild(footerEl);
@@ -1137,6 +1137,7 @@ function initEventListeners() {
 
             viewMode = 'week';
             switchView('week');
+            scrollToCalendar();
         } else if (startDateValue) {
             displayMode = 'week';
             rangeStartDate = null;
@@ -1144,6 +1145,7 @@ function initEventListeners() {
             currentWeekStart = getMonday(new Date(startDateValue));
             viewMode = 'week';
             switchView('week');
+            scrollToCalendar();
         }
     });
 
@@ -2460,5 +2462,16 @@ function checkSuggestionPeriod(periodId) {
     const cb = document.getElementById(`period_${periodId}`);
     if (cb && !cb.disabled) {
         cb.checked = true;
+    }
+}
+/**
+ * 輔助：捲動至日曆區域
+ */
+function scrollToCalendar() {
+    const calendarContainer = document.querySelector('.calendar-container');
+    if (calendarContainer) {
+        setTimeout(() => {
+            calendarContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
     }
 }
