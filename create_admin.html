@@ -80,15 +80,9 @@
 
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="config.js"></script>
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyAZsa34-uV2eWPjOykUU2_4dJDy-Sq7p2E",
-            authDomain: "schedule-10ed3.firebaseapp.com",
-            projectId: "schedule-10ed3",
-            storageBucket: "schedule-10ed3.firebasestorage.app",
-            messagingSenderId: "495024952462",
-            appId: "1:495024952462:web:96058ecdd4c18fb78fe5df"
-        };
+        // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
