@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.32.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.32.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.33.1</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.33.1">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -295,6 +295,22 @@
                 <div class="form-group">
                     <label class="form-label required">*預約理由：</label>
                     <textarea id="bookingReason" class="form-textarea" placeholder="請輸入預約理由"></textarea>
+                </div>
+
+                <!-- AI 智慧建議區域 -->
+                <div id="smartSuggestions" class="smart-suggestions hidden">
+                    <div class="suggestions-header">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+                            <path d="M12 2a10 10 0 1 1-10 10h10V2z" opacity="0.5"></path>
+                            <path d="M2 12h10v10"></path>
+                        </svg>
+                        💡 AI 智慧建議替代方案
+                    </div>
+                    <div class="suggestions-list" id="suggestionsList">
+                        <!-- 由 JS 動態生成 -->
+                    </div>
                 </div>
             </div>
         </div>

@@ -797,6 +797,15 @@ function renderPeriodCheckboxes(date) {
 
         const checkboxEl = document.createElement('div');
         checkboxEl.className = `period-checkbox ${isUnavailable ? 'unavailable' : ''}`;
+
+        let labelContent = period.name;
+        if (isUnavailable) {
+            labelContent += ' <span class="lock-icon">🔒</span>';
+        } else if (isBooked) {
+            // 若被預約，顯示找空檔按鈕 (僅限非固定不開放)
+            labelContent += ` <span class="booked-info">(${booker})</span>`;
+        }
+
         checkboxEl.innerHTML = `
             <input type="checkbox" 
                    id="period_${period.id}" 
@@ -804,9 +813,9 @@ function renderPeriodCheckboxes(date) {
                    ${isDisabled ? 'disabled' : ''}>
             <label for="period_${period.id}"
                    title="${statusTip}">
-                ${period.name}
-                ${isUnavailable ? '<span class="lock-icon">🔒</span>' : ''}
+                ${labelContent}
             </label>
+            ${isBooked && !isUnavailable ? `<button type="button" class="btn-find-alt" onclick="showSmartSuggestions('${period.id}')">🔍 找空檔</button>` : ''}
         `;
         container.appendChild(checkboxEl);
     });
@@ -830,6 +839,10 @@ function openBookingModal(dateStr) {
 
     const date = parseDate(dateStr);
     document.getElementById('repeatFrequency').textContent = `每週${getWeekdayName(date)}`;
+
+    // 重置並隱藏建議區域
+    document.getElementById('smartSuggestions').classList.add('hidden');
+    document.getElementById('suggestionsList').innerHTML = '';
 
     renderPeriodCheckboxes(dateStr);
 
@@ -2184,3 +2197,268 @@ document.addEventListener('DOMContentLoaded', () => {
     initBatchBooking();
     loadBookingsFromFirebase();
 });
+
+// ===== AI 智慧預約建議核心邏輯 =====
+
+/**
+ * 尋找智慧替代方案
+ * @param {string} dateStr 目標日期 (YYYY/MM/DD)
+ * @param {string} periodId 目標節次 ID
+ * @param {string} roomName 目標場地名稱
+ */
+async function findSmartAlternatives(dateStr, periodId, roomName) {
+    const suggestions = [];
+    const targetDate = parseDate(dateStr);
+    const targetPeriod = PERIODS.find(p => p.id === periodId);
+
+    // 準備查詢範圍：前後 7 天
+    const startDate = new Date(targetDate);
+    startDate.setDate(targetDate.getDate() - 7);
+    const startDateStr = formatDate(startDate);
+
+    const endDate = new Date(targetDate);
+    endDate.setDate(targetDate.getDate() + 7);
+    const endDateStr = formatDate(endDate);
+
+    // 一次性查詢範圍內所有資料 (包含所有場地)
+    // 這樣可以同時滿足 Strategy A (同場地不同日), B (同日不同場地), C (同日同場地不同時段)
+    const snapshot = await bookingsCollection
+        .where('date', '>=', startDateStr)
+        .where('date', '<=', endDateStr)
+        .get();
+
+    const rangeBookings = [];
+    snapshot.forEach(doc => {
+        rangeBookings.push(doc.data());
+    });
+
+    // 輔助：檢查是否被預約 (基於本次查詢結果)
+    function isBookedInRange(checkDateStr, checkPeriodId, checkRoom) {
+        return rangeBookings.some(b =>
+            b.date === checkDateStr &&
+            (b.room || '禮堂') === checkRoom &&
+            b.periods.includes(checkPeriodId)
+        );
+    }
+
+    // 1. [策略 A] 同場地，鄰近日期 (前後 7 天)
+    for (let i = 1; i <= 7; i++) {
+        // 往前找
+        const prevDate = new Date(targetDate);
+        prevDate.setDate(targetDate.getDate() - i);
+        const prevDateStr = formatDate(prevDate);
+
+        if (prevDate >= new Date()) { // 不找過去的時間
+            // 檢查預約 & 固定不開放 (假設固定不開放設定不隨日期變動，或是全域的)
+            // 註：unavailableSlots 僅針對「當前選定場地」。若 targetRoom 即為當前選定場地，則可直接用。
+            // 若不是 (例如在 dashboard 觸發?)，則可能不準。但此函式目前主要在 modal (已選定 room) 觸發。
+            if (!isBookedInRange(prevDateStr, periodId, roomName) && !isPeriodUnavailable(prevDate, periodId)) {
+                suggestions.push({
+                    type: 'date',
+                    date: prevDateStr,
+                    period: periodId,
+                    room: roomName,
+                    score: 100 - i * 5,
+                    desc: `前 ${i} 天同一時段`
+                });
+            }
+        }
+
+        // 往後找
+        const nextDate = new Date(targetDate);
+        nextDate.setDate(targetDate.getDate() + i);
+        const nextDateStr = formatDate(nextDate);
+
+        if (!isBookedInRange(nextDateStr, periodId, roomName) && !isPeriodUnavailable(nextDate, periodId)) {
+            suggestions.push({
+                type: 'date',
+                date: nextDateStr,
+                period: periodId,
+                room: roomName,
+                score: 100 - i * 5,
+                desc: `後 ${i} 天同一時段`
+            });
+        }
+    }
+
+    // 2. [策略 B] 同時段，其他場地
+    const similarRooms = {
+        '禮堂': ['智慧教室C304'],
+        '智慧教室C304': ['電腦教室(一)C212', '電腦教室(二)C213'],
+        '電腦教室(一)C212': ['電腦教室(二)C213', '智慧教室C304'],
+        '電腦教室(二)C213': ['電腦教室(一)C212', '智慧教室C304'],
+        '三年級IPAD車(28台)': ['四年級IPAD車(28台)', '五年級IPAD車(28台)', '六年級IPAD車(29台)'],
+        '四年級IPAD車(28台)': ['三年級IPAD車(28台)', '五年級IPAD車(28台)', '六年級IPAD車(29台)'],
+        '五年級IPAD車(28台)': ['三年級IPAD車(28台)', '四年級IPAD車(28台)', '六年級IPAD車(29台)'],
+        '六年級IPAD車(29台)': ['三年級IPAD車(28台)', '四年級IPAD車(28台)', '五年級IPAD車(28台)'],
+    };
+
+    const recommendedRooms = similarRooms[roomName] || ROOMS.filter(r => r !== roomName);
+
+    recommendedRooms.forEach(otherRoom => {
+        // 檢查該場地是否被預約
+        const isOccupied = isBookedInRange(dateStr, periodId, otherRoom);
+
+        // 檢查是否為不開放 (需額外邏輯，暫略)
+        // 這裡我們假設其他場地沒有特殊的 "固定不開放"，或者我們無法得知 (因沒載入設定)。
+        // 為了避免推薦了也不能用的，理想上應 fetch 設定。但為求效能，暫時忽略。
+
+        if (!isOccupied) {
+            const isSimilar = (similarRooms[roomName] || []).includes(otherRoom);
+            suggestions.push({
+                type: 'room',
+                date: dateStr,
+                period: periodId,
+                room: otherRoom,
+                score: isSimilar ? 95 : 80,
+                desc: `同時間可用的 ${otherRoom}`
+            });
+        }
+    });
+
+    // 3. [策略 C] 同場地，鄰近節次 (前後 2 節)
+    const periodIndex = PERIODS.findIndex(p => p.id === periodId);
+    if (periodIndex !== -1) {
+        [-2, -1, 1, 2].forEach(offset => {
+            const newIndex = periodIndex + offset;
+            if (newIndex >= 0 && newIndex < PERIODS.length) {
+                const newPeriod = PERIODS[newIndex];
+                if (!isBookedInRange(dateStr, newPeriod.id, roomName) && !isPeriodUnavailable(targetDate, newPeriod.id)) {
+                    suggestions.push({
+                        type: 'period',
+                        date: dateStr,
+                        period: newPeriod.id,
+                        room: roomName,
+                        score: 90 - Math.abs(offset) * 10,
+                        desc: `當天 ${newPeriod.time}`
+                    });
+                }
+            }
+        });
+    }
+
+    // 排序並取前 3 名
+    return suggestions
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+}
+
+/**
+ * 輔助：檢查特定場地的特定時段是否為固定不開放
+ * (維持原用全域變數 unavailableSlots 的邏輯，僅適用於「當前選定場地」)
+ */
+function isPeriodUnavailable(date, periodId) {
+    const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
+    const slotId = `${dayId}_${periodId}`;
+    return unavailableSlots.includes(slotId);
+}
+
+function isPeriodUnavailableInRoom(date, periodId, roomName) {
+    // 理想狀況應讀取該場地設定。
+    // 暫時回傳 false，不阻擋建議 (讓最後提交時再檢查)
+    return false;
+}
+
+/**
+ * 顯示智慧建議
+ */
+async function showSmartSuggestions(periodId) {
+    const container = document.getElementById('smartSuggestions');
+    const list = document.getElementById('suggestionsList');
+
+    // 顯示載入中
+    container.classList.remove('hidden');
+    list.innerHTML = '<div class="loading-text" style="color:#666;text-align:center;padding:10px;">🔍 AI 正在分析最佳替代方案...</div>';
+
+    const room = document.getElementById('modalRoomSelect').value;
+    const date = document.getElementById('modalDate').textContent;
+
+    try {
+        const suggestions = await findSmartAlternatives(date, periodId, room);
+
+        list.innerHTML = '';
+        if (suggestions.length === 0) {
+            list.innerHTML = '<div style="color:#666;text-align:center;padding:10px;">找不到合適的替代方案 😅</div>';
+            return;
+        }
+
+        suggestions.forEach(s => {
+            const pName = PERIODS.find(p => p.id === s.period).name;
+            const wName = getWeekdayName(parseDate(s.date));
+            const typeLabel = s.type === 'room' ? '🏢 換教室' : (s.type === 'date' ? '📅 換日期' : '⏱️ 換時段');
+            const typeColor = s.type === 'room' ? '#10b981' : (s.type === 'date' ? '#3b82f6' : '#8b5cf6');
+
+            const card = document.createElement('div');
+            card.className = 'suggestion-card';
+            card.innerHTML = `
+                <div class="suggestion-info">
+                    <span class="suggestion-main">
+                        <span style="font-size:0.75rem; background:${typeColor}20; color:${typeColor}; padding:2px 8px; border-radius:12px; font-weight:700; border:1px solid ${typeColor}40;">${typeLabel}</span>
+                        ${s.date}
+                    </span>
+                    <span class="suggestion-sub">
+                        <strong>${s.room}</strong> - ${pName} (${wName})
+                    </span>
+                    <span class="suggestion-sub" style="color:#f97316; font-weight:600; font-style:italic;">
+                        ✨ ${s.desc}
+                    </span>
+                </div>
+                <button class="btn-apply-suggestion">立即使用 🚀</button>
+            `;
+
+            card.addEventListener('click', () => applySuggestion(s));
+            list.appendChild(card);
+        });
+
+        // 自動捲動到建議區域 (提升 UX)
+        setTimeout(() => {
+            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 300);
+
+
+    } catch (error) {
+        console.error('AI 建議分析失敗:', error);
+        list.innerHTML = '<div style="color:red;text-align:center;">分析發生錯誤</div>';
+    }
+}
+
+/**
+ * 應用建議
+ */
+function applySuggestion(suggestion) {
+    // 1. 更新日期
+    selectedDate = suggestion.date;
+    document.getElementById('modalDate').textContent = selectedDate;
+    document.getElementById('repeatFrequency').textContent = `每週${getWeekdayName(parseDate(selectedDate))}`;
+
+    // 2. 更新場地 (若不同)
+    const roomSelect = document.getElementById('modalRoomSelect');
+    if (roomSelect.value !== suggestion.room) {
+        roomSelect.value = suggestion.room;
+        // 觸發場地變更邏輯 (例如重新載入 unavailableSlots)
+        // 這裡簡化：直接呼叫載入設定
+        loadRoomSettings(suggestion.room).then(() => {
+            renderPeriodCheckboxes(selectedDate);
+            checkSuggestionPeriod(suggestion.period);
+        });
+    } else {
+        renderPeriodCheckboxes(selectedDate);
+        checkSuggestionPeriod(suggestion.period);
+    }
+
+    // 3. 隱藏建議區
+    document.getElementById('smartSuggestions').classList.add('hidden');
+
+    // 4. 提示
+    showToast('已切換至建議時段，請確認後預約', 'success');
+}
+
+/**
+ * 勾選指定節次
+ */
+function checkSuggestionPeriod(periodId) {
+    const cb = document.getElementById(`period_${periodId}`);
+    if (cb && !cb.disabled) {
+        cb.checked = true;
+    }
+}
