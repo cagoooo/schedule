@@ -58,6 +58,15 @@
                     <label for="roomSelect">專科教室：</label>
                     <select id="roomSelect" class="room-select">
                         <option value="禮堂">禮堂</option>
+                        <option value="智慧教室C304">智慧教室C304</option>
+                        <option value="電腦教室(一)C212">電腦教室(一)C212</option>
+                        <option value="電腦教室(二)C213">電腦教室(二)C213</option>
+                        <option value="森林小屋">森林小屋</option>
+                        <option value="三年級IPAD車(28台)">三年級IPAD車(28台)</option>
+                        <option value="四年級IPAD車(28台)">四年級IPAD車(28台)</option>
+                        <option value="五年級IPAD車(28台)">五年級IPAD車(28台)</option>
+                        <option value="六年級IPAD車(29台)">六年級IPAD車(29台)</option>
+                        <option value="校史室">校史室</option>
                     </select>
                 </div>
                 <button class="btn-search" id="btnSearch">
@@ -207,7 +216,18 @@
                 <div class="form-group">
                     <div class="form-row">
                         <span class="form-label">專科教室：</span>
-                        <span class="form-value" id="modalRoom">禮堂</span>
+                        <select id="modalRoomSelect" class="form-input" style="max-width: 100%;">
+                            <option value="禮堂">禮堂</option>
+                            <option value="智慧教室C304">智慧教室C304</option>
+                            <option value="電腦教室(一)C212">電腦教室(一)C212</option>
+                            <option value="電腦教室(二)C213">電腦教室(二)C213</option>
+                            <option value="森林小屋">森林小屋</option>
+                            <option value="三年級IPAD車(28台)">三年級IPAD車(28台)</option>
+                            <option value="四年級IPAD車(28台)">四年級IPAD車(28台)</option>
+                            <option value="五年級IPAD車(28台)">五年級IPAD車(28台)</option>
+                            <option value="六年級IPAD車(29台)">六年級IPAD車(29台)</option>
+                            <option value="校史室">校史室</option>
+                        </select>
                     </div>
                     <div class="form-row">
                         <span class="form-label">預約時間：</span>
@@ -269,14 +289,15 @@
                 </svg>
                 <h3>管理員登入</h3>
             </div>
-            <p class="auth-modal-desc">請輸入管理員帳號密碼</p>
-            <input type="email" id="authEmail" class="auth-input" placeholder="Email">
-            <input type="password" id="authPassword" class="auth-input" placeholder="密碼">
-            <p class="auth-error" id="authError"></p>
-            <div class="auth-modal-actions">
-                <button class="btn-auth-cancel" id="btnAuthCancel">取消</button>
-                <button class="btn-auth-confirm" id="btnAuthConfirm">登入</button>
-            </div>
+            <form id="authForm">
+                <input type="email" id="authEmail" class="auth-input" placeholder="Email" required>
+                <input type="password" id="authPassword" class="auth-input" placeholder="密碼" required>
+                <p class="auth-error" id="authError"></p>
+                <div class="auth-modal-actions">
+                    <button type="button" class="btn-auth-cancel" id="btnAuthCancel">取消</button>
+                    <button type="submit" class="btn-auth-confirm" id="btnAuthConfirm">登入</button>
+                </div>
+            </form>
         </div>
     </div>
 

@@ -205,7 +205,7 @@ body {
     transition: var(--transition-fast);
     min-width: 150px;
     font-weight: 500;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .date-input:focus {
@@ -235,7 +235,7 @@ body {
     background-position: right 0.75rem center;
     transition: var(--transition-fast);
     font-weight: 500;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     min-width: 120px;
 }
 
@@ -1096,24 +1096,25 @@ body {
 .month-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    background: var(--border-color);
+    /* 透過背景色產生統一格線 */
+    gap: 1px;
 }
 
 .month-day {
     min-height: 100px;
     padding: 0.25rem;
-    border-right: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: var(--transition-fast);
     background: var(--card-bg);
+    /* 單元格色彩 */
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    position: relative;
 }
 
-.month-day:nth-child(7n) {
-    border-right: none;
-}
+/* 移除舊有的 nth-child 邊框處理，改用容器 gap 控制 */
 
 .month-day:hover {
     background: linear-gradient(135deg, rgba(74, 158, 187, 0.08) 0%, rgba(92, 184, 214, 0.05) 100%);
@@ -1429,11 +1430,17 @@ body {
     }
 
     .month-day {
-        min-height: 60px;
-        padding: 0.35rem;
+        min-height: 80px;
+        /* 增加手機端高度，確保內容不擠壓 */
+        padding: 0.25rem;
     }
 
     .month-day-date {
+        font-size: 0.9rem;
+    }
+
+    .month-weekday {
+        padding: 0.5rem 0;
         font-size: 0.85rem;
     }
 
@@ -1882,17 +1889,39 @@ body {
 
     /* ===== 月曆視圖優化 ===== */
     .month-weekday {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.75rem;
+        padding: 0.5rem 0;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        /* 防止擠壓 */
+    }
+
+    .month-calendar-header,
+    .month-calendar-grid {
+        gap: 1px;
+        /* 確保標題與網格間隙一致 */
     }
 
     .month-day {
-        min-height: 50px;
-        padding: 0.25rem;
+        min-height: 70px;
+        padding: 0.2rem;
     }
 
     .month-day-date {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+    }
+
+    .month-booking-item {
+        padding: 1px 2px;
+        font-size: 0.7rem;
+    }
+
+    .mb-period {
+        min-width: 14px;
+        padding: 0 2px;
+        font-size: 0.65rem;
     }
 
     .booking-count {

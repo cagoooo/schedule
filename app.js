@@ -311,9 +311,11 @@ async function loadBookingsFromFirebase() {
             queryEnd = formatDate(weekEnd);
         }
 
+        const room = getSelectedRoom();
         const snapshot = await bookingsCollection
             .where('date', '>=', queryStart)
             .where('date', '<=', queryEnd)
+            .where('room', '==', room) // 加入場地過濾
             .get();
 
         bookings = [];
@@ -331,6 +333,13 @@ async function loadBookingsFromFirebase() {
 }
 
 /**
+ * 取得當前選擇的場地
+ */
+function getSelectedRoom() {
+    return document.getElementById('roomSelect').value;
+}
+
+/**
  * 載入整月預約資料
  */
 async function loadMonthBookings() {
@@ -343,11 +352,13 @@ async function loadMonthBookings() {
 
     const queryStart = formatDate(firstDay);
     const queryEnd = formatDate(lastDay);
+    const room = getSelectedRoom();
 
     try {
         const snapshot = await bookingsCollection
             .where('date', '>=', queryStart)
             .where('date', '<=', queryEnd)
+            .where('room', '==', room) // 加入場地過濾
             .get();
 
         monthBookings = [];
@@ -425,7 +436,8 @@ function isPeriodBooked(date, periodId) {
  */
 function getBookerForPeriod(date, periodId) {
     const dateStr = formatDate(date);
-    const booking = bookings.find(b => b.date === dateStr && b.periods.includes(periodId));
+    const room = getSelectedRoom();
+    const booking = bookings.find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
     return booking ? booking.booker : null;
 }
 
@@ -434,7 +446,8 @@ function getBookerForPeriod(date, periodId) {
  */
 function getBookingForPeriod(date, periodId) {
     const dateStr = formatDate(date);
-    return bookings.find(b => b.date === dateStr && b.periods.includes(periodId));
+    const room = getSelectedRoom();
+    return bookings.find(b => b.date === dateStr && b.periods.includes(periodId) && b.room === room);
 }
 
 // ===== UI 渲染 =====
@@ -775,6 +788,7 @@ function openBookingModal(dateStr) {
     selectedDate = dateStr;
 
     document.getElementById('modalDate').textContent = dateStr;
+    document.getElementById('modalRoomSelect').value = getSelectedRoom(); // 同步當前選單場地
     document.getElementById('bookerName').value = '';
     document.getElementById('bookingReason').value = '';
     document.getElementById('repeatBooking').checked = false;
@@ -833,6 +847,7 @@ async function submitBooking() {
         return;
     }
 
+    const room = document.getElementById('modalRoomSelect').value;
     const datesToBook = [selectedDate];
 
     if (repeatChecked && repeatEndDate) {
@@ -856,6 +871,7 @@ async function submitBooking() {
         for (const dateStr of datesToBook) {
             const snapshot = await bookingsCollection
                 .where('date', '==', dateStr)
+                .where('room', '==', room) // 檢查該場地的衝突
                 .get();
 
             for (const doc of snapshot.docs) {
@@ -875,6 +891,7 @@ async function submitBooking() {
             const docRef = bookingsCollection.doc();
             batch.set(docRef, {
                 date: dateStr,
+                room: room, // 儲存場地資訊
                 periods: selectedPeriods,
                 booker: booker,
                 reason: reason,
@@ -1094,14 +1111,14 @@ function initEventListeners() {
         }
     });
 
-    // 登入彈窗
+    // 登入表單
+    document.getElementById('authForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        doLogin();
+    });
     document.getElementById('btnAuthCancel').addEventListener('click', closeAuthModal);
-    document.getElementById('btnAuthConfirm').addEventListener('click', doLogin);
     document.getElementById('authModalOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'authModalOverlay') closeAuthModal();
-    });
-    document.getElementById('authPassword').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') doLogin();
     });
 
     // 刪除確認彈窗
@@ -1119,6 +1136,15 @@ function initEventListeners() {
     document.getElementById('btnStatsClose').addEventListener('click', closeStatsModal);
     document.getElementById('statsModalOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'statsModalOverlay') closeStatsModal();
+    });
+
+    // 場地切換連動
+    document.getElementById('roomSelect').addEventListener('change', () => {
+        if (viewMode === 'week') {
+            loadBookingsFromFirebase();
+        } else {
+            loadMonthBookings();
+        }
     });
 
     // 初始化日期選擇器
@@ -1142,7 +1168,7 @@ async function exportToCSV() {
             return;
         }
 
-        const headers = ['日期', '節次', '預約者', '預約理由', '建立時間'];
+        const headers = ['日期', '場地', '節次', '預約者', '預約理由', '建立時間'];
         const rows = [headers.join(',')];
 
         snapshot.forEach(doc => {
@@ -1163,6 +1189,7 @@ async function exportToCSV() {
 
             rows.push([
                 booking.date,
+                escapeCsv(booking.room || '禮堂'),
                 escapeCsv(periodsStr),
                 escapeCsv(booking.booker),
                 escapeCsv(booking.reason),
