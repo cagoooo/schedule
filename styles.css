@@ -160,9 +160,19 @@ body {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
     position: relative;
     z-index: 1;
+}
+
+.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    /* 讓按鈕群組佔滿剩餘空間，利於對齊 */
+    min-width: 200px;
 }
 
 .control-group {
@@ -246,20 +256,49 @@ body {
 }
 
 
-.btn-search {
+.btn-search,
+.btn-export,
+.btn-stats,
+.btn-history {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--primary-gradient);
     color: white;
     border: none;
     padding: 0.6rem 1.25rem;
     border-radius: var(--radius-sm);
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: var(--transition-fast);
     box-shadow: var(--shadow-sm);
+    white-space: nowrap;
+    /* 防止文字換行 */
+}
+
+.btn-search {
+    background: var(--primary-gradient);
+}
+
+.btn-export {
+    background: #48bb78;
+}
+
+.btn-stats {
+    background: #9b4dca;
+}
+
+.btn-history {
+    background: #6b46c1;
+}
+
+.btn-search:hover,
+.btn-export:hover,
+.btn-stats:hover,
+.btn-history:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    filter: brightness(1.1);
 }
 
 .btn-search:hover {
