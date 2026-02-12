@@ -322,8 +322,9 @@ async function loadBookingsFromFirebase() {
         bookings = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            if ((data.room || '禮堂') === room) {
-                bookings.push({ id: doc.id, ...data });
+            const bookingRoom = data.room || '禮堂'; // 正規化場地
+            if (bookingRoom === room) {
+                bookings.push({ ...data, id: doc.id, room: bookingRoom });
             }
         });
 
@@ -343,6 +344,11 @@ async function loadBookingsFromFirebase() {
  * 取得當前選擇的場地
  */
 function getSelectedRoom() {
+    // 優先獲取彈窗內的場地選擇 (若彈窗開啟中)
+    const modalOverlay = document.getElementById('modalOverlay');
+    if (modalOverlay && modalOverlay.classList.contains('active')) {
+        return document.getElementById('modalRoomSelect').value;
+    }
     return document.getElementById('roomSelect').value;
 }
 
@@ -370,9 +376,9 @@ async function loadMonthBookings() {
         monthBookings = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            // 相容性處理：若無 room 欄位，預設為「禮堂」
-            if ((data.room || '禮堂') === room) {
-                monthBookings.push({ id: doc.id, ...data });
+            const bookingRoom = data.room || '禮堂'; // 正規化場地
+            if (bookingRoom === room) {
+                monthBookings.push({ ...data, id: doc.id, room: bookingRoom });
             }
         });
 
@@ -435,7 +441,8 @@ function getAllLoadedBookings() {
     const combined = [...bookings, ...monthBookings];
     const uniqueMap = new Map();
     combined.forEach(b => {
-        if (b.id) uniqueMap.set(b.id, b);
+        const id = b.id || `${b.date}_${b.room}_${b.periods.join('_')}`; // 若無 ID (剛新增但未刷新)，建立虛擬 ID
+        uniqueMap.set(id, b);
     });
     return Array.from(uniqueMap.values());
 }
@@ -1217,6 +1224,15 @@ function initEventListeners() {
             loadBookingsFromFirebase();
         } else {
             loadMonthBookings();
+        }
+    });
+
+    // 預約彈窗場地切換 -> 刷新節次狀態 (修復衝突檢查失效)
+    document.getElementById('modalRoomSelect').addEventListener('change', () => {
+        if (selectedDate) {
+            renderPeriodCheckboxes(selectedDate);
+            // 重置 AI 建議 (因為場地變了)
+            document.getElementById('smartSuggestions').classList.add('hidden');
         }
     });
 
