@@ -2833,6 +2833,7 @@ body {
     box-shadow: var(--shadow-xl);
     animation: scaleIn var(--transition-normal);
     overflow: hidden;
+    /* 防止內容溢出圓角 */
 }
 
 .settings-modal-header {
@@ -2868,6 +2869,8 @@ body {
 .settings-modal-body {
     padding: 1.5rem;
     overflow-y: auto;
+    flex: 1;
+    /* 重要：讓主體占滿剩餘空間，確保留下空間給頁尾 */
 }
 
 .settings-desc {
@@ -2922,6 +2925,8 @@ body {
     display: flex;
     justify-content: flex-end;
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    /* 重要：防止頁尾被擠壓導致按鈕消失 */
 }
 
 .btn-settings-save {

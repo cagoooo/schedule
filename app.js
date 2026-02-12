@@ -323,11 +323,13 @@ async function loadBookingsFromFirebase() {
         bookings = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            // 相容性處理：若無 room 欄位，預設為「禮堂」；僅加入符合當前選擇場地的預約
             if ((data.room || '禮堂') === room) {
                 bookings.push({ id: doc.id, ...data });
             }
         });
+
+        // 載入場地不開放設定
+        await loadRoomSettings(room);
 
         renderCalendar();
     } catch (error) {
@@ -1194,6 +1196,14 @@ function initEventListeners() {
         }
     });
 
+    // 不開放時段設定監聽
+    document.getElementById('btnOpenSettings').addEventListener('click', openSettingsModal);
+    document.getElementById('btnSettingsClose').addEventListener('click', closeSettingsModal);
+    document.getElementById('btnSaveSettings').addEventListener('click', saveRoomSettings);
+    document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
+    });
+
     // 初始化日期選擇器
     document.getElementById('startDate').value = formatDateISO(currentWeekStart);
     const weekEnd = new Date(currentWeekStart);
@@ -1894,6 +1904,8 @@ function removeBatchDate(date) {
 async function openSettingsModal() {
     const room = getSelectedRoom();
     document.getElementById('settingsRoomName').textContent = room;
+    showToast('正在載入設定...', 'info');
+    await loadRoomSettings(room); // 確保開啟時資料是最新的
     renderSettingsTable();
     document.getElementById('settingsModalOverlay').classList.add('active');
 }
