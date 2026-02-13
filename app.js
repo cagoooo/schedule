@@ -869,6 +869,30 @@ function openBookingModal(dateStr) {
 }
 
 /**
+ * 高亮並捲動至無效欄位
+ * @param {string|HTMLElement} elementId 或 元素本體
+ */
+function highlightInvalidField(elementId) {
+    const el = typeof elementId === 'string' ? document.getElementById(elementId) : elementId;
+    if (!el) return;
+
+    // 移除可能存在的舊類別
+    el.classList.remove('invalid-shake');
+    // 強制重繪以重啟動畫
+    void el.offsetWidth;
+    // 加入高亮類別
+    el.classList.add('invalid-shake');
+
+    // 自動捲動至視窗中心
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // 3秒後移除高亮效果，讓 UI 恢復正常
+    setTimeout(() => {
+        el.classList.remove('invalid-shake');
+    }, 3000);
+}
+
+/**
  * 關閉預約彈窗
  */
 function closeBookingModal() {
@@ -899,16 +923,19 @@ async function submitBooking() {
 
     if (!booker) {
         showToast('請輸入預約者姓名', 'warning');
+        highlightInvalidField('bookerName');
         return;
     }
 
     if (selectedPeriods.length === 0) {
         showToast('請至少選擇一個節次', 'warning');
+        highlightInvalidField('periodCheckboxes');
         return;
     }
 
     if (!reason) {
         showToast('請輸入預約理由', 'warning');
+        highlightInvalidField('bookingReason');
         return;
     }
 
