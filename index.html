@@ -10,7 +10,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.v2.36.0.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(function (registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function (err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -550,12 +566,33 @@
                     </svg>
                     視覺化數據中心
                 </h3>
-                <button class="btn-dashboard-close" id="btnDashboardClose">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                </button>
+                <div class="dashboard-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn-export-csv" id="btnExportCSV" title="匯出 CSV">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
+                    <button class="btn-export-report" id="btnExportReport" title="產生月報表">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </button>
+                    <button class="btn-dashboard-close" id="btnDashboardClose">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="dashboard-modal-body">
                 <div class="dashboard-metrics">
@@ -626,11 +663,28 @@
     </div>
 
     <!-- Firebase SDK -->
+    <!-- PWA 安裝提示按鈕 (初始隱藏) -->
+
+
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
+    <!-- PWA 安裝提示 (Glassmorphism) -->
+    <div id="pwa-install-prompt" class="pwa-prompt hidden">
+        <div class="pwa-icon">
+            <img src="favicon.png" alt="App Icon">
+        </div>
+        <div class="pwa-content">
+            <h3>安裝 識生學坊</h3>
+            <p>將應用程式安裝到您的主畫面，享受更流暢的離線體驗！</p>
+        </div>
+        <div class="pwa-actions">
+            <button id="btnPwaInstall" class="btn-pwa-install">立即安裝</button>
+            <button id="btnPwaDismiss" class="btn-pwa-dismiss">稍後再說</button>
+        </div>
+    </div>
 </body>
 
 </html>

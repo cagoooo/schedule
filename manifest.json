@@ -1,0 +1,21 @@
+{
+    "name": "學校預約系統",
+    "short_name": "預約系統",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#f8faff",
+    "theme_color": "#667eea",
+    "description": "禮堂&專科教室&IPAD平板車預約系統",
+    "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "favicon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

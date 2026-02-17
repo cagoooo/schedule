@@ -1043,6 +1043,8 @@ function showBookingDetail(booking, period) {
     pendingDeleteBooking = booking;
     pendingDeletePeriod = period;
 
+    const periodName = period ? period.name : '全部節次 (整筆刪除)';
+
     // 顯示預約詳情給所有人看
     document.getElementById('deleteBookingInfo').innerHTML = `
         <div class="info-item">
@@ -1051,7 +1053,7 @@ function showBookingDetail(booking, period) {
         </div>
         <div class="info-item">
             <strong>節次：</strong>
-            <span>${period.name}</span>
+            <span>${periodName}</span>
         </div>
         <div class="info-item">
             <strong>預約者：</strong>
@@ -1095,7 +1097,7 @@ function closeDeleteModal() {
  * 執行刪除預約
  */
 async function executeDeleteBooking() {
-    if (!pendingDeleteBooking || !pendingDeletePeriod) return;
+    if (!pendingDeleteBooking) return;
 
     const localDeviceId = localStorage.getItem('deviceId');
     const isOwner = pendingDeleteBooking.deviceId && pendingDeleteBooking.deviceId === localDeviceId;
@@ -1113,7 +1115,13 @@ async function executeDeleteBooking() {
     deleteBtn.textContent = '處理中...';
 
     try {
-        const newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
+        let newPeriods = [];
+        // 如果有指定節次，則過濾掉該節次；否則 (null) 代表刪除整筆 (清空所有節次)
+        if (pendingDeletePeriod) {
+            newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
+        } else {
+            newPeriods = [];
+        }
 
         if (currentUser) {
             // 管理員模式：直接刪除或更新
@@ -1144,6 +1152,19 @@ async function executeDeleteBooking() {
         await loadBookingsFromFirebase();
         closeDeleteModal();
         showToast('已取消預約', 'success');
+
+        // 如果歷史記錄彈窗是開啟的，重新整理歷史記錄
+        if (document.getElementById('historyModalOverlay').classList.contains('active')) {
+            loadHistoryData();
+        }
+
+        // 如果搜尋結果彈窗是開啟的，重新整理搜尋結果
+        if (document.getElementById('searchModalOverlay').classList.contains('active')) {
+            // 只有當搜尋框有值時才重搜，避免報錯
+            if (document.getElementById('searchInput').value.trim()) {
+                executeAdvancedSearch();
+            }
+        }
     } catch (error) {
         console.error('取消預約失敗:', error);
         showToast('取消失敗，請稍後再試', 'error');
@@ -2050,18 +2071,47 @@ async function loadHistoryData() {
         }
 
         historyList.innerHTML = '';
+        window.historyBookings = {}; // 初始化歷史預約暫存
+
+        historyList.innerHTML = '';
         snapshot.forEach(doc => {
             const booking = doc.data();
+            booking.id = doc.id; // 確保有 ID
+
+            // 過濾已刪除（空節次）的預約
+            if (!booking.periods || booking.periods.length === 0) return;
+
+            // 存入全域變數供 onclick 使用 (如果 booking 很多可能會占記憶體，但歷史記錄有分頁/月限制，還好)
+            window.historyBookings[booking.id] = booking;
+
             const periodNames = booking.periods
                 .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
                 .join('、');
+
+            const isOwner = booking.deviceId && booking.deviceId === localStorage.getItem('deviceId');
+            const isAdmin = !!firebase.auth().currentUser;
+
+
+            let deleteBtn = '';
+            if (isAdmin || isOwner) {
+                // onclick 呼叫 showBookingDetail(booking, null) 代表整筆刪除
+                deleteBtn = `<button class="btn-history-delete" onclick="showBookingDetail(window.historyBookings['${booking.id}'], null)" title="刪除此筆記錄">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>`;
+            }
 
             historyList.innerHTML += `
                 <div class="history-item">
                     <span class="history-date">${booking.date}</span>
                     <span class="history-period">${periodNames}</span>
                     <span class="history-booker">${booking.booker || '未知'}</span>
-                    <span class="history-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
+                    <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+                        <span class="history-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
+                        ${deleteBtn}
+                    </div>
                 </div>
             `;
         });
@@ -2581,3 +2631,196 @@ function scrollToCalendar() {
         }, 300);
     }
 }
+// ===== 資料匯出與報表功能 =====
+
+/**
+ * 匯出預約資料為 CSV
+ */
+function exportToCSV() {
+    if (!bookings || bookings.length === 0) {
+        showToast('目前沒有預約資料可匯出', 'info');
+        return;
+    }
+
+    // 定義 CSV 標頭
+    const headers = ['日期', '節次', '場地', '預約者', '事由', '裝置ID', '建立時間'];
+
+    // 轉換資料內容
+    const rows = bookings.map(b => {
+        const periodName = PERIODS.find(p => p.id === b.period)?.name || b.period;
+        const createdTime = b.createdAt ? new Date(b.createdAt.seconds * 1000).toLocaleString('zh-TW') : '';
+
+        // 處理可能包含逗號的欄位，用引號包起來
+        const escape = (text) => `"${(text || '').replace(/"/g, '""')}"`;
+
+        return [
+            escape(b.date),
+            escape(periodName),
+            escape(b.room),
+            escape(b.booker),
+            escape(b.reason),
+            escape(b.deviceId),
+            escape(createdTime)
+        ].join(',');
+    });
+
+    // 組合 CSV 內容 (加上 BOM 以支援 Excel 中文顯示)
+    const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+
+    // 下載檔案
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `預約紀錄_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * 產生月報表
+ */
+function generateMonthlyReport() {
+    if (!bookings || bookings.length === 0) {
+        showToast('目前沒有預約資料可分析', 'info');
+        return;
+    }
+
+    const currentMonthStr = currentMonth.toISOString().slice(0, 7); // YYYY-MM
+    const monthBookings = bookings.filter(b => b.date.startsWith(currentMonthStr));
+
+    if (monthBookings.length === 0) {
+        showToast(`${currentMonthStr} 無預約資料`, 'info');
+        return;
+    }
+
+    // 統計計算
+    const totalBookings = monthBookings.length;
+
+    // 場地使用率
+    const roomCounts = {};
+    monthBookings.forEach(b => roomCounts[b.room] = (roomCounts[b.room] || 0) + 1);
+    const sortedRooms = Object.entries(roomCounts).sort((a, b) => b[1] - a[1]);
+
+    // 熱門時段
+    const periodCounts = {};
+    monthBookings.forEach(b => {
+        const pName = PERIODS.find(p => p.id === b.period)?.name || b.period;
+        periodCounts[pName] = (periodCounts[pName] || 0) + 1;
+    });
+    const sortedPeriods = Object.entries(periodCounts).sort((a, b) => b[1] - a[1]);
+
+    // 活躍預約者
+    const userCounts = {};
+    monthBookings.forEach(b => userCounts[b.booker] = (userCounts[b.booker] || 0) + 1);
+    const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    // 產生報告內容
+    let report = `【${currentMonthStr} 預約統計月報】\n\n`;
+    report += `總預約數: ${totalBookings} 筆\n\n`;
+
+    report += `🏆 熱門場地排行榜:\n`;
+    sortedRooms.forEach(([room, count]) => {
+        const percentage = Math.round((count / totalBookings) * 100);
+        report += `- ${room}: ${count} 次 (${percentage}%)\n`;
+    });
+
+    report += `\n⏰ 熱門時段分佈:\n`;
+    sortedPeriods.forEach(([period, count]) => {
+        report += `- ${period}: ${count} 次\n`;
+    });
+
+    report += `\n👤 活躍預約者 Top 5:\n`;
+    sortedUsers.forEach(([user, count]) => {
+        report += `- ${user}: ${count} 次\n`;
+    });
+
+    // 下載報告
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `預約月報_${currentMonthStr}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * 初始化匯出按鈕監聽器
+ */
+function setupExportButtons() {
+    const btnCSV = document.getElementById('btnExportCSV');
+    const btnReport = document.getElementById('btnExportReport');
+
+    if (btnCSV) {
+        btnCSV.addEventListener('click', exportToCSV);
+    }
+
+    if (btnReport) {
+        btnReport.addEventListener('click', generateMonthlyReport);
+    }
+}
+
+// 確保在頁面載入且 DOM 元素存在後初始化
+document.addEventListener('DOMContentLoaded', () => {
+    // 延遲一點點確保 HTML 結構完整 (雖然 dashboard 在靜態 HTML中)
+    setTimeout(setupExportButtons, 500);
+});
+
+
+// ===== PWA 安裝提示功能 =====
+
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // 防止 Chrome 67 及更早版本自動顯示安裝提示
+    e.preventDefault();
+    // 儲存事件以便稍後觸發
+    deferredPrompt = e;
+    // 更新 UI 通知使用者可以安裝 (檢查是否已 dismissed)
+    if (!sessionStorage.getItem('pwaDismissed')) {
+        showInstallPromotion();
+    }
+});
+
+function showInstallPromotion() {
+    const prompt = document.getElementById('pwa-install-prompt');
+    const btnInstall = document.getElementById('btnPwaInstall');
+    const btnDismiss = document.getElementById('btnPwaDismiss');
+
+    if (prompt) {
+        prompt.classList.remove('hidden');
+
+        // 安裝按鈕
+        btnInstall.addEventListener('click', async () => {
+            prompt.classList.add('hidden');
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            deferredPrompt = null;
+        });
+
+        // 稍後再說按鈕
+        btnDismiss.addEventListener('click', () => {
+            prompt.classList.add('dismissed');
+            // 存入 SessionStorage，本次會話不再顯示
+            sessionStorage.setItem('pwaDismissed', 'true');
+            setTimeout(() => {
+                prompt.classList.add('hidden');
+            }, 600); // 等待動畫結束
+        });
+    }
+}
+
+window.addEventListener('appinstalled', () => {
+    const prompt = document.getElementById('pwa-install-prompt');
+    if (prompt) {
+        prompt.classList.add('hidden');
+    }
+    // 清除 deferredPrompt
+    deferredPrompt = null;
+    console.log('PWA was installed');
+    showToast('已成功安裝應用程式！', 'success');
+});

@@ -4,7 +4,12 @@
 
 ---
 
-## 📅 當前版本：v2.36.0 (2026-02-17)
+## 📅 當前版本：v2.37.0 (2026-02-17) - PWA UI Enhancement & History Delete
+- **New Feature**: Added "Delete" button in History View for Admins/Owners to remove zombie bookings.
+- **PWA UI**: Fully redesigned install prompt with Glassmorphism, animations, and responsive layout (Toast/Bottom Sheet).
+- **Bug Fix**: Fixed history filter logic and UI refresh issue after deletion.
+- **System**: Updated CSS versioning to `styles.v2.36.0.css` to prevent caching issues.
+- **Data Export**: Added CSV export and Monthly Report generation.
 
 ### ✅ 已完成核心功能 (Core Features)
 
