@@ -1114,11 +1114,17 @@ async function executeDeleteBooking() {
     deleteBtn.disabled = true;
     deleteBtn.textContent = '處理中...';
 
+    const bookingId = pendingDeleteBooking.id;
+    const periodId = pendingDeletePeriod ? pendingDeletePeriod.id : null;
+    const periodName = pendingDeletePeriod ? pendingDeletePeriod.name : 'ALL';
+    const reason = pendingDeleteBooking.reason;
+    const booker = pendingDeleteBooking.booker;
+
     try {
         let newPeriods = [];
         // 如果有指定節次，則過濾掉該節次；否則 (null) 代表刪除整筆 (清空所有節次)
-        if (pendingDeletePeriod) {
-            newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
+        if (periodId) {
+            newPeriods = pendingDeleteBooking.periods.filter(p => p !== periodId);
         } else {
             newPeriods = [];
         }
@@ -1126,32 +1132,30 @@ async function executeDeleteBooking() {
         if (currentUser) {
             // 管理員模式：直接刪除或更新
             if (newPeriods.length === 0) {
-                await deleteBookingFromFirebase(pendingDeleteBooking.id);
+                await deleteBookingFromFirebase(bookingId);
             } else {
-                await updateBookingInFirebase(pendingDeleteBooking.id, { periods: newPeriods });
+                await updateBookingInFirebase(bookingId, { periods: newPeriods });
             }
         } else {
             // 使用者自刪模式：必須使用 update 並帶上 deviceId 驗證
-            // 若 periods 為空，雖然技術上是 update，但邏輯上是刪除
-            // 但為了符合 rules (update 需 deviceId 匹配)，我們統一用 updateBookingInFirebase
-            // 注意：若 periods 為空，UI 會自動過濾掉該筆預約，達到「刪除」效果
-            // 且因為我們沒有用 delete，所以不需要 allow delete 權限
-
-            // 重要：必須帶上原始 deviceId 以通過 firestore rules 驗證
-            await updateBookingInFirebase(pendingDeleteBooking.id, {
+            await updateBookingInFirebase(bookingId, {
                 periods: newPeriods,
                 deviceId: localDeviceId
             });
-
-            // 若為完全刪除 (periods 為空)，可在背景清除垃圾資料 (Admin Only)，
-            // 但這裡為了簡單，留著空陣列也無妨，getAllLoadedBookings 會濾掉嗎？
-            // 檢查 getAllLoadedBookings 邏輯... 
-            // 實際上 UI 是依據 periods 渲染的，如果 periods 為空，就不會顯示在日曆上。
         }
 
         await loadBookingsFromFirebase();
         closeDeleteModal();
         showToast('已取消預約', 'success');
+
+        // 記錄日誌
+        const actionType = periodId ? 'DELETE_BOOKING' : 'FORCE_DELETE_BOOKING';
+        logSystemAction(actionType, {
+            bookingId: bookingId,
+            reason: reason,
+            period: periodId || 'ALL',
+            booker: booker
+        }, bookingId);
 
         // 如果歷史記錄彈窗是開啟的，重新整理歷史記錄
         if (document.getElementById('historyModalOverlay').classList.contains('active')) {
@@ -1292,7 +1296,12 @@ function initEventListeners() {
     // 登入表單
     document.getElementById('authForm').addEventListener('submit', (e) => {
         e.preventDefault();
-        doLogin();
+        (async () => {
+            await doLogin();
+            if (firebase.auth().currentUser) {
+                logSystemAction('ADMIN_LOGIN', { email: firebase.auth().currentUser.email });
+            }
+        })();
     });
     document.getElementById('btnAuthCancel').addEventListener('click', closeAuthModal);
     document.getElementById('authModalOverlay').addEventListener('click', (e) => {
@@ -1356,6 +1365,12 @@ function initEventListeners() {
     document.getElementById('dashboardModalOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'dashboardModalOverlay') closeDashboard();
     });
+
+    // Audit Logs Refresh
+    const btnRefreshLogs = document.getElementById('btnRefreshLogs');
+    if (btnRefreshLogs) {
+        btnRefreshLogs.addEventListener('click', loadAuditLogs);
+    }
 }
 
 // ===== 儀表板功能 =====
@@ -1382,6 +1397,39 @@ async function loadDashboardData() {
     const refreshBtn = document.getElementById('btnDashRefresh');
     refreshBtn.disabled = true;
     refreshBtn.textContent = '載入中...';
+
+    // Tab Logic
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.style.display = 'none';
+                c.classList.remove('active');
+            });
+
+            // Add active to current
+            tab.classList.add('active');
+            const targetId = `tab-${tab.dataset.tab}`;
+            const targetContent = document.getElementById(targetId);
+            targetContent.style.display = 'block';
+            setTimeout(() => targetContent.classList.add('active'), 10);
+
+            if (tab.dataset.tab === 'audit') {
+                loadAuditLogs();
+            }
+        });
+    });
+
+    // Refresh Logs Logic
+    const btnRefreshLogs = document.getElementById('btnRefreshLogs');
+    if (btnRefreshLogs) {
+        // Remove old listener to prevent duplicates (simple way: clone node)
+        // OR just check if it already has logic. 
+        // Better: bind it in initEventListeners, but here is context-aware.
+        // Let's bind it once in initEventListeners instead.
+    }
 
     try {
         const todayStr = formatDate(new Date());
@@ -1542,59 +1590,97 @@ function renderTodayTrend(bookings) {
 
 async function exportToCSV() {
     try {
-        showToast('正在匯出資料...', 'info');
+        const confirmExport = confirm('確定要匯出所有歷史預約資料嗎？這可能需要一點時間。');
+        if (!confirmExport) return;
 
-        const snapshot = await bookingsCollection.orderBy('date').get();
+        showToast('正在準備匯出所有資料...', 'info');
+
+        // 1. 獲取所有資料 (OrderBy Date Desc)
+        const snapshot = await bookingsCollection.orderBy('date', 'desc').get();
 
         if (snapshot.empty) {
-            showToast('沒有預約資料可匯出', 'warning');
+            showToast('系統中沒有任何預約資料', 'warning');
             return;
         }
 
-        const headers = ['日期', '場地', '節次', '預約者', '預約理由', '建立時間'];
+        // 2. CSV Header
+        const headers = [
+            '預約編號',
+            '預約日期',
+            '場地名稱',
+            '預約節次',
+            '預約者姓名',
+            '預約理由/用途',
+            '建立時間',
+            '操作裝置ID',
+            '狀態'
+        ];
+
         const rows = [headers.join(',')];
 
+        // 3. Process Data
         snapshot.forEach(doc => {
-            const booking = doc.data();
-            const periodsStr = booking.periods
-                .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
-                .join('、');
-            const createdAt = booking.createdAt
-                ? new Date(booking.createdAt.toDate()).toLocaleString('zh-TW')
-                : '未知';
+            const data = doc.data();
 
-            const escapeCsv = (str) => {
-                if (str && (str.includes(',') || str.includes('"') || str.includes('\n'))) {
-                    return `"${str.replace(/"/g, '""')}"`;
+            // 處理節次顯示
+            const periodsStr = (data.periods || [])
+                .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
+                .join(' & ');
+
+            // 處理時間
+            const createdAt = data.createdAt
+                ? new Date(data.createdAt.toDate()).toLocaleString('zh-TW', { hour12: false })
+                : '未知時間';
+
+            // CSV 轉義函數 (處理逗號、換行、雙引號)
+            const escape = (str) => {
+                if (!str) return '';
+                str = String(str).replace(/"/g, '""'); // Escape double quotes
+                if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                    return `"${str}"`;
                 }
-                return str || '';
+                return str;
             };
 
-            rows.push([
-                booking.date,
-                escapeCsv(booking.room || '禮堂'),
-                escapeCsv(periodsStr),
-                escapeCsv(booking.booker),
-                escapeCsv(booking.reason),
-                createdAt
-            ].join(','));
+            const roomName = (data.room && data.room !== '未知場地') ? data.room : '禮堂';
+
+            const row = [
+                escape(doc.id),
+                escape(data.date),
+                escape(roomName),
+                escape(periodsStr),
+                escape(data.booker || '未知'),
+                escape(data.reason || '無'),
+                escape(createdAt),
+                escape(data.deviceId || 'Unknown'),
+                '有效' // 狀態 (目前資料庫只存有效的，刪除的在 audit log)
+            ];
+
+            rows.push(row.join(','));
         });
 
-        const csvContent = '\uFEFF' + rows.join('\n');
+        // 4. Generate & Download
+        const csvContent = '\uFEFF' + rows.join('\n'); // Add BOM for Excel
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         link.href = url;
-        link.download = `禮堂預約資料_${formatDate(new Date(), '')}.csv`;
+        link.download = `完整預約匯出_${timestamp}.csv`;
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        showToast(`已匯出 ${snapshot.size} 筆預約資料`, 'success');
+        // 5. Log Action
+        logSystemAction('EXPORT_CSV', { count: snapshot.size });
+        showToast(`✅ 成功匯出 ${snapshot.size} 筆完整資料`, 'success');
+
     } catch (error) {
         console.error('匯出失敗:', error);
-        showToast('匯出失敗，請稍後再試', 'error');
+        showToast('❌ 匯出失敗: ' + error.message, 'error');
     }
 }
 
@@ -2633,50 +2719,7 @@ function scrollToCalendar() {
 }
 // ===== 資料匯出與報表功能 =====
 
-/**
- * 匯出預約資料為 CSV
- */
-function exportToCSV() {
-    if (!bookings || bookings.length === 0) {
-        showToast('目前沒有預約資料可匯出', 'info');
-        return;
-    }
-
-    // 定義 CSV 標頭
-    const headers = ['日期', '節次', '場地', '預約者', '事由', '裝置ID', '建立時間'];
-
-    // 轉換資料內容
-    const rows = bookings.map(b => {
-        const periodName = PERIODS.find(p => p.id === b.period)?.name || b.period;
-        const createdTime = b.createdAt ? new Date(b.createdAt.seconds * 1000).toLocaleString('zh-TW') : '';
-
-        // 處理可能包含逗號的欄位，用引號包起來
-        const escape = (text) => `"${(text || '').replace(/"/g, '""')}"`;
-
-        return [
-            escape(b.date),
-            escape(periodName),
-            escape(b.room),
-            escape(b.booker),
-            escape(b.reason),
-            escape(b.deviceId),
-            escape(createdTime)
-        ].join(',');
-    });
-
-    // 組合 CSV 內容 (加上 BOM 以支援 Excel 中文顯示)
-    const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
-
-    // 下載檔案
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `預約紀錄_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+// (Legacy exportToCSV removed)
 
 /**
  * 產生月報表
@@ -2823,4 +2866,262 @@ window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     console.log('PWA was installed');
     showToast('已成功安裝應用程式！', 'success');
+});
+
+// ===== 系統稽核日誌 (Audit Logs) =====
+
+/**
+ * 記錄系統操作日誌
+ * @param {string} action 操作名稱 (e.g., 'DELETE_BOOKING', 'EXPORT_CSV')
+ * @param {object} details 詳細資訊
+ * @param {string} targetId 目標 ID (可選)
+ */
+async function logSystemAction(action, details = {}, targetId = null) {
+    try {
+        const currentUser = firebase.auth().currentUser;
+        const localDeviceId = localStorage.getItem('deviceId') || 'unknown';
+
+        let ip = 'unknown';
+        try {
+            const ipRes = await fetch('https://api.ipify.org?format=json');
+            if (ipRes.ok) {
+                const ipData = await ipRes.json();
+                ip = ipData.ip;
+            }
+        } catch (e) {
+            // Ignore IP fetch error
+        }
+
+        const logData = {
+            action: action,
+            targetId: targetId || 'N/A',
+            details: details,
+            performedBy: currentUser ? currentUser.uid : 'Guest',
+            userEmail: currentUser ? currentUser.email : null,
+            deviceId: localDeviceId,
+            userAgent: navigator.userAgent,
+            ip: ip,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db.collection('audit_logs').add(logData);
+        console.log(`[Audit] ${action} logged.`);
+    } catch (error) {
+        console.error('Failed to log action:', error);
+    }
+}
+
+/**
+ * 載入並顯示稽核日誌
+ */
+async function loadAuditLogs() {
+    const list = document.getElementById('auditLogList');
+    if (!list) return;
+
+    list.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        const snapshot = await db.collection('audit_logs')
+            .orderBy('timestamp', 'desc')
+            .limit(50)
+            .get();
+
+        if (snapshot.empty) {
+            list.innerHTML = '<div class="no-data">目前沒有日誌記錄</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        snapshot.forEach(doc => {
+            const log = doc.data();
+            const date = log.timestamp ? log.timestamp.toDate() : new Date();
+            const timeStr = date.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            // 格式化詳情
+            let detailsStr = '';
+            if (log.details) {
+                if (log.action === 'DELETE_BOOKING' || log.action === 'FORCE_DELETE_BOOKING') {
+                    detailsStr = `原因: ${log.details.reason || '無'} | 預約人: ${log.details.booker || '未知'}`;
+                } else if (log.action === 'EXPORT_CSV') {
+                    detailsStr = `匯出數量: ${log.details.count || 0}`;
+                } else {
+                    try {
+                        const simpleDetails = { ...log.details };
+                        delete simpleDetails.userAgent; // too long
+                        detailsStr = JSON.stringify(simpleDetails).substring(0, 50) + (JSON.stringify(simpleDetails).length > 50 ? '...' : '');
+                    } catch (e) {
+                        detailsStr = String(log.details);
+                    }
+                }
+            }
+
+            // Action Mapping
+            let actionName = log.action;
+            let actionClass = 'action-other';
+            let icon = '📝';
+
+            if (log.action === 'DELETE_BOOKING') { actionName = '刪除預約'; actionClass = 'action-delete'; icon = '🗑️'; }
+            else if (log.action === 'FORCE_DELETE_BOOKING') { actionName = '強制刪除'; actionClass = 'action-delete'; icon = '⚠️'; }
+            else if (log.action === 'EXPORT_CSV') { actionName = '匯出 CSV'; actionClass = 'action-export'; icon = '📥'; }
+            else if (log.action === 'ADMIN_LOGIN') { actionName = '管理員登入'; actionClass = 'action-login'; icon = '🔑'; }
+
+            const userLabel = log.userEmail ? log.userEmail.split('@')[0] : (log.performedBy === 'Guest' ? '訪客' : 'System');
+            const ipLabel = log.ip || 'Unknown IP';
+
+            const item = document.createElement('div');
+            item.className = `audit-log-item ${actionClass}`;
+
+            item.innerHTML = `
+                <div class="log-header">
+                    <span class="log-action">${icon} ${actionName}</span>
+                    <span class="log-time">${timeStr}</span>
+                </div>
+                <div class="log-details">${detailsStr}</div>
+                <div class="log-meta">
+                    <span class="meta-item">👤 ${userLabel}</span>
+                    <span class="meta-item">🌐 ${ipLabel}</span>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+
+    } catch (error) {
+        console.error('Load logs error:', error);
+        list.innerHTML = '<div class="error-text">載入失敗</div>';
+    }
+}
+
+
+
+/**
+ * 匯出系統日誌 (Audit Logs) 至 CSV
+ */
+async function exportLogsToCSV() {
+    try {
+        const confirmExport = confirm('確定要匯出「系統操作日誌」嗎？\n(包含刪除、登入、匯出紀錄)');
+        if (!confirmExport) return;
+
+        showToast('正在下載日誌資料...', 'info');
+
+        // 1. 獲取日誌 (OrderBy Timestamp Desc)
+        const snapshot = await db.collection('audit_logs').orderBy('timestamp', 'desc').get();
+
+        if (snapshot.empty) {
+            showToast('沒有日誌資料', 'warning');
+            return;
+        }
+
+        // 2. CSV Header
+        const headers = [
+            '時間',
+            '操作類型',
+            '詳細內容',
+            '操作者',
+            'IP位址',
+            'User Agent'
+        ];
+
+        const rows = [headers.join(',')];
+
+        // 3. Process Data
+        snapshot.forEach(doc => {
+            const log = doc.data();
+
+            const timeStr = log.timestamp
+                ? new Date(log.timestamp.toDate()).toLocaleString('zh-TW', { hour12: false })
+                : '未知時間';
+
+            const escape = (str) => {
+                if (str === null || str === undefined) return '';
+                str = String(str).replace(/"/g, '""');
+                if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str}"`;
+                return str;
+            };
+
+            // Action Translation
+            let actionName = log.action;
+            if (log.action === 'DELETE_BOOKING') actionName = '刪除預約';
+            else if (log.action === 'FORCE_DELETE_BOOKING') actionName = '強制刪除';
+            else if (log.action === 'EXPORT_CSV') actionName = '匯出預約';
+            else if (log.action === 'ADMIN_LOGIN') actionName = '管理員登入';
+
+            const userLabel = log.userEmail || (log.performedBy === 'Guest' ? '訪客' : log.performedBy) || 'System';
+
+            // 確保 details 是字串
+            let detailsStr = '';
+            try {
+                detailsStr = typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {});
+            } catch (e) {
+                detailsStr = 'Format Error';
+            }
+
+            rows.push([
+                escape(timeStr),
+                escape(actionName),
+                escape(detailsStr),
+                escape(userLabel),
+                escape(log.ip || '-'),
+                escape(log.userAgent || '-')
+            ].join(','));
+        });
+
+        // 4. Download
+        const csvContent = '\uFEFF' + rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+
+        const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+        link.href = url;
+        link.download = `系統日誌匯出_${timestamp}.csv`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url); // Clean up
+
+        showToast(`✅ 成功匯出 ${snapshot.size} 筆日誌`, 'success');
+
+    } catch (error) {
+        console.error('日誌匯出失敗:', error);
+        showToast('❌ 日誌匯出失敗', 'error');
+    }
+}
+
+// ===== 初始化事件監聽 =====
+
+// ===== 初始化事件監聽 (Event Delegation for Robustness) =====
+
+document.addEventListener('click', (e) => {
+    // 匯出日誌按鈕 (Logs)
+    const btnLogs = e.target.closest('#btnExportLogs');
+    if (btnLogs) {
+        e.preventDefault();
+        console.log('📌 Export Logs button clicked (via Delegation)');
+        exportLogsToCSV();
+        return;
+    }
+
+    // 匯出報表按鈕 (Report)
+    const btnReport = e.target.closest('#btnExportReport');
+    if (btnReport) {
+        e.preventDefault();
+        console.log('📌 Export Report button clicked (via Delegation)');
+        generateMonthlyReport();
+        return;
+    }
+
+    // 匯出 CSV 按鈕 (CSV)
+    const btnCsv = e.target.closest('#btnExportCSV');
+    if (btnCsv) {
+        e.preventDefault();
+        console.log('📌 Export CSV button clicked (via Delegation)');
+        exportToCSV();
+        return;
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('✅ App initialized with Event Delegation for Dashboard buttons');
+    // 其他初始化...
 });

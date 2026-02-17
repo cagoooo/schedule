@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.36.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.36.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.37.4</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.37.4">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.v2.36.0.css">
+    <link rel="stylesheet" href="styles.v2.37.0.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#667eea">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -566,8 +566,12 @@
                     </svg>
                     視覺化數據中心
                 </h3>
+                <div class="dashboard-tabs">
+                    <button class="tab-btn active" data-tab="overview">總覽</button>
+                    <button class="tab-btn" data-tab="audit">系統日誌</button>
+                </div>
                 <div class="dashboard-actions" style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn-export-csv" id="btnExportCSV" title="匯出 CSV">
+                    <button class="btn-export-csv" id="btnExportCSV" title="匯出預約資料 (完整)">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -575,7 +579,7 @@
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
                     </button>
-                    <button class="btn-export-report" id="btnExportReport" title="產生月報表">
+                    <button class="btn-export-logs" id="btnExportLogs" title="匯出系統日誌 (含刪除紀錄)">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -583,6 +587,14 @@
                             <line x1="16" y1="13" x2="8" y2="13"></line>
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </button>
+                    <button class="btn-export-report" id="btnExportReport" title="產生月報表">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="3" y1="9" x2="21" y2="9"></line>
+                            <line x1="9" y1="21" x2="9" y2="9"></line>
                         </svg>
                     </button>
                     <button class="btn-dashboard-close" id="btnDashboardClose">
@@ -595,63 +607,86 @@
                 </div>
             </div>
             <div class="dashboard-modal-body">
-                <div class="dashboard-metrics">
-                    <div class="metric-card">
-                        <div class="metric-icon blue">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
+                <div id="tab-overview" class="tab-content active">
+                    <div class="dashboard-metrics">
+                        <div class="metric-card">
+                            <div class="metric-icon blue">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <div class="metric-info">
+                                <span class="metric-label">當前時段</span>
+                                <span class="metric-value" id="dashCurrentPeriod">--</span>
+                            </div>
                         </div>
-                        <div class="metric-info">
-                            <span class="metric-label">當前時段</span>
-                            <span class="metric-value" id="dashCurrentPeriod">--</span>
+                        <div class="metric-card">
+                            <div class="metric-icon purple">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                            </div>
+                            <div class="metric-info">
+                                <span class="metric-label">今日預約總數</span>
+                                <span class="metric-value" id="dashTodayCount">0</span>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon red">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M3 3h18v18H3zM21 9H3M21 15H3M12 3v18" />
+                                </svg>
+                            </div>
+                            <div class="metric-info">
+                                <span class="metric-label">使用中場地</span>
+                                <span class="metric-value" id="dashActiveRooms">0</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="metric-card">
-                        <div class="metric-icon purple">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                                <polyline points="10 9 9 9 8 9"></polyline>
-                            </svg>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">今日預約總數</span>
-                            <span class="metric-value" id="dashTodayCount">0</span>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon red">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M3 3h18v18H3zM21 9H3M21 15H3M12 3v18" />
-                            </svg>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">使用中場地</span>
-                            <span class="metric-value" id="dashActiveRooms">0</span>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="dashboard-section">
-                    <h4 class="section-title">
-                        <span class="status-pulse"></span> 即時場地監控
-                    </h4>
-                    <div class="dashboard-grid" id="dashboardRoomGrid">
-                        <!-- 由 JavaScript 動態生成 -->
+                    <div class="dashboard-section">
+                        <h4 class="section-title">
+                            <span class="status-pulse"></span> 即時場地監控
+                        </h4>
+                        <div class="dashboard-grid" id="dashboardRoomGrid">
+                            <!-- 由 JavaScript 動態生成 -->
+                        </div>
                     </div>
-                </div>
 
-                <div class="dashboard-section">
-                    <h4 class="section-title">今日預約熱度</h4>
-                    <div class="dashboard-chart-container">
-                        <div class="bar-chart" id="dashTrendChart"></div>
+                    <div class="dashboard-section">
+                        <h4 class="section-title">今日預約熱度</h4>
+                        <div class="dashboard-chart-container">
+                            <div class="bar-chart" id="dashTrendChart"></div>
+                        </div>
+                    </div>
+                </div> <!-- End tab-overview -->
+
+                <div id="tab-audit" class="tab-content" style="display:none;">
+                    <div class="audit-log-container">
+                        <div class="audit-header">
+                            <p class="audit-desc">僅顯示最近 50 筆操作紀錄</p>
+                            <button id="btnRefreshLogs" class="btn-refresh-logs">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M23 4v6h-6"></path>
+                                    <path d="M1 20v-6h6"></path>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                    </path>
+                                </svg>
+                                刷新
+                            </button>
+                        </div>
+                        <div id="auditLogList" class="audit-log-list">
+                            <div class="loading-spinner"></div>
+                        </div>
                     </div>
                 </div>
             </div>
