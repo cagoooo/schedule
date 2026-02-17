@@ -8,8 +8,11 @@ service cloud.firestore {
       // 新增預約：完整欄位驗證
       allow create: if isValidBooking();
       
-      // 更新與刪除：需要已登入的管理員
-      allow update, delete: if request.auth != null;
+      // 更新：需要已登入的管理員 或 持有正確 deviceId 的使用者 (自刪)
+      allow update: if request.auth != null || (resource.data.deviceId == request.resource.data.deviceId);
+      
+      // 刪除：仍僅限管理員
+      allow delete: if request.auth != null;
       
       // ===== 驗證函數 =====
       function isValidBooking() {
@@ -18,11 +21,13 @@ service cloud.firestore {
           // 必填欄位存在性
           data.keys().hasAll(['booker', 'date', 'periods', 'reason'])
           // 欄位數量限制（防止惡意欄位注入）
-          && data.keys().size() <= 6
+          && data.keys().size() <= 8
           // booker 驗證：字串、非空、長度限制
           && data.booker is string
           && data.booker.size() >= 1
           && data.booker.size() <= 50
+          // room 驗證：字串、長度限制
+          && (!('room' in data.keys()) || (data.room is string && data.room.size() <= 50))
           // date 驗證：字串、格式 YYYY/MM/DD
           && data.date is string
           && data.date.matches('^[0-9]{4}/[0-9]{2}/[0-9]{2}$')

@@ -4394,4 +4394,221 @@ body {
         border-radius: 0 0 20px 20px;
         margin-bottom: -1rem;
     }
+}/* ===== ??閰單?敶? (Glassmorphism & Vibrant Design) ===== */
+
+/* 敶??桃蔗嚗?撘瑟芋蝟????*/
+.delete-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    /* 瘛梯??? */
+    backdrop-filter: blur(8px);
+    /* ?璅∠? */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2100;
+    /* 擃?嗡??惜 */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.delete-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 敶??祇?嚗lassmorphism + Claymorphism */
+.delete-modal {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px;
+    width: 90%;
+    max-width: 420px;
+    /* 蝔凝?祝 */
+    padding: 0;
+    /* 蝘駁?扯?嚗摮?蝝??*/
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    /* ?折?? */
+    transform: scale(0.9) translateY(20px);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* 敶批???*/
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    overflow: hidden;
+}
+
+.delete-modal-overlay.active .delete-modal {
+    transform: scale(1) translateY(0);
+}
+
+/* 璅????瞍詨惜? */
+.delete-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* ?蜓?脰矽銝??*/
+    padding: 1.5rem;
+    color: white;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 璅??鋆ˇ */
+.delete-modal-header::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.delete-modal-header svg {
+    width: 48px;
+    height: 48px;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    margin-bottom: 0.25rem;
+}
+
+.delete-modal-header h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ?批捆???憭批?擃?皜?? */
+.delete-booking-info {
+    padding: 2rem 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    line-height: 1.8;
+    text-align: left;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8faff 100%);
+}
+
+.delete-booking-info strong {
+    color: var(--primary-dark);
+    font-weight: 600;
+    display: inline-block;
+    width: 80px;
+    /* ?箏?璅惜撖砍漲 */
+    margin-right: 0.5rem;
+}
+
+/* ?????*/
+.delete-modal-actions {
+    padding: 1.25rem 1.5rem;
+    background: #f1f5f9;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.btn-delete-cancel,
+.btn-delete-confirm {
+    flex: 1;
+    padding: 0.8rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    /* 憓?閫豢???*/
+}
+
+/* 餈??? */
+.btn-delete-cancel {
+    background: white;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.btn-delete-cancel:hover {
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 蝣箄?/??????嚗悅鞊?/璈撓撅?*/
+.btn-delete-confirm {
+    background: linear-gradient(135deg, #FF6B6B 0%, #EE5253 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(238, 82, 83, 0.4);
+}
+
+.btn-delete-confirm:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(238, 82, 83, 0.5);
+    filter: brightness(1.1);
+}
+
+.btn-delete-confirm:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* ?????*/
+@media (max-width: 480px) {
+    .delete-modal {
+        width: 95%;
+        max-width: none;
+        border-radius: 20px;
+    }
+
+    .delete-booking-info {
+        font-size: 1rem;
+        padding: 1.5rem;
+    }
+
+    .delete-booking-info strong {
+        display: block;
+        /* ????蝐斗?銵?*/
+        width: auto;
+        margin-bottom: 0.1rem;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+}
+
+/* .info-item new structure */
+.info-item {
+    display: flex;
+    margin-bottom: 0.8rem;
+    align-items: flex-start;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-item strong {
+    min-width: 80px;
+    color: var(--primary-dark);
+    font-weight: 600;
+}
+
+.info-item span {
+    flex: 1;
+    word-break: break-all;
+    line-height: 1.5;
+}
+

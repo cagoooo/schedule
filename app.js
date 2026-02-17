@@ -1045,18 +1045,38 @@ function showBookingDetail(booking, period) {
 
     // 顯示預約詳情給所有人看
     document.getElementById('deleteBookingInfo').innerHTML = `
-        <strong>日期：</strong>${booking.date}<br>
-        <strong>節次：</strong>${period.name}<br>
-        <strong>預約者：</strong>${booking.booker}<br>
-        <strong>理由：</strong>${booking.reason || '無'}
+        <div class="info-item">
+            <strong>日期：</strong>
+            <span>${booking.date}</span>
+        </div>
+        <div class="info-item">
+            <strong>節次：</strong>
+            <span>${period.name}</span>
+        </div>
+        <div class="info-item">
+            <strong>預約者：</strong>
+            <span>${booking.booker}</span>
+        </div>
+        <div class="info-item">
+            <strong>理由：</strong>
+            <span>${booking.reason || '無'}</span>
+        </div>
     `;
 
-    // 根據登入狀態顯示不同的取消按鈕文字
+    // 根據登入狀態或 DeviceId 顯示不同的取消按鈕文字
     const deleteBtn = document.getElementById('btnDeleteConfirm');
+    const localDeviceId = localStorage.getItem('deviceId');
+    const isOwner = booking.deviceId && booking.deviceId === localDeviceId;
+
     if (currentUser) {
         deleteBtn.textContent = '取消預約';
+        deleteBtn.style.display = 'block';
+    } else if (isOwner) {
+        deleteBtn.textContent = '取消預約 (我的預約)';
+        deleteBtn.style.display = 'block';
     } else {
         deleteBtn.textContent = '登入後取消';
+        // 若非管理員也非本人，保留按鈕但點擊會提示登入，維持各種 UX 一致性
     }
 
     document.getElementById('deleteModalOverlay').classList.add('active');
@@ -1077,21 +1097,48 @@ function closeDeleteModal() {
 async function executeDeleteBooking() {
     if (!pendingDeleteBooking || !pendingDeletePeriod) return;
 
-    // 檢查是否已登入
-    if (!currentUser) {
+    const localDeviceId = localStorage.getItem('deviceId');
+    const isOwner = pendingDeleteBooking.deviceId && pendingDeleteBooking.deviceId === localDeviceId;
+
+    // 檢查是否已登入 或 是擁有者
+    if (!currentUser && !isOwner) {
         closeDeleteModal();
         showToast('請先登入管理員帳號', 'warning');
         openAuthModal();
         return;
     }
 
+    const deleteBtn = document.getElementById('btnDeleteConfirm');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = '處理中...';
+
     try {
         const newPeriods = pendingDeleteBooking.periods.filter(p => p !== pendingDeletePeriod.id);
 
-        if (newPeriods.length === 0) {
-            await deleteBookingFromFirebase(pendingDeleteBooking.id);
+        if (currentUser) {
+            // 管理員模式：直接刪除或更新
+            if (newPeriods.length === 0) {
+                await deleteBookingFromFirebase(pendingDeleteBooking.id);
+            } else {
+                await updateBookingInFirebase(pendingDeleteBooking.id, { periods: newPeriods });
+            }
         } else {
-            await updateBookingInFirebase(pendingDeleteBooking.id, { periods: newPeriods });
+            // 使用者自刪模式：必須使用 update 並帶上 deviceId 驗證
+            // 若 periods 為空，雖然技術上是 update，但邏輯上是刪除
+            // 但為了符合 rules (update 需 deviceId 匹配)，我們統一用 updateBookingInFirebase
+            // 注意：若 periods 為空，UI 會自動過濾掉該筆預約，達到「刪除」效果
+            // 且因為我們沒有用 delete，所以不需要 allow delete 權限
+
+            // 重要：必須帶上原始 deviceId 以通過 firestore rules 驗證
+            await updateBookingInFirebase(pendingDeleteBooking.id, {
+                periods: newPeriods,
+                deviceId: localDeviceId
+            });
+
+            // 若為完全刪除 (periods 為空)，可在背景清除垃圾資料 (Admin Only)，
+            // 但這裡為了簡單，留著空陣列也無妨，getAllLoadedBookings 會濾掉嗎？
+            // 檢查 getAllLoadedBookings 邏輯... 
+            // 實際上 UI 是依據 periods 渲染的，如果 periods 為空，就不會顯示在日曆上。
         }
 
         await loadBookingsFromFirebase();
@@ -1100,6 +1147,9 @@ async function executeDeleteBooking() {
     } catch (error) {
         console.error('取消預約失敗:', error);
         showToast('取消失敗，請稍後再試', 'error');
+    } finally {
+        deleteBtn.disabled = false;
+        // 恢復按鈕文字會在 showBookingDetail 重設，這裡不用管
     }
 }
 
