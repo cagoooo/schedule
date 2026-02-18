@@ -4040,6 +4040,14 @@ body {
     margin-top: 0.25rem;
 }
 
+/* Empty state for trend bar */
+.trend-bar.is-empty {
+    background: #e2e8f0 !important;
+    box-shadow: none !important;
+    opacity: 0.5;
+    background-image: none !important;
+}
+
 /* Rainbow Spectrum 漸層色系 */
 .trend-bar-wrapper:nth-child(15n+1) .trend-bar {
     background: linear-gradient(180deg, #EF4444 0%, #F87171 100%);

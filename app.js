@@ -1568,14 +1568,19 @@ function renderTodayTrend(bookings) {
     const maxVal = Math.max(...Object.values(counts), 1); // 避免除以 0
 
     // 生成 HTML (樣式完全由 CSS 控制)
+    // 生成 HTML (樣式完全由 CSS 控制)
     chart.innerHTML = PERIODS.map((p, i) => {
         const count = counts[p.id];
         const height = (count / maxVal) * 100;
+        const isEmpty = count === 0;
+
+        // 如果是 0，不設定高度 (讓 CSS min-height: 4px 生效)，否則設定百分比 (至少 5%)
+        const style = isEmpty ? '' : `style="height:${Math.max(height, 5)}%;"`;
 
         return `
             <div class="trend-bar-wrapper">
                 <div class="trend-value">${count > 0 ? count : ''}</div>
-                <div class="trend-bar" style="height:${Math.max(height, 5)}%;" title="${p.name}: ${count}筆"></div>
+                <div class="trend-bar ${isEmpty ? 'is-empty' : ''}" ${style} title="${p.name}: ${count}筆"></div>
                 <div class="trend-label">${p.name.substring(0, 2)}</div>
             </div>
         `;
