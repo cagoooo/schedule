@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.37.5</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.37.5">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.38.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.38.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.v2.37.0.css">
+    <link rel="stylesheet" href="styles.v2.38.0.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#667eea">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -569,6 +569,7 @@
                 <div class="dashboard-tabs">
                     <button class="tab-btn active" data-tab="overview">總覽</button>
                     <button class="tab-btn" data-tab="audit">系統日誌</button>
+                    <button class="tab-btn" data-tab="analytics">📊 進階分析</button>
                 </div>
                 <div class="dashboard-actions" style="display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn-export-csv" id="btnExportCSV" title="匯出預約資料 (完整)">
@@ -689,6 +690,145 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 進階分析 Tab -->
+                <div id="tab-analytics" class="tab-content" style="display:none;">
+                    <!-- 學期區間選擇器 -->
+                    <div class="analytics-controls">
+                        <div class="analytics-range-group">
+                            <label>分析區間：</label>
+                            <input type="date" id="analyticsStart" class="analytics-date-input">
+                            <span>~</span>
+                            <input type="date" id="analyticsEnd" class="analytics-date-input">
+                        </div>
+                        <button id="btnRunAnalytics" class="btn-run-analytics">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            重新分析
+                        </button>
+                    </div>
+                    <!-- 總覽統計卡 -->
+                    <div class="analytics-summary-cards" id="analyticsSummaryCards">
+                        <div class="analytics-kpi">
+                            <div class="kpi-val" id="kpiTotalBookings">--</div>
+                            <div class="kpi-label">總預約筆數</div>
+                        </div>
+                        <div class="analytics-kpi">
+                            <div class="kpi-val" id="kpiTotalPeriods">--</div>
+                            <div class="kpi-label">總節次使用</div>
+                        </div>
+                        <div class="analytics-kpi">
+                            <div class="kpi-val" id="kpiUniqBookers">--</div>
+                            <div class="kpi-label">不同預約者</div>
+                        </div>
+                        <div class="analytics-kpi">
+                            <div class="kpi-val" id="kpiCancelCount">--</div>
+                            <div class="kpi-label">取消筆數</div>
+                        </div>
+                    </div>
+
+                    <!-- 1. 學期使用率熱力圖 -->
+                    <div class="analytics-section">
+                        <h4 class="analytics-section-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                            學期使用率熱力圖
+                        </h4>
+                        <p class="analytics-desc">每格代表一天，顏色越深代表當天預約節次越多</p>
+                        <div class="heatmap-scroll-wrapper">
+                            <div class="heatmap-month-labels" id="heatmapMonthLabels"></div>
+                            <div class="heatmap-container">
+                                <div class="heatmap-weekday-labels">
+                                    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                                </div>
+                                <div class="heatmap-grid" id="heatmapGrid"></div>
+                            </div>
+                        </div>
+                        <div class="heatmap-legend">
+                            <span class="legend-label">少</span>
+                            <span class="heatmap-cell level-0"></span>
+                            <span class="heatmap-cell level-1"></span>
+                            <span class="heatmap-cell level-2"></span>
+                            <span class="heatmap-cell level-3"></span>
+                            <span class="heatmap-cell level-4"></span>
+                            <span class="legend-label">多</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. 場地使用率排行榜 -->
+                    <div class="analytics-section">
+                        <h4 class="analytics-section-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                            </svg>
+                            場地使用率排行榜
+                        </h4>
+                        <p class="analytics-desc">各場地全期節次使用總量排行</p>
+                        <div id="venueRankingChart" class="analytics-bar-list"></div>
+                    </div>
+
+                    <!-- 3. 使用者預約頻率 Top 10 -->
+                    <div class="analytics-section">
+                        <h4 class="analytics-section-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                            最活躍預約者 Top 10
+                        </h4>
+                        <p class="analytics-desc">依節次使用總數計算（含同一天多節次加總）</p>
+                        <div id="userFrequencyChart" class="analytics-bar-list"></div>
+                    </div>
+
+                    <!-- 4. 取消率分析 -->
+                    <div class="analytics-section">
+                        <h4 class="analytics-section-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="15" y1="9" x2="9" y2="15" />
+                                <line x1="9" y1="9" x2="15" y2="15" />
+                            </svg>
+                            各場地取消率分析
+                        </h4>
+                        <p class="analytics-desc">取消率 = 取消筆數 ÷（成立 + 取消）總筆數</p>
+                        <div id="cancellationChart" class="analytics-bar-list"></div>
+                    </div>
+
+                    <!-- 5. 預約提前天數分佈 -->
+                    <div class="analytics-section">
+                        <h4 class="analytics-section-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            預約提前天數分佈
+                        </h4>
+                        <p class="analytics-desc">了解老師提前多少天預約（依 createdAt 與預約日期計算）</p>
+                        <div id="leadTimeChart" class="analytics-histogram"></div>
+                        <div class="histogram-labels">
+                            <span>當天</span><span>1–3天</span><span>4–7天</span><span>8–14天</span><span>15天+</span>
+                        </div>
+                    </div>
+
+                    <!-- 載入中狀態 -->
+                    <div id="analyticsLoading" class="analytics-loading hidden">
+                        <div class="loading-spinner"></div>
+                        <p>正在分析資料...</p>
+                    </div>
+                </div><!-- End tab-analytics -->
             </div>
             <div class="dashboard-footer">
                 <span class="dashboard-time" id="dashUpdateTime">最後更新：--:--</span>

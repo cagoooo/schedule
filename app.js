@@ -1418,6 +1418,8 @@ async function loadDashboardData() {
 
             if (tab.dataset.tab === 'audit') {
                 loadAuditLogs();
+            } else if (tab.dataset.tab === 'analytics') {
+                loadAdvancedAnalytics();
             }
         });
     });
@@ -1589,6 +1591,379 @@ function renderTodayTrend(bookings) {
     // 移除舊的行內樣式，這些現在都由 CSS .bar-chart 控制
     chart.style = '';
     chart.className = 'bar-chart';
+}
+
+// ===== Analytics v2 — 進階分析儀表板 =====
+
+/**
+ * 計算本學期起訖日（上學期：8/1~1/31，下學期：2/1~7/31）
+ * @returns {{ start: Date, end: Date }}
+ */
+function getSemesterRange() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1; // 1-12
+    let start, end;
+    if (m >= 8) {
+        // 上學期：本年 8/1 ~ 次年 1/31
+        start = new Date(y, 7, 1);
+        end = new Date(y + 1, 0, 31);
+    } else {
+        // 下學期：本年 2/1 ~ 7/31
+        start = new Date(y, 1, 1);
+        end = new Date(y, 6, 31);
+    }
+    return { start, end };
+}
+
+/**
+ * 進階分析儀表板主入口
+ */
+async function loadAdvancedAnalytics() {
+    // 初始化日期選擇器（若尚未設定）
+    const startInput = document.getElementById('analyticsStart');
+    const endInput = document.getElementById('analyticsEnd');
+    if (!startInput.value || !endInput.value) {
+        const { start, end } = getSemesterRange();
+        startInput.value = formatDateISO(start);
+        endInput.value = formatDateISO(end);
+    }
+
+    // 綁定「重新分析」按鈕（防止重複綁定）
+    const runBtn = document.getElementById('btnRunAnalytics');
+    if (runBtn && !runBtn._analyticsBound) {
+        runBtn._analyticsBound = true;
+        runBtn.addEventListener('click', runAnalyticsWithRange);
+    }
+
+    await runAnalyticsWithRange();
+}
+
+async function runAnalyticsWithRange() {
+    const startInput = document.getElementById('analyticsStart');
+    const endInput = document.getElementById('analyticsEnd');
+    const startStr = startInput.value; // 'YYYY-MM-DD'
+    const endStr = endInput.value;
+    if (!startStr || !endStr) { showToast('請選擇分析區間', 'warning'); return; }
+
+    // 轉換為 Firestore 查詢格式 YYYY/MM/DD
+    const toFSDate = iso => iso.replace(/-/g, '/');
+    const fsStart = toFSDate(startStr);
+    const fsEnd = toFSDate(endStr);
+
+    // 顯示載入中
+    const loadingEl = document.getElementById('analyticsLoading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+
+    try {
+        // 一次拉取區間內全部預約（含已清空的取消紀錄）
+        const snapshot = await bookingsCollection
+            .where('date', '>=', fsStart)
+            .where('date', '<=', fsEnd)
+            .get();
+
+        const allDocs = [];
+        snapshot.forEach(doc => allDocs.push({ id: doc.id, ...doc.data() }));
+
+        // 有效預約（periods 非空）
+        const validBookings = allDocs.filter(b => b.periods && b.periods.length > 0);
+        // 已取消（periods 清空）
+        const cancelledBookings = allDocs.filter(b => !b.periods || b.periods.length === 0);
+
+        // 更新 KPI 卡
+        const allBookers = new Set(validBookings.map(b => b.booker));
+        const totalPeriods = validBookings.reduce((s, b) => s + b.periods.length, 0);
+        document.getElementById('kpiTotalBookings').textContent = validBookings.length;
+        document.getElementById('kpiTotalPeriods').textContent = totalPeriods;
+        document.getElementById('kpiUniqBookers').textContent = allBookers.size;
+        document.getElementById('kpiCancelCount').textContent = cancelledBookings.length;
+
+        // 各圖表渲染
+        buildHeatmap(validBookings, startStr, endStr);
+        buildVenueRanking(validBookings);
+        buildUserFrequency(validBookings);
+        buildCancellationAnalysis(allDocs);
+        buildLeadTimeDistribution(validBookings);
+
+    } catch (err) {
+        console.error('Analytics 載入失敗:', err);
+        showToast('分析資料載入失敗', 'error');
+    } finally {
+        if (loadingEl) loadingEl.classList.add('hidden');
+    }
+}
+
+/**
+ * 建立學期使用率熱力圖
+ */
+function buildHeatmap(bookings, startISO, endISO) {
+    const grid = document.getElementById('heatmapGrid');
+    const monthLabelsEl = document.getElementById('heatmapMonthLabels');
+    if (!grid) return;
+
+    // 統計每日節次數
+    const dayCount = {};
+    bookings.forEach(b => {
+        const key = b.date; // 'YYYY/MM/DD'
+        dayCount[key] = (dayCount[key] || 0) + (b.periods ? b.periods.length : 1);
+    });
+    const maxVal = Math.max(...Object.values(dayCount), 1);
+
+    // 決定顏色等級
+    const getLevel = (count) => {
+        if (!count) return 0;
+        if (count <= maxVal * 0.25) return 1;
+        if (count <= maxVal * 0.50) return 2;
+        if (count <= maxVal * 0.75) return 3;
+        return 4;
+    };
+
+    // 從 startISO 往前到該週一
+    const start = new Date(startISO);
+    const end = new Date(endISO);
+    // 將 start 往前退到週一 (getDay(): 0=日,1=一...)
+    const startDay = start.getDay(); // 0=日
+    const offset = startDay === 0 ? 6 : startDay - 1;
+    const gridStart = new Date(start);
+    gridStart.setDate(start.getDate() - offset);
+
+    grid.innerHTML = '';
+    monthLabelsEl.innerHTML = '';
+
+    const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const CELL_SIZE = 16; // px（cell 13 + gap 3）
+    let prevMonth = -1;
+
+    let weekCol = null;
+    let dayCursor = new Date(gridStart);
+    let weekCount = 0;
+
+    while (dayCursor <= end) {
+        const dow = dayCursor.getDay() === 0 ? 6 : dayCursor.getDay() - 1; // 0=Mon..6=Sun
+        if (dow === 0) {
+            weekCol = document.createElement('div');
+            weekCol.className = 'heatmap-week-col';
+            grid.appendChild(weekCol);
+            weekCount++;
+
+            // 月份標籤
+            const cm = dayCursor.getMonth();
+            if (cm !== prevMonth) {
+                const lbl = document.createElement('span');
+                lbl.className = 'heatmap-month-label';
+                lbl.textContent = MONTH_NAMES[cm];
+                lbl.style.width = `${CELL_SIZE}px`;
+                // 後續位置用佔位格補齊
+                monthLabelsEl.appendChild(lbl);
+                prevMonth = cm;
+            } else {
+                const ph = document.createElement('span');
+                ph.style.width = `${CELL_SIZE}px`;
+                ph.style.display = 'inline-block';
+                monthLabelsEl.appendChild(ph);
+            }
+        }
+
+        const fsKey = formatDate(dayCursor);
+        const count = dayCount[fsKey] || 0;
+        const inRange = dayCursor >= start && dayCursor <= end;
+        const level = inRange ? getLevel(count) : 0;
+
+        const cell = document.createElement('span');
+        cell.className = `heatmap-cell level-${level}`;
+        cell.title = `${formatDate(dayCursor)}：${count} 節次`;
+        if (!inRange) cell.style.opacity = '0.3';
+        if (weekCol) weekCol.appendChild(cell);
+
+        dayCursor.setDate(dayCursor.getDate() + 1);
+    }
+}
+
+/**
+ * 場地使用率排行榜
+ */
+function buildVenueRanking(bookings) {
+    const container = document.getElementById('venueRankingChart');
+    if (!container) return;
+
+    // 統計各場地節次總數
+    const venueCount = {};
+    ROOMS.forEach(r => { venueCount[r] = 0; });
+    bookings.forEach(b => {
+        const room = b.room || '禮堂';
+        if (venueCount[room] !== undefined) {
+            venueCount[room] += (b.periods ? b.periods.length : 1);
+        }
+    });
+
+    const sorted = Object.entries(venueCount)
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">此區間無資料</div>';
+        return;
+    }
+    const maxVal = sorted[0][1];
+    const GRAD_COLORS = [
+        'linear-gradient(90deg,#667eea,#764ba2)',
+        'linear-gradient(90deg,#f093fb,#f5576c)',
+        'linear-gradient(90deg,#4facfe,#00f2fe)',
+        'linear-gradient(90deg,#43e97b,#38f9d7)',
+        'linear-gradient(90deg,#fa709a,#fee140)',
+        'linear-gradient(90deg,#a18cd1,#fbc2eb)',
+        'linear-gradient(90deg,#fda085,#f6d365)',
+        'linear-gradient(90deg,#89f7fe,#66a6ff)',
+        'linear-gradient(90deg,#fddb92,#d1fdff)',
+        'linear-gradient(90deg,#a1c4fd,#c2e9fb)',
+    ];
+    const rankClasses = ['gold', 'silver', 'bronze'];
+
+    container.innerHTML = sorted.map(([room, count], i) => {
+        const pct = (count / maxVal) * 100;
+        return `
+            <div class="analytics-bar-item">
+                <span class="analytics-bar-rank ${rankClasses[i] || ''}">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+                <span class="analytics-bar-label" title="${room}">${room}</span>
+                <div class="analytics-bar-track">
+                    <div class="analytics-bar-fill" style="width:${Math.max(pct, 2)}%;background:${GRAD_COLORS[i % GRAD_COLORS.length]}"></div>
+                </div>
+                <span class="analytics-bar-value">${count} 節</span>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * 最活躍使用者 Top 10
+ */
+function buildUserFrequency(bookings) {
+    const container = document.getElementById('userFrequencyChart');
+    if (!container) return;
+
+    const userCount = {};
+    bookings.forEach(b => {
+        const name = b.booker || '未知';
+        userCount[name] = (userCount[name] || 0) + (b.periods ? b.periods.length : 1);
+    });
+
+    const sorted = Object.entries(userCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">此區間無資料</div>';
+        return;
+    }
+    const maxVal = sorted[0][1];
+    const rankClasses = ['gold', 'silver', 'bronze'];
+
+    container.innerHTML = sorted.map(([name, count], i) => {
+        const pct = (count / maxVal) * 100;
+        return `
+            <div class="analytics-bar-item">
+                <span class="analytics-bar-rank ${rankClasses[i] || ''}">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+                <span class="analytics-bar-label" title="${name}">${name}</span>
+                <div class="analytics-bar-track">
+                    <div class="analytics-bar-fill" style="width:${Math.max(pct, 2)}%"></div>
+                </div>
+                <span class="analytics-bar-value">${count} 節</span>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * 各場地取消率分析
+ */
+function buildCancellationAnalysis(allDocs) {
+    const container = document.getElementById('cancellationChart');
+    if (!container) return;
+
+    // 統計各場地「成立」與「取消」筆數
+    const stats = {};
+    ROOMS.forEach(r => { stats[r] = { valid: 0, cancelled: 0 }; });
+
+    allDocs.forEach(b => {
+        const room = b.room || '禮堂';
+        if (!stats[room]) stats[room] = { valid: 0, cancelled: 0 };
+        const isEmpty = !b.periods || b.periods.length === 0;
+        if (isEmpty) stats[room].cancelled++;
+        else stats[room].valid++;
+    });
+
+    const sorted = Object.entries(stats)
+        .filter(([, v]) => v.valid + v.cancelled > 0)
+        .sort((a, b) => {
+            const rateA = a[1].cancelled / (a[1].valid + a[1].cancelled);
+            const rateB = b[1].cancelled / (b[1].valid + b[1].cancelled);
+            return rateB - rateA;
+        });
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">此區間無取消資料</div>';
+        return;
+    }
+    const maxRate = Math.max(...sorted.map(([, v]) => v.cancelled / (v.valid + v.cancelled)));
+
+    container.innerHTML = sorted.map(([room, { valid, cancelled }], i) => {
+        const total = valid + cancelled;
+        const rate = cancelled / total;
+        const pct = maxRate > 0 ? (rate / maxRate) * 100 : 0;
+        const rateStr = (rate * 100).toFixed(1) + '%';
+        return `
+            <div class="analytics-bar-item">
+                <span class="analytics-bar-rank">${i + 1}</span>
+                <span class="analytics-bar-label" title="${room}">${room}</span>
+                <div class="analytics-bar-track">
+                    <div class="analytics-bar-fill cancel-fill" style="width:${Math.max(pct, cancelled > 0 ? 2 : 0)}%"></div>
+                </div>
+                <span class="analytics-bar-value" style="color:#dc2626">${rateStr} (${cancelled}/${total})</span>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * 預約提前天數分佈直方圖
+ * 桶：0天 / 1~3天 / 4~7天 / 8~14天 / 15天+
+ */
+function buildLeadTimeDistribution(bookings) {
+    const container = document.getElementById('leadTimeChart');
+    if (!container) return;
+
+    const BUCKETS = [0, 0, 0, 0, 0];
+    const BUCKET_LABELS = ['當天', '1–3天', '4–7天', '8–14天', '15天+'];
+
+    bookings.forEach(b => {
+        if (!b.createdAt || !b.date) return;
+
+        let createdDate;
+        try {
+            createdDate = b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        } catch { return; }
+
+        const bookDate = parseDate(b.date); // YYYY/MM/DD → Date
+        if (!bookDate) return;
+
+        const diffMs = bookDate - createdDate;
+        const diffDays = Math.max(0, Math.floor(diffMs / 86400000));
+
+        if (diffDays === 0) BUCKETS[0]++;
+        else if (diffDays <= 3) BUCKETS[1]++;
+        else if (diffDays <= 7) BUCKETS[2]++;
+        else if (diffDays <= 14) BUCKETS[3]++;
+        else BUCKETS[4]++;
+    });
+
+    const maxVal = Math.max(...BUCKETS, 1);
+
+    container.innerHTML = BUCKETS.map((count, i) => {
+        const heightPct = (count / maxVal) * 100;
+        return `
+            <div class="histogram-bar-wrap">
+                <div class="histogram-bar-val">${count > 0 ? count : ''}</div>
+                <div class="histogram-bar" style="height:${Math.max(heightPct, count > 0 ? 5 : 1)}%"
+                    title="${BUCKET_LABELS[i]}：${count} 筆"></div>
+            </div>`;
+    }).join('');
 }
 
 // ===== CSV 匯出功能 =====
@@ -2198,6 +2573,7 @@ async function loadHistoryData() {
                 <div class="history-item">
                     <span class="history-date">${booking.date}</span>
                     <span class="history-period">${periodNames}</span>
+                    <span class="history-room">${booking.room || '禮堂'}</span>
                     <span class="history-booker">${booking.booker || '未知'}</span>
                     <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
                         <span class="history-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>

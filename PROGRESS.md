@@ -4,7 +4,16 @@
 
 ---
 
-## 📅 當前版本：v2.37.6 (2026-02-23) - PWA Title Hotfix
+## 📅 當前版本：v2.38.0 (2026-02-23) - Analytics v2 & History Enhancement
+
+- **New Feature**: **進階分析儀表板 (Analytics v2)** — 包含學期使用率熱力圖、場地排行、活躍預約者、取消率分析與預約提前天數直方圖。
+- **UI Enhancement**: **歷史紀錄優化** — 在歷史紀錄列表中新增綠色場地標籤 (Room Badge)，並將舊有未指定場地的紀錄自動預設顯示為「禮堂」。
+- **Optimization**: 全面採用原生 CSS 與 JavaScript 實現圖表，無外部依賴，確保載入速度與安全性。
+- **System**: 更新 CSS 至 `styles.v2.38.0.css`。
+
+---
+
+## 📅 v2.37.6 (2026-02-23) - PWA Title Hotfix
 
 - **Bug Fix**: 修正 PWA 安裝提示（右下角）的標題錯誤地顯示為「識生學坊」，已更正為「專科教室預約系統」。
 - **Root Cause**: 開發時複製了另一個專案的 HTML 片段，導致標題文字遺留錯誤。
