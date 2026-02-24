@@ -2399,6 +2399,7 @@ function renderSearchResults(results, searchTerm) {
     }
 
     listEl.innerHTML = results.map(booking => {
+        const roomName = (booking.room && booking.room !== '未知場地') ? booking.room : '禮堂';
         const periodNames = booking.periods
             .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
             .join('、');
@@ -2413,6 +2414,7 @@ function renderSearchResults(results, searchTerm) {
         return `
             <div class="search-result-item" data-booking-id="${booking.id}" data-date="${booking.date}">
                 <span class="search-result-date">${booking.date}</span>
+                <span class="search-result-room-badge">${roomName}</span>
                 <span class="search-result-period">${periodNames}</span>
                 <span class="search-result-booker">${bookerDisplay}</span>
                 <span class="search-result-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
