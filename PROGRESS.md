@@ -4,7 +4,21 @@
 
 ---
 
-## 📅 當前版本：v2.38.0 (2026-02-23) - Analytics v2 & History Enhancement
+## 📅 當前版本：v2.38.2 (2026-02-24) - UI Aesthetic & RWD Optimization
+
+- **UI Enhancement**: **統計區塊視覺強化** — 重新設計統計彈窗標題，將場地名稱以「Badge 標籤」形式呈現，並優化標題文字的層次感與顏色鑑別度。
+- **Optimization**: 加入 RWD 自動換行結構，確保長場地名稱（如 iPad 車）在手機端能正確排版。
+
+---
+
+## 📅 v2.38.1 (2026-02-24) - Stats Context Clarification
+
+- **UI Enhancement**: **統計區塊明確化** — 在「預約統計」彈窗標題中加入了當前選定的專科教室顯示，避免使用者誤以為統計數據代表全校場地，提升資訊透明度。
+- **System**: 更新 HTML 與 JavaScript 邏輯以支援動態標題更新。
+
+---
+
+## 📅 v2.38.0 (2026-02-23) - Analytics v2 & History Enhancement
 
 - **New Feature**: **進階分析儀表板 (Analytics v2)** — 包含學期使用率熱力圖、場地排行、活躍預約者、取消率分析與預約提前天數直方圖。
 - **UI Enhancement**: **歷史紀錄優化** — 在歷史紀錄列表中新增綠色場地標籤 (Room Badge)，並將舊有未指定場地的紀錄自動預設顯示為「禮堂」。

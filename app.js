@@ -2103,6 +2103,11 @@ async function loadStatsData() {
         }
 
         const room = getSelectedRoom();
+
+        // 更新統計彈窗標題顯示場地名稱
+        const displayEl = document.getElementById('statsRoomNameDisplay');
+        if (displayEl) displayEl.textContent = room;
+
         const allBookings = [];
         snapshot.forEach(doc => {
             const data = doc.data();
