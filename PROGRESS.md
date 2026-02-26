@@ -4,10 +4,11 @@
 
 ---
 
-## 📅 當前版本：v2.38.3 (2026-02-24) - Search Results UI Optimization
+## 📅 當前版本：v2.38.4 (2026-02-26) - Booking History & Search UI Refactor
 
-- **UI Enhancement**: **搜尋結果視覺強化** — 在搜尋結果列表中加入「專科教室 Badge 標籤」，提升多場地預約紀錄的辨識度。
-- **Optimization**: 統一搜尋結果標籤樣式，確保 RWD 佈局一致。
+- **UI Refactor**: **預約紀錄 UI 重構** — 統一「歷史紀錄」與「搜尋結果」的渲染邏輯。
+- **Optimization**: 優化多節次標籤顯示，增加 `flex-wrap` 支援。
+- **RWD Support**: 強化響應式佈局，手機版自動切換為垂直堆疊格式。
 
 ---
 

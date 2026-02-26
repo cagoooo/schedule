@@ -848,6 +848,10 @@ function renderPeriodCheckboxes(date) {
 function openBookingModal(dateStr) {
     selectedDate = dateStr;
 
+    // 初始化批次日曆顯示月份為所選日期之月份
+    const parsed = parseDate(dateStr);
+    batchDisplayMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+
     document.getElementById('modalDate').textContent = dateStr;
     document.getElementById('modalRoomSelect').value = getSelectedRoom(); // 同步當前選單場地
     document.getElementById('bookerName').value = '';
@@ -940,21 +944,16 @@ async function submitBooking() {
     }
 
     const room = document.getElementById('modalRoomSelect').value;
-    const datesToBook = [selectedDate];
 
-    // 檢查固定不開放時段
-    for (const dateStr of [selectedDate]) {
-        const dateObj = parseDate(dateStr);
-        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
-        for (const periodId of selectedPeriods) {
-            const slotId = `${dayId}_${periodId}`;
-            if (unavailableSlots.includes(slotId)) {
-                showToast(`${dateStr} 的 ${PERIODS.find(p => p.id === periodId).name} 為固定禁排時段`, 'error');
-                return;
-            }
-        }
+    // 整合預約日期：主日期 + 批次日期
+    let datesToBook = [selectedDate];
+    const isBatchMode = document.getElementById('batchBooking').checked;
+    if (isBatchMode && batchSelectedDates.length > 0) {
+        // 使用 Set 確保日期不重複（例如主日期可能也在批次清單中）
+        datesToBook = Array.from(new Set([...datesToBook, ...batchSelectedDates]));
     }
 
+    // 處理重複預約邏輯（僅針對主選取日期進行週重複擴展，這是目前的設計行為）
     if (repeatChecked && repeatEndDate) {
         const startDate = parseDate(selectedDate);
         const endDate = new Date(repeatEndDate);
@@ -963,8 +962,24 @@ async function submitBooking() {
         currentDate.setDate(currentDate.getDate() + 7);
 
         while (currentDate <= endDate) {
-            datesToBook.push(formatDate(currentDate));
+            const repeatDateStr = formatDate(currentDate);
+            if (!datesToBook.includes(repeatDateStr)) {
+                datesToBook.push(repeatDateStr);
+            }
             currentDate.setDate(currentDate.getDate() + 7);
+        }
+    }
+
+    // 檢查所有日期的固定不開放時段
+    for (const dateStr of datesToBook) {
+        const dateObj = parseDate(dateStr);
+        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
+        for (const periodId of selectedPeriods) {
+            const slotId = `${dayId}_${periodId}`;
+            if (unavailableSlots.includes(slotId)) {
+                showToast(`${dateStr} 的 ${PERIODS.find(p => p.id === periodId).name} 為固定禁排時段`, 'error');
+                return;
+            }
         }
     }
 
@@ -1006,6 +1021,16 @@ async function submitBooking() {
         }
         await batch.commit();
         recordBooking(); // 記錄本次預約用於 Rate Limiting
+
+        // 預約成功後，若是批次模式則重置狀態
+        if (isBatchMode) {
+            batchSelectedDates = [];
+            const batchBookingCheckbox = document.getElementById('batchBooking');
+            if (batchBookingCheckbox) batchBookingCheckbox.checked = false;
+            const batchContainer = document.getElementById('batchBookingContainer');
+            if (batchContainer) batchContainer.classList.add('hidden');
+            updateSelectedDatesDisplay();
+        }
 
         await loadBookingsFromFirebase();
         closeBookingModal();
@@ -2399,32 +2424,24 @@ function renderSearchResults(results, searchTerm) {
     }
 
     listEl.innerHTML = results.map(booking => {
-        const roomName = (booking.room && booking.room !== '未知場地') ? booking.room : '禮堂';
-        const periodNames = booking.periods
-            .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
-            .join('、');
-
-        // 高亮搜尋詞
-        let bookerDisplay = booking.booker;
-        if (searchTerm) {
-            const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-            bookerDisplay = booking.booker.replace(regex, '<span class="search-highlight">$1</span>');
-        }
+        const itemHTML = createBookingItemHTML(booking, {
+            searchTerm: searchTerm,
+            showDeleteBtn: false
+        });
 
         return `
             <div class="search-result-item" data-booking-id="${booking.id}" data-date="${booking.date}">
-                <span class="search-result-date">${booking.date}</span>
-                <span class="search-result-room-badge">${roomName}</span>
-                <span class="search-result-period">${periodNames}</span>
-                <span class="search-result-booker">${bookerDisplay}</span>
-                <span class="search-result-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
+                ${itemHTML}
             </div>
         `;
     }).join('');
 
     // 綁定點擊事件 - 跳轉到該週
     listEl.querySelectorAll('.search-result-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+            // 如果點擊的是按鈕或動作區域，不執行跳轉
+            if (e.target.closest('.history-actions') || e.target.closest('button')) return;
+
             const dateStr = item.dataset.date;
             const date = parseDate(dateStr);
             currentWeekStart = getMonday(date);
@@ -2492,6 +2509,68 @@ function initSearchEventListeners() {
 // ===== 歷史記錄功能 =====
 
 /**
+ * 統一產生預約記錄的 HTML 結構 (用於歷史紀錄與搜尋結果)
+ * @param {Object} booking 預約資料
+ * @param {Object} options 選項 { searchTerm, showDeleteBtn }
+ */
+function createBookingItemHTML(booking, options = {}) {
+    const { searchTerm = '', showDeleteBtn = false } = options;
+
+    const roomName = (booking.room && booking.room !== '未知場地') ? booking.room : '禮堂';
+
+    const periodTags = (booking.periods || [])
+        .map(pId => {
+            const name = PERIODS.find(p => p.id === pId)?.name || pId;
+            return `<span class="history-period-tag">${name}</span>`;
+        })
+        .join('');
+
+    // 關鍵字高亮處理
+    const highlight = (text, keyword) => {
+        if (!keyword || !text) return text || '-';
+        const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi');
+        return text.replace(regex, '<span class="highlight">$1</span>');
+    };
+
+    const bookerDisplay = highlight(booking.booker, searchTerm);
+    const reasonDisplay = highlight(booking.reason, searchTerm);
+
+    let deleteBtnHTML = '';
+    if (showDeleteBtn) {
+        const isOwner = booking.deviceId && booking.deviceId === localStorage.getItem('deviceId');
+        const isAdmin = !!firebase.auth().currentUser;
+
+        if (isAdmin || isOwner) {
+            // 存入全域供 onclick 使用 (已有的 window.historyBookings)
+            if (window.historyBookings) window.historyBookings[booking.id] = booking;
+
+            deleteBtnHTML = `
+                <button class="btn-history-delete" onclick="showBookingDetail(window.historyBookings['${booking.id}'], null)" title="刪除此筆記錄">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>`;
+        }
+    }
+
+    return `
+        <div class="history-item">
+            <span class="history-date">${booking.date}</span>
+            <div class="history-periods-container">
+                ${periodTags}
+            </div>
+            <span class="history-room">${roomName}</span>
+            <span class="history-booker">${bookerDisplay}</span>
+            <div class="history-actions">
+                <span class="history-reason" title="${booking.reason || ''}">${reasonDisplay}</span>
+                ${deleteBtnHTML}
+            </div>
+        </div>
+    `;
+}
+
+/**
  * 開啟歷史記錄彈窗
  */
 function openHistoryModal() {
@@ -2549,45 +2628,15 @@ async function loadHistoryData() {
         historyList.innerHTML = '';
         snapshot.forEach(doc => {
             const booking = doc.data();
-            booking.id = doc.id; // 確保有 ID
+            booking.id = doc.id;
 
             // 過濾已刪除（空節次）的預約
             if (!booking.periods || booking.periods.length === 0) return;
 
-            // 存入全域變數供 onclick 使用 (如果 booking 很多可能會占記憶體，但歷史記錄有分頁/月限制，還好)
+            // 存入全域變數供 onclick 使用
             window.historyBookings[booking.id] = booking;
 
-            const periodNames = booking.periods
-                .map(pId => PERIODS.find(p => p.id === pId)?.name || pId)
-                .join('、');
-
-            const isOwner = booking.deviceId && booking.deviceId === localStorage.getItem('deviceId');
-            const isAdmin = !!firebase.auth().currentUser;
-
-
-            let deleteBtn = '';
-            if (isAdmin || isOwner) {
-                // onclick 呼叫 showBookingDetail(booking, null) 代表整筆刪除
-                deleteBtn = `<button class="btn-history-delete" onclick="showBookingDetail(window.historyBookings['${booking.id}'], null)" title="刪除此筆記錄">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                </button>`;
-            }
-
-            historyList.innerHTML += `
-                <div class="history-item">
-                    <span class="history-date">${booking.date}</span>
-                    <span class="history-period">${periodNames}</span>
-                    <span class="history-room">${booking.room || '禮堂'}</span>
-                    <span class="history-booker">${booking.booker || '未知'}</span>
-                    <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
-                        <span class="history-reason" title="${booking.reason || ''}">${booking.reason || '-'}</span>
-                        ${deleteBtn}
-                    </div>
-                </div>
-            `;
+            historyList.innerHTML += createBookingItemHTML(booking, { showDeleteBtn: true });
         });
 
         showToast(`已載入 ${snapshot.size} 筆記錄`, 'success');
@@ -2612,6 +2661,7 @@ function initHistoryEventListeners() {
 // ===== 批次預約功能 =====
 
 let batchSelectedDates = [];
+let batchDisplayMonth = new Date(); // 追蹤批次日曆目前顯示的月份
 
 /**
  * 初始化批次預約功能
@@ -2641,17 +2691,30 @@ function renderBatchCalendar() {
     const calendar = document.getElementById('batchCalendar');
     if (!calendar) return;
 
+    const year = batchDisplayMonth.getFullYear();
+    const month = batchDisplayMonth.getMonth();
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
 
     // 取得該月第一天和最後一天
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
+    // 建立導覽標頭
+    let html = `
+        <div class="batch-calendar-header" style="grid-column: span 7; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px;">
+            <button type="button" onclick="changeBatchMonth(-1)" style="background:none; border:none; cursor:pointer; padding:5px; color:var(--primary-color); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">${year}年${month + 1}月</span>
+            <button type="button" onclick="changeBatchMonth(1)" style="background:none; border:none; cursor:pointer; padding:5px; color:var(--primary-color); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+    `;
+
     // 星期標題
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-    let html = weekdays.map(d => `<div class="batch-calendar-day" style="background:#f0f0f0;cursor:default;">${d}</div>`).join('');
+    html += weekdays.map(d => `<div class="batch-calendar-day" style="background:#f0f0f0;cursor:default;font-weight:700;">${d}</div>`).join('');
 
     // 填充空白
     for (let i = 0; i < firstDay.getDay(); i++) {
@@ -2662,7 +2725,8 @@ function renderBatchCalendar() {
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
         const isSelected = batchSelectedDates.includes(dateStr);
-        const isPast = new Date(year, month, day) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dayDate = new Date(year, month, day);
+        const isPast = dayDate < new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         html += `
             <div class="batch-calendar-day ${isSelected ? 'selected' : ''} ${isPast ? 'disabled' : ''}" 
@@ -2674,6 +2738,14 @@ function renderBatchCalendar() {
     }
 
     calendar.innerHTML = html;
+}
+
+/**
+ * 切換批次日曆月份
+ */
+function changeBatchMonth(offset) {
+    batchDisplayMonth.setMonth(batchDisplayMonth.getMonth() + offset);
+    renderBatchCalendar();
 }
 
 /**

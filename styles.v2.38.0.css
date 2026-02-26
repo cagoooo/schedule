@@ -2996,21 +2996,20 @@ body {
 }
 
 .search-result-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-left: 4px solid var(--primary-color);
-    border-radius: var(--radius-sm);
-    transition: var(--transition-fast);
     cursor: pointer;
+    transition: var(--transition-fast);
 }
 
-.search-result-item:hover {
-    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-    transform: translateX(4px);
+.search-result-item .history-item {
+    margin-bottom: 0.75rem;
+    border-left-color: #10b981;
+}
+
+.search-result-item:hover .history-item {
+    background: #f0fdf4;
+    border-color: #10b981;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
 }
 
 .search-result-date {
@@ -3461,58 +3460,105 @@ body {
 
 .history-item {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem;
-    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    background: white;
     border: 1px solid var(--border-color);
-    border-left: 4px solid #8b5cf6;
-    border-radius: var(--radius-sm);
+    border-left: 5px solid #8b5cf6;
+    border-radius: var(--radius-md);
     transition: var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
 }
 
 .history-item:hover {
-    transform: translateX(4px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .history-date {
     min-width: 100px;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.05rem;
     color: var(--text-primary);
+    padding-top: 2px;
 }
 
-.history-period {
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-    color: white;
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    white-space: nowrap;
+.history-periods-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex: 3;
+    /* 給予更多空間放標籤 */
+    min-width: 180px;
+}
+
+.history-period-tag {
+    background: #f3f0ff;
+    color: #6d28d9;
+    padding: 0.3rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: normal;
+    /* 改為 normal 確保標籤內文字也可換行，或維持 nowrap 但容器必須 wrap */
+    border: 1px solid #ddd6fe;
 }
 
 .history-room {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    padding: 0.2rem 0.6rem;
+    background: #ecfdf5;
+    color: #059669;
+    padding: 0.4rem 0.85rem;
     border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 700;
     white-space: nowrap;
+    border: 1px solid #d1fae5;
 }
 
 .history-booker {
-    flex: 1;
-    color: var(--text-secondary);
-    font-weight: 500;
+    min-width: 80px;
+    color: var(--dash-text-main);
+    font-weight: 600;
+    font-size: 1rem;
 }
 
 .history-reason {
-    max-width: 200px;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: 2;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.history-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+    align-self: flex-start;
+}
+
+.btn-history-delete {
+    background: #fee2e2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-history-delete:hover {
+    background: #ef4444;
+    color: white;
+    transform: scale(1.1);
 }
 
 /* ===== 批次預約功能 ===== */
@@ -3608,13 +3654,49 @@ body {
     }
 
     .history-item {
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+
+    .history-date {
+        font-size: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+        width: 100%;
+    }
+
+    .history-periods-container {
+        min-width: 0;
+        flex: none;
+        padding: 0.25rem 0;
+    }
+
+    .history-room {
+        align-self: flex-start;
+    }
+
+    .history-booker {
+        font-size: 0.95rem;
+        padding: 0.25rem 0;
+    }
+
+    .history-actions {
+        width: 100%;
+        margin-left: 0;
+        border-top: 1px solid var(--border-color);
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+        justify-content: flex-end;
+        align-items: center;
     }
 
     .history-reason {
         max-width: none;
         width: 100%;
-        margin-top: 0.5rem;
+        font-size: 0.9rem;
     }
 }
 
