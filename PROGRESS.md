@@ -4,7 +4,14 @@
 
 ---
 
-## 📅 當前版本：v2.38.4 (2026-02-26) - Booking History & Search UI Refactor
+## 📅 當前版本：v2.38.5 (2026-03-19) - Reservation Limit Adjustment
+
+- **Logic Update**: **預約頻率限制放寬** — 將每小時預約次數由 5 次提升至 20 次，每日次數由 10 次提升至 50 次，優化老師連續預約多個時段的體驗。
+- **Documentation**: 同步更新 `README.md` 與 `PROGRESS.md` 的版本資訊。
+
+---
+
+## 📅 v2.38.4 (2026-02-26) - Booking History & Search UI Refactor
 
 - **UI Refactor**: **預約紀錄 UI 重構** — 統一「歷史紀錄」與「搜尋結果」的渲染邏輯。
 - **Optimization**: 優化多節次標籤顯示，增加 `flex-wrap` 支援。
