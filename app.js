@@ -48,8 +48,8 @@ let unavailableSlots = []; // 當前場地的不開放時段 (例如: ["mon_peri
 
 // ===== Rate Limiting 設定 =====
 const RATE_LIMIT = {
-    maxBookingsPerHour: 20,      // 每小時最多預約次數
-    maxBookingsPerDay: 50,      // 每天最多預約次數
+    maxBookingsPerHour: 30,      // 每小時最多預約次數
+    maxBookingsPerDay: 100,     // 每天最多預約次數
     storageKey: 'bookingRateLimit'
 };
 

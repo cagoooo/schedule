@@ -4,10 +4,15 @@
 
 ---
 
-## 📅 當前版本：v2.38.5 (2026-03-19) - Reservation Limit Adjustment
+## 📅 當前版本：v2.38.6 (2026-03-23) - Further Rate Limit Relaxation
 
-- **Logic Update**: **預約頻率限制放寬** — 將每小時預約次數由 5 次提升至 20 次，每日次數由 10 次提升至 50 次，優化老師連續預約多個時段的體驗。
-- **Documentation**: 同步更新 `README.md` 與 `PROGRESS.md` 的版本資訊。
+- **Logic Update**: **預約頻率限制再放寬** — 將每小時預約次數提升至 30 次，每日次數提升至 100 次。
+- **System**: 更新 `sw.js` 快取名稱為 `v2.38.6`，解決舊版限制 5 次的快取殘留問題。
+- **Documentation**: 同步更新 `README.md` 與 `index.html` 的版本資訊。
+
+---
+
+## 📅 v2.38.5 (2026-03-19) - Reservation Limit Adjustment
 
 ---
 
