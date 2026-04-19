@@ -1,6 +1,6 @@
-// Service Worker v2.41.8 - Batch Cancel Permission Fix
-const CACHE_NAME = 'booking-system-v2.41.8';
-const APP_VERSION = 'v2.41.8';
+// Service Worker v2.42.0 - IndexedDB Persistence (Firestore Offline)
+const CACHE_NAME = 'booking-system-v2.42.0';
+const APP_VERSION = 'v2.42.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

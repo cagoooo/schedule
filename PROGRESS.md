@@ -4,7 +4,48 @@
 
 ---
 
-## 📅 當前版本：v2.41.8 (2026-04-19) - 批次取消權限漏洞修補
+## 📅 當前版本：v2.42.0 (2026-04-19) - IndexedDB 持久化快取 (C.1)
+
+### 💾 核心變更
+- 啟用 Firestore `enablePersistence({ synchronizeTabs: true })`：
+  - 自動將查過的資料快取到 IndexedDB
+  - 重複查詢相同範圍幾乎零延遲（不再打 server）
+  - 多分頁開啟時資料同步
+- 新增 `statsTrackedGet()` 包裝器收集快取命中率
+- 新增 `getCacheHitRate()` 函式可在 console 查看（管理員觀察用）
+
+### 🎯 預期效益
+
+| 指標 | 改善前 | 改善後 |
+| :--- | :---: | :---: |
+| 切換週次延遲 | 200~500ms | < 50ms (cache hit) |
+| Firestore 月讀取量 | ~2000 reads | ~600~800 reads (-60~70%) |
+| 離線使用 | ❌ 不可 | ✅ 可瀏覽既有資料 |
+| 跨分頁資料一致性 | ❌ 各自一份 | ✅ 同步 |
+
+### 🛡 容錯機制
+
+3 種失敗情境的處理：
+1. **多分頁衝突 (`failed-precondition`)**：仍可運作，但只有一個分頁享有持久化
+2. **瀏覽器不支援 (`unimplemented`)**：例如隱私模式 → 退回到記憶體快取
+3. **其他錯誤**：fallback 到原本行為，console.error 記錄
+
+### 📂 修改檔案
+
+- `app.js`: 在 Firebase init 後加入 `enablePersistence` + 新增 `statsTrackedGet` 包裝器（+50 行）
+- `app.js`: `loadBookingsFromFirebase` + `loadMonthBookings` 改用包裝器
+- `sw.js`、`index.html`、`README.md`：版本標示
+
+### 🧪 驗證方式
+
+1. **觀察命中率**：F12 Console 輸入 `cacheStats` 看統計
+2. **查命中率百分比**：`getCacheHitRate()` 回傳 0~100
+3. **看 Cache HIT log**：切換週次時 console 應出現 `[Cache HIT] 2026/04/13 ~ 2026/04/19 from IndexedDB`
+4. **離線測試**：DevTools → Network → Offline → 切換週次仍能看到資料
+
+---
+
+## 📅 v2.41.8 (2026-04-19) - 批次取消權限漏洞修補
 
 ### 🐛 嚴重安全漏洞（使用者實測發現）
 > 「我並沒有登入管理員帳號就可以到這一步了」

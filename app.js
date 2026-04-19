@@ -13,6 +13,63 @@ const bookingsCollection = db.collection('bookings');
 // v2.41.0 (M.1): 場地公告 collection
 const announcementsCollection = db.collection('roomAnnouncements');
 
+// ===== v2.42.0 (C.1): IndexedDB 本地快取 (Firestore Offline Persistence) =====
+// 啟用後 Firestore SDK 自動將資料快取到 IndexedDB:
+// - 切換週次/重複查詢時優先讀本地 (零延遲)
+// - 離線可繼續使用 (背景排隊, 上線時自動同步)
+// - 預期降低 Firestore 讀取量 60~70%
+let firestoreCacheReady = false;
+let firestoreCacheError = null;
+
+(function initFirestorePersistence() {
+    db.enablePersistence({ synchronizeTabs: true })
+        .then(() => {
+            firestoreCacheReady = true;
+            console.log('[Cache] ✅ IndexedDB persistence enabled (multi-tab sync)');
+        })
+        .catch((err) => {
+            firestoreCacheError = err.code;
+            if (err.code === 'failed-precondition') {
+                console.warn('[Cache] ⚠ Multiple tabs open — only one tab can have persistence');
+            } else if (err.code === 'unimplemented') {
+                console.warn('[Cache] ⚠ Browser does not support IndexedDB persistence');
+            } else {
+                console.error('[Cache] ❌ Persistence failed:', err);
+            }
+        });
+})();
+
+// v2.42.0 (C.1): Firestore 查詢統計 (顯示快取命中率供管理員觀察)
+const cacheStats = {
+    totalQueries: 0,
+    fromCache: 0,
+    fromServer: 0,
+};
+
+/**
+ * 包裝 Firestore .get() 收集快取統計
+ * @param {firebase.firestore.Query} query
+ * @returns {Promise<QuerySnapshot>}
+ */
+async function statsTrackedGet(query) {
+    cacheStats.totalQueries += 1;
+    const snap = await query.get();
+    if (snap.metadata && snap.metadata.fromCache) {
+        cacheStats.fromCache += 1;
+    } else {
+        cacheStats.fromServer += 1;
+    }
+    return snap;
+}
+
+/**
+ * 取得快取命中率 (供管理員觀察)
+ */
+function getCacheHitRate() {
+    if (cacheStats.totalQueries === 0) return 0;
+    return Math.round((cacheStats.fromCache / cacheStats.totalQueries) * 100);
+}
+
 // ===== 常數設定 =====
 const PERIODS = [
     { id: 'morning', name: '晨間/早會', time: '07:50~08:30' },
@@ -393,10 +450,12 @@ async function loadBookingsFromFirebase() {
         }
 
         const room = getSelectedRoom();
-        const snapshot = await bookingsCollection
-            .where('date', '>=', queryStart)
-            .where('date', '<=', queryEnd)
-            .get();
+        // v2.42.0: 透過 statsTrackedGet 收集快取命中率
+        const snapshot = await statsTrackedGet(
+            bookingsCollection
+                .where('date', '>=', queryStart)
+                .where('date', '<=', queryEnd)
+        );
 
         bookings = [];
         snapshot.forEach(doc => {
@@ -406,6 +465,11 @@ async function loadBookingsFromFirebase() {
                 bookings.push({ ...data, id: doc.id, room: bookingRoom });
             }
         });
+
+        // v2.42.0: 若是快取資料, 提示使用者 (debug 用, 不打擾)
+        if (snapshot.metadata?.fromCache) {
+            console.log(`[Cache HIT] ${queryStart} ~ ${queryEnd} loaded from IndexedDB (${bookings.length} bookings)`);
+        }
 
         // 載入場地不開放設定
         await loadRoomSettings(room);
@@ -447,10 +511,12 @@ async function loadMonthBookings() {
     const room = getSelectedRoom();
 
     try {
-        const snapshot = await bookingsCollection
-            .where('date', '>=', queryStart)
-            .where('date', '<=', queryEnd)
-            .get();
+        // v2.42.0: 透過 statsTrackedGet 收集快取命中率
+        const snapshot = await statsTrackedGet(
+            bookingsCollection
+                .where('date', '>=', queryStart)
+                .where('date', '<=', queryEnd)
+        );
 
         monthBookings = [];
         snapshot.forEach(doc => {
@@ -460,6 +526,10 @@ async function loadMonthBookings() {
                 monthBookings.push({ ...data, id: doc.id, room: bookingRoom });
             }
         });
+
+        if (snapshot.metadata?.fromCache) {
+            console.log(`[Cache HIT] Month ${queryStart}~${queryEnd} from IndexedDB`);
+        }
 
         // 載入場地不開放設定
         await loadRoomSettings(room);
