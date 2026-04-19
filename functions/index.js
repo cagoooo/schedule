@@ -2,6 +2,7 @@
  * Cloud Functions for 禮堂&專科教室預約系統
  * Phase 1 (v2.44.0): LINE 綁定基礎建設
  * Phase 2 (v2.45.0): 預約事件推播 (建立/取消/強刪)
+ * Phase 3 (v2.46.0): 排程提醒 + 管理員告警 (取代 Sentry)
  *
  * 安全提醒:
  * - LINE Channel Secret / Access Token 透過 Firebase Functions Secrets 注入
@@ -13,6 +14,7 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
@@ -692,3 +694,412 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
         );
     }
 );
+
+// ==========================================================================
+// Phase 3 (v2.46.0): 排程提醒 + 管理員告警
+// ==========================================================================
+
+// 節次開始時間 (24h 制) — 30 分鐘前提醒會用到
+const PERIOD_START_TIMES = {
+    morning: '07:50',
+    period1: '08:40',
+    period2: '09:30',
+    period3: '10:30',
+    period4: '11:20',
+    lunch: '12:00',
+    period5: '13:00',
+    period6: '13:50',
+    period7: '14:40',
+    period8: '15:30',
+};
+
+/**
+ * 將 'YYYY/MM/DD' + 'HH:MM' 轉成 Date 物件 (台灣時間)
+ */
+function parsePeriodDateTime(dateStr, periodId) {
+    const time = PERIOD_START_TIMES[periodId];
+    if (!time || !dateStr) return null;
+    // 'YYYY/MM/DD' → 'YYYY-MM-DDTHH:MM:00+08:00' (台灣時區)
+    const isoDate = dateStr.replace(/\//g, '-');
+    return new Date(`${isoDate}T${time}:00+08:00`);
+}
+
+/**
+ * 取得所有已註冊接收告警的管理員 LINE userIds
+ */
+async function getAdminLineUserIds() {
+    const snap = await db.collection('adminLineRecipients').get();
+    return snap.docs.map(d => d.data().lineUserId).filter(Boolean);
+}
+
+/**
+ * 推訊息給所有管理員 (用於系統告警)
+ */
+async function pushToAdmins(text, accessToken) {
+    const adminIds = await getAdminLineUserIds();
+    if (adminIds.length === 0) {
+        logger.warn('[pushToAdmins] 無註冊管理員可推播', { text: text.substring(0, 50) });
+        return;
+    }
+    const client = new line.messagingApi.MessagingApiClient({
+        channelAccessToken: accessToken,
+    });
+    const results = await Promise.allSettled(
+        adminIds.map(uid =>
+            client.pushMessage({
+                to: uid,
+                messages: [{ type: 'text', text }],
+            })
+        )
+    );
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    logger.info(`[pushToAdmins] ✅ ${succeeded}/${adminIds.length} 推播成功`);
+}
+
+/**
+ * 建立提醒用 Flex Message (黃色,30 分鐘前提醒)
+ */
+function createReminderFlexMessage(booking) {
+    const periodsStr = formatPeriods(booking.periods);
+    const startTime = PERIOD_START_TIMES[booking.periods[0]] || '?';
+    return {
+        type: 'flex',
+        altText: `⏰ 30 分鐘後使用提醒: ${booking.room} ${booking.date}`,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#f59e0b',
+                paddingAll: '15px',
+                contents: [{
+                    type: 'text',
+                    text: '⏰ 30 分鐘後使用提醒',
+                    color: '#FFFFFF',
+                    weight: 'bold',
+                    size: 'lg',
+                    align: 'center',
+                }],
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '15px',
+                contents: [
+                    {
+                        type: 'text',
+                        text: `您 ${startTime} 起的預約即將開始,請準時前往。`,
+                        size: 'sm',
+                        color: '#92400e',
+                        wrap: true,
+                        weight: 'bold',
+                    },
+                    { type: 'separator', margin: 'md' },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        margin: 'md',
+                        contents: [
+                            { type: 'text', text: '📅', size: 'sm', flex: 0 },
+                            { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '📍', size: 'sm', flex: 0 },
+                            { type: 'text', text: '場地', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.room || '禮堂', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '⏰', size: 'sm', flex: 0 },
+                            { type: 'text', text: '節次', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: periodsStr, size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                ],
+            },
+        },
+    };
+}
+
+// ==========================================================================
+// Function #7: scheduledReminder
+// 每 5 分鐘掃一次,推送 30 分鐘後即將開始的預約
+// 使用 sentReminders 去重避免重複推送
+// ==========================================================================
+
+exports.scheduledReminder = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        timeZone: 'Asia/Taipei',
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (event) => {
+        const now = new Date();
+        const targetMin = 30; // 30 分鐘後的預約
+
+        // 抓今天 + 明天的預約 (跨午夜情境)
+        const tw = new Date(now.getTime() + 8 * 3600 * 1000);
+        const todayStr = `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
+        const tomorrow = new Date(tw.getTime() + 86400 * 1000);
+        const tomorrowStr = `${tomorrow.getUTCFullYear()}/${String(tomorrow.getUTCMonth() + 1).padStart(2, '0')}/${String(tomorrow.getUTCDate()).padStart(2, '0')}`;
+
+        const snapshot = await db.collection('bookings')
+            .where('date', 'in', [todayStr, tomorrowStr])
+            .get();
+
+        let scanned = 0, sent = 0, skipped = 0;
+        for (const doc of snapshot.docs) {
+            const booking = doc.data();
+            if (!booking.periods || booking.periods.length === 0) continue; // 已取消
+            scanned += 1;
+
+            // 取最早的節次當提醒時間
+            const earliestPeriod = booking.periods[0];
+            const periodStart = parsePeriodDateTime(booking.date, earliestPeriod);
+            if (!periodStart) continue;
+
+            const minsUntil = (periodStart.getTime() - now.getTime()) / 60000;
+
+            // 在 27~33 分鐘窗口內 (避免精準度問題,涵蓋 5 分鐘 cron 變動)
+            if (minsUntil < 27 || minsUntil > 33) continue;
+
+            const reminderKey = `${doc.id}_30min`;
+            const sentDoc = await db.collection('sentReminders').doc(reminderKey).get();
+            if (sentDoc.exists) {
+                skipped += 1;
+                continue;
+            }
+
+            const lineUserId = await getBoundLineUserId(booking.deviceId);
+            if (!lineUserId) continue;
+
+            const flex = createReminderFlexMessage(booking);
+            await pushFlexToUser(
+                lineUserId,
+                flex,
+                LINE_ACCESS_TOKEN.value(),
+                `30 分鐘提醒 ${booking.room} ${booking.date}`
+            );
+
+            // 記錄已推
+            await db.collection('sentReminders').doc(reminderKey).set({
+                bookingId: doc.id,
+                type: '30min',
+                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400 * 1000),
+            });
+            sent += 1;
+        }
+
+        logger.info(`[scheduledReminder] scanned=${scanned} sent=${sent} skipped=${skipped}`);
+    }
+);
+
+// ==========================================================================
+// Function #8: anomalyDetection
+// 每 30 分鐘檢查異常活動,推告警給管理員
+// ==========================================================================
+
+exports.anomalyDetection = onSchedule(
+    {
+        schedule: 'every 30 minutes',
+        timeZone: 'Asia/Taipei',
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (event) => {
+        const oneHourAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 3600 * 1000);
+
+        // 檢查 #1: 過去 1 小時內 BATCH_CANCEL_BOOKINGS 次數
+        try {
+            const recentBatch = await db.collection('audit_logs')
+                .where('action', '==', 'BATCH_CANCEL_BOOKINGS')
+                .where('timestamp', '>=', oneHourAgo)
+                .get();
+
+            const batchCount = recentBatch.size;
+            if (batchCount >= 10) {
+                // 異常多 (1 小時內 ≥ 10 次批次取消)
+                let totalAffected = 0;
+                recentBatch.forEach(d => {
+                    totalAffected += d.data().details?.successCount || 0;
+                });
+                await pushToAdmins(
+                    `🚨 異常偵測 — 批次取消量\n\n` +
+                    `過去 1 小時: ${batchCount} 次\n` +
+                    `影響預約: ${totalAffected} 筆\n\n` +
+                    `請檢查是否為惡意操作或正常清理。`,
+                    LINE_ACCESS_TOKEN.value()
+                );
+            }
+        } catch (e) {
+            logger.error('[anomalyDetection] batch check failed', e);
+        }
+
+        // 檢查 #2: 過去 1 小時內 FORCE_DELETE_BOOKING 次數
+        try {
+            const recentForce = await db.collection('audit_logs')
+                .where('action', '==', 'FORCE_DELETE_BOOKING')
+                .where('timestamp', '>=', oneHourAgo)
+                .get();
+
+            if (recentForce.size >= 20) {
+                await pushToAdmins(
+                    `🚨 異常偵測 — 強制刪除量\n\n` +
+                    `過去 1 小時: ${recentForce.size} 次強刪\n\n` +
+                    `通常正常情況不會這麼多,請查 audit log。`,
+                    LINE_ACCESS_TOKEN.value()
+                );
+            }
+        } catch (e) {
+            logger.error('[anomalyDetection] force_delete check failed', e);
+        }
+
+        // 檢查 #3: 過去 1 小時內 CREATE_BOOKING 量 (可能 Bot 攻擊)
+        try {
+            const recentCreate = await db.collection('audit_logs')
+                .where('action', '==', 'CREATE_BOOKING')
+                .where('timestamp', '>=', oneHourAgo)
+                .get();
+
+            // 校用日尖峰時間 (週一~五 7:00~16:00) 才合理會有大量預約
+            const tw = new Date(Date.now() + 8 * 3600 * 1000);
+            const hour = tw.getUTCHours();
+            const day = tw.getUTCDay();
+            const isOffPeak = day === 0 || day === 6 || hour < 7 || hour > 16;
+
+            if (isOffPeak && recentCreate.size >= 30) {
+                await pushToAdmins(
+                    `🚨 異常偵測 — 非尖峰建立量\n\n` +
+                    `過去 1 小時: ${recentCreate.size} 筆預約\n` +
+                    `當前時間: ${tw.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n\n` +
+                    `(非校時間段不應有此量,可能是 Bot)`,
+                    LINE_ACCESS_TOKEN.value()
+                );
+            }
+        } catch (e) {
+            logger.error('[anomalyDetection] create check failed', e);
+        }
+
+        logger.info(`[anomalyDetection] ✅ checked at ${new Date().toISOString()}`);
+    }
+);
+
+// ==========================================================================
+// Function #9: subscribeAdminAlerts
+// 管理員從前端註冊「我接收系統告警」(寫入 adminLineRecipients)
+// 需要使用者已綁定 LINE
+// ==========================================================================
+
+exports.subscribeAdminAlerts = onRequest(
+    {
+        cors: true,
+        secrets: [LINE_ACCESS_TOKEN],
+    },
+    async (req, res) => {
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const { deviceId, action } = req.body || {};
+            if (!deviceId) {
+                res.status(400).json({ error: 'deviceId required' });
+                return;
+            }
+
+            // 從 lineBindings 找 lineUserId
+            const bindingDoc = await db.collection('lineBindings').doc(deviceId).get();
+            if (!bindingDoc.exists) {
+                res.status(404).json({ error: '此裝置尚未綁定 LINE,請先完成綁定' });
+                return;
+            }
+            const { lineUserId, lineDisplayName } = bindingDoc.data();
+
+            if (action === 'unsubscribe') {
+                await db.collection('adminLineRecipients').doc(lineUserId).delete();
+                logger.info(`[adminAlerts] 取消訂閱: ${lineDisplayName}`);
+                res.status(200).json({ status: 'unsubscribed' });
+                return;
+            }
+
+            // 預設 = subscribe
+            await db.collection('adminLineRecipients').doc(lineUserId).set({
+                lineUserId,
+                lineDisplayName: lineDisplayName || '未知',
+                deviceId,
+                subscribedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            // 推送確認訊息
+            try {
+                const client = new line.messagingApi.MessagingApiClient({
+                    channelAccessToken: LINE_ACCESS_TOKEN.value(),
+                });
+                await client.pushMessage({
+                    to: lineUserId,
+                    messages: [{
+                        type: 'text',
+                        text: `✅ 已成功註冊接收系統告警!\n\n您將收到:\n` +
+                              `• 系統錯誤即時告警\n` +
+                              `• 異常活動偵測 (批次取消量暴增等)\n` +
+                              `• 排程提醒執行報告 (有重要事件時)\n\n` +
+                              `如要取消,可在系統內點「取消訂閱告警」。`,
+                    }],
+                });
+            } catch (e) { /* silent */ }
+
+            logger.info(`[adminAlerts] ✅ 訂閱: ${lineDisplayName}`);
+            res.status(200).json({
+                status: 'subscribed',
+                lineDisplayName,
+            });
+        } catch (err) {
+            logger.error('[subscribeAdminAlerts]', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ==========================================================================
+// Function #10: checkAdminAlertStatus
+// 前端查詢當前裝置是否已訂閱告警
+// ==========================================================================
+
+exports.checkAdminAlertStatus = onRequest({ cors: true }, async (req, res) => {
+    try {
+        const deviceId = req.query.deviceId || (req.body && req.body.deviceId);
+        if (!deviceId) {
+            res.status(400).json({ error: 'deviceId required' });
+            return;
+        }
+
+        const bindingDoc = await db.collection('lineBindings').doc(deviceId).get();
+        if (!bindingDoc.exists) {
+            res.status(200).json({ subscribed: false, bound: false });
+            return;
+        }
+
+        const { lineUserId } = bindingDoc.data();
+        const subDoc = await db.collection('adminLineRecipients').doc(lineUserId).get();
+        res.status(200).json({
+            subscribed: subDoc.exists,
+            bound: true,
+        });
+    } catch (err) {
+        logger.error('[checkAdminAlertStatus]', err);
+        res.status(500).json({ error: err.message });
+    }
+});

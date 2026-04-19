@@ -1,6 +1,6 @@
-// Service Worker v2.45.1 - LINE branded logo (mobile recognizability)
-const CACHE_NAME = 'booking-system-v2.45.1';
-const APP_VERSION = 'v2.45.1';
+// Service Worker v2.46.0 - LINE Phase 3: Scheduled reminders + admin alerts
+const CACHE_NAME = 'booking-system-v2.46.0';
+const APP_VERSION = 'v2.46.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

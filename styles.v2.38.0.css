@@ -7108,3 +7108,75 @@ body {
     color: #64748b !important;
     margin-top: 1rem !important;
 }
+
+/* v2.46.0 (Phase 3): 管理員告警訂閱區 */
+.admin-alerts-section {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    text-align: left;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #f59e0b;
+}
+.admin-alerts-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #d1d5db, transparent);
+    margin: 0.5rem 0;
+}
+.admin-alerts-section h4 {
+    margin: 0 0 0.4rem !important;
+    color: #92400e !important;
+    font-size: 1rem !important;
+    text-align: left !important;
+}
+.admin-alerts-section .line-bind-hint {
+    text-align: left;
+    color: #78350f !important;
+    margin-top: 0.5rem !important;
+    line-height: 1.7;
+}
+
+.btn-admin-alerts-subscribe,
+.btn-admin-alerts-unsubscribe {
+    display: block;
+    width: 100%;
+    margin-top: 0.85rem;
+    padding: 0.7rem 1.2rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+.btn-admin-alerts-subscribe {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
+}
+.btn-admin-alerts-subscribe:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 5px 14px rgba(245, 158, 11, 0.5);
+}
+.btn-admin-alerts-unsubscribe {
+    background: white;
+    color: #b45309;
+    border: 1.5px solid #f59e0b;
+}
+.btn-admin-alerts-unsubscribe:hover {
+    background: #fef3c7;
+}
+.btn-admin-alerts-subscribe:disabled,
+.btn-admin-alerts-unsubscribe:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.admin-alerts-status {
+    margin-top: 0.75rem !important;
+    font-size: 0.85rem !important;
+    color: #15803d !important;
+    font-weight: 600;
+    text-align: center !important;
+}

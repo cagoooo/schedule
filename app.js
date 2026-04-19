@@ -5026,6 +5026,16 @@ async function openLineBindModal() {
             document.getElementById('lineBindBoundName').textContent =
                 data.lineDisplayName || '(未取得名稱)';
             document.getElementById('lineBindStep0').style.display = 'block';
+
+            // v2.46.0 (Phase 3): 若是登入管理員,顯示「訂閱告警」區
+            const isAdmin = !!firebase.auth().currentUser;
+            const adminSection = document.getElementById('adminAlertsSection');
+            if (adminSection) {
+                adminSection.style.display = isAdmin ? 'block' : 'none';
+                if (isAdmin) {
+                    refreshAdminAlertStatus(deviceId);
+                }
+            }
             return;
         }
     } catch (err) {
@@ -5034,6 +5044,75 @@ async function openLineBindModal() {
 
     // 未綁定 → 顯示 Step 1 (開始綁定表單)
     document.getElementById('lineBindStep1').style.display = 'block';
+}
+
+// ===== v2.46.0 (Phase 3): 管理員告警訂閱邏輯 =====
+
+async function refreshAdminAlertStatus(deviceId) {
+    const subBtn = document.getElementById('btnSubscribeAdminAlerts');
+    const unsubBtn = document.getElementById('btnUnsubscribeAdminAlerts');
+    const statusEl = document.getElementById('adminAlertsStatus');
+    if (!subBtn || !unsubBtn || !statusEl) return;
+
+    statusEl.textContent = '查詢中…';
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/checkAdminAlertStatus?deviceId=${encodeURIComponent(deviceId)}`);
+        const data = await res.json();
+
+        if (data.subscribed) {
+            subBtn.style.display = 'none';
+            unsubBtn.style.display = 'block';
+            statusEl.textContent = '✅ 已訂閱中,系統異常會即時推 LINE';
+            statusEl.style.color = '#15803d';
+        } else {
+            subBtn.style.display = 'block';
+            unsubBtn.style.display = 'none';
+            statusEl.textContent = '⚠ 尚未訂閱告警';
+            statusEl.style.color = '#92400e';
+        }
+    } catch (err) {
+        console.warn('[adminAlerts] 查詢失敗', err);
+        statusEl.textContent = '查詢失敗';
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+async function toggleAdminAlerts(action) {
+    const subBtn = document.getElementById('btnSubscribeAdminAlerts');
+    const unsubBtn = document.getElementById('btnUnsubscribeAdminAlerts');
+    const statusEl = document.getElementById('adminAlertsStatus');
+    const deviceId = getDeviceId();
+
+    [subBtn, unsubBtn].forEach(b => { if (b) b.disabled = true; });
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/subscribeAdminAlerts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId, action }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '操作失敗');
+
+        showToast(
+            action === 'unsubscribe'
+                ? '🔕 已取消訂閱告警'
+                : '🔔 已訂閱系統告警!請查看 LINE 確認訊息',
+            'success'
+        );
+        await refreshAdminAlertStatus(deviceId);
+    } catch (err) {
+        console.error('[adminAlerts] toggle 失敗', err);
+        showToast('操作失敗:' + err.message, 'error');
+        if (statusEl) {
+            statusEl.textContent = '操作失敗';
+            statusEl.style.color = '#dc2626';
+        }
+    } finally {
+        [subBtn, unsubBtn].forEach(b => { if (b) b.disabled = false; });
+    }
 }
 
 function closeLineBindModal() {
@@ -5153,4 +5232,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('lineBindOverlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'lineBindOverlay') closeLineBindModal();
     });
+
+    // v2.46.0 (Phase 3): 管理員告警訂閱
+    document.getElementById('btnSubscribeAdminAlerts')?.addEventListener('click',
+        () => toggleAdminAlerts('subscribe'));
+    document.getElementById('btnUnsubscribeAdminAlerts')?.addEventListener('click',
+        () => toggleAdminAlerts('unsubscribe'));
 });

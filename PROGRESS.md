@@ -4,7 +4,93 @@
 
 ---
 
-## 📅 當前版本：v2.45.0 (2026-04-19) - LINE Phase 2 預約事件推播
+## 📅 當前版本：v2.46.0 (2026-04-19) - LINE Phase 3:排程提醒 + 管理員告警
+
+### 🎯 核心目的
+LINE Phase 3 完成 — 系統現在能**主動提醒老師**(預約 30 分鐘前),並能**自我監控**(異常事件直推管理員 LINE,取代 Sentry 角色)。
+
+### 📦 新增 4 個 Cloud Functions
+
+| Function | 類型 | 觸發 | 功能 |
+| :--- | :--- | :--- | :--- |
+| `scheduledReminder` | Scheduled | 每 5 分鐘 | 推送 30 分鐘後即將開始的預約 |
+| `anomalyDetection` | Scheduled | 每 30 分鐘 | 檢查異常事件並推管理員 |
+| `subscribeAdminAlerts` | HTTP | 前端呼叫 | 訂閱/取消訂閱管理員告警 |
+| `checkAdminAlertStatus` | HTTP | 前端呼叫 | 查詢當前裝置的訂閱狀態 |
+
+### ⏰ 30 分鐘提醒機制
+
+**邏輯**:
+1. Cloud Scheduler 每 5 分鐘 (`Asia/Taipei`) 觸發
+2. 查今天 + 明天的所有 bookings
+3. 對每筆計算「最早節次的開始時間 vs 現在」
+4. **27~33 分鐘窗口內**才推送 (容錯 cron 變動)
+5. 推送前查 `sentReminders/{id}_30min` 確認沒推過
+6. 推完寫入 sentReminders 防重複
+
+**Flex Message 設計**:
+- 🟡 黃色 header「⏰ 30 分鐘後使用提醒」
+- 顯示具體開始時間 (例:「您 10:30 起的預約即將開始」)
+- 含日期/場地/節次完整資訊
+
+**節次時間表** (`PERIOD_START_TIMES`):
+- morning 07:50 / period1 08:40 / period2 09:30 / period3 10:30 / period4 11:20
+- lunch 12:00 / period5 13:00 / period6 13:50 / period7 14:40 / period8 15:30
+
+### 🚨 異常偵測 (取代 Sentry 角色)
+
+**3 種告警場景**:
+1. **批次取消激增**:過去 1 小時 ≥10 次 BATCH_CANCEL_BOOKINGS
+2. **強刪激增**:過去 1 小時 ≥20 次 FORCE_DELETE_BOOKING  
+3. **非尖峰建立量**:週末或 16:00 後 / 7:00 前,1 小時 ≥30 次 CREATE_BOOKING (可能是 Bot)
+
+**推送對象**:所有訂閱 `adminLineRecipients` 的管理員。
+
+### 🔔 管理員告警訂閱機制
+
+**新增 Firestore collections**:
+- `adminLineRecipients/{lineUserId}` — 已訂閱接收告警的管理員
+- `sentReminders/{key}` — 提醒去重 (含 7 天 TTL 期限)
+
+**前端 UI** (LINE 綁定彈窗 Step 0):
+- 已綁定 LINE + 已登入管理員 → 顯示黃色「🔔 管理員系統告警」區塊
+- 「🔔 訂閱系統告警」按鈕 → 點擊後寫入 `adminLineRecipients` + LINE 推確認訊息
+- 「🔕 取消訂閱告警」按鈕 → 已訂閱者可移除自己
+
+### 📂 修改檔案
+
+- `functions/index.js`: +280 行 (4 新 functions + 工具函式 + Flex builder)
+- `firestore.rules`: 新增 2 collections 規則 (read 限管理員)
+- `index.html`: LINE 綁定彈窗 Step 0 加入 admin alerts 區塊
+- `app.js`: `refreshAdminAlertStatus` + `toggleAdminAlerts` (~80 行)
+- `styles.v2.38.0.css`: +60 行 (告警訂閱 UI)
+
+### 💰 費用影響
+
+- **Cloud Scheduler**: 已用 2 個 schedule (5 min + 30 min) — 在免費 3 個額度內
+- **Firestore 讀取**: 每 5 分鐘掃今天+明天 bookings → 每月約 +5000 reads (免費額度足夠)
+- **LINE 推播**: 30 分鐘提醒每筆預約推 1 次 → 使用量隨預約量增加,但仍在 500 條/月免費內
+
+### 🧪 驗收測試
+
+#### Test 1: 訂閱管理員告警
+1. 登入管理員 → 點 LINE 按鈕 → 已綁定 step 應出現黃色「訂閱告警」區
+2. 點「🔔 訂閱系統告警」→ LINE 應收到「✅ 已成功註冊接收系統告警」
+3. 重開彈窗 → 按鈕變為「🔕 取消訂閱告警」+ 狀態「✅ 已訂閱中」
+
+#### Test 2: 30 分鐘提醒
+1. 預約一個「30 分鐘後開始」的時段(例如現在 10:00,預約 10:30 開始的第 3 節)
+2. 等 5 分鐘 cron 觸發 → LINE 應收到黃色提醒卡
+3. 看 functions log: `[scheduledReminder] scanned=N sent=1 skipped=0`
+
+#### Test 3: 異常偵測 (人工觸發)
+1. 用管理員身分連續批次取消 10+ 筆 (audit log 會記錄)
+2. 等 30 分鐘 cron 觸發 → 訂閱者 LINE 收到「🚨 異常偵測 — 批次取消量」告警
+
+---
+
+## 📅 v2.45.1 (2026-04-19) - LINE 按鈕品牌 logo
+## 📅 v2.45.0 (2026-04-19) - LINE Phase 2 預約事件推播
 
 ### 🎯 核心目的
 延續 Phase 1 的 LINE 綁定基礎,實現預約事件**自動推 LINE Flex Message** —

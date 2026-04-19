@@ -77,6 +77,22 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // ===== v2.46.0 (Phase 3): 管理員告警訂閱者 =====
+    match /adminLineRecipients/{lineUserId} {
+      // 只能由 Cloud Function 寫入 (透過 subscribeAdminAlerts API)
+      allow write: if false;
+      // 僅管理員可讀取訂閱清單
+      allow read: if request.auth != null;
+    }
+
+    // ===== v2.46.0 (Phase 3): 排程提醒去重表 =====
+    match /sentReminders/{reminderId} {
+      // 只能由 Cloud Function (scheduledReminder) 寫入
+      allow write: if false;
+      // 僅管理員可讀取
+      allow read: if request.auth != null;
+    }
+
     // ===== v2.41.0 (M.1): 場地維護公告 =====
     match /roomAnnouncements/{annId} {
       // 所有人可讀取公告 (預約彈窗會顯示)

@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.45.1</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.45.1">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.46.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.46.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.45.1';
+            const APP_VERSION = 'v2.46.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -1164,6 +1164,28 @@
                     <h4>已綁定 LINE</h4>
                     <p>您的裝置已綁定到 LINE 帳號:<br><strong id="lineBindBoundName">—</strong></p>
                     <p class="line-bind-hint">未來預約成功、提醒、取消都會自動 LINE 通知您。</p>
+
+                    <!-- v2.46.0 (Phase 3): 管理員告警訂閱開關 (僅登入管理員顯示) -->
+                    <div id="adminAlertsSection" class="admin-alerts-section" style="display:none;">
+                        <div class="admin-alerts-divider"></div>
+                        <h4>🔔 管理員系統告警</h4>
+                        <p class="line-bind-hint" style="margin-top: 0.4rem;">
+                            訂閱後您將收到:<br>
+                            • 系統錯誤即時告警<br>
+                            • 異常活動偵測 (批次取消激增等)<br>
+                            • 排程任務執行報告
+                        </p>
+                        <button id="btnSubscribeAdminAlerts" type="button"
+                                class="btn-admin-alerts-subscribe">
+                            🔔 訂閱系統告警
+                        </button>
+                        <button id="btnUnsubscribeAdminAlerts" type="button"
+                                class="btn-admin-alerts-unsubscribe" style="display:none;">
+                            🔕 取消訂閱告警
+                        </button>
+                        <p id="adminAlertsStatus" class="admin-alerts-status"></p>
+                    </div>
+
                     <p class="line-bind-hint" style="color: #94a3b8; font-size: 0.85rem;">
                         如要解除綁定,請在 LINE 中封鎖本帳號。
                     </p>
