@@ -1,6 +1,6 @@
-// Service Worker v2.41.6 - PWA Update Reload Fix (3-fuse mechanism)
-const CACHE_NAME = 'booking-system-v2.41.6';
-const APP_VERSION = 'v2.41.6';
+// Service Worker v2.41.7 - Search Result Criteria Display
+const CACHE_NAME = 'booking-system-v2.41.7';
+const APP_VERSION = 'v2.41.7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

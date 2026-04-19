@@ -2682,13 +2682,28 @@ async function executeAdvancedSearch() {
     const isAllRooms = scopeBtn?.dataset.scope === 'all';
     const currentRoom = getSelectedRoom();
 
-    // 自動設定搜尋範圍：今天起至未來 180 天
-    const today = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + 180);
+    // v2.41.7 (Bug Fix): 搜尋範圍改採智慧策略
+    // 優先順序: (1) 主畫面已設的日期範圍 → (2) 過去 90 + 未來 180 天 (含當週預約)
+    let startDateStr, endDateStr, dateRangeSource;
+    const mainStartDate = document.getElementById('startDate')?.value;
+    const mainEndDate = document.getElementById('endDate')?.value;
 
-    const startDateStr = formatDate(today);
-    const endDateStr = formatDate(futureDate);
+    if (mainStartDate && mainEndDate) {
+        // 使用主畫面的日期範圍
+        startDateStr = mainStartDate.replaceAll('-', '/');
+        endDateStr = mainEndDate.replaceAll('-', '/');
+        dateRangeSource = 'main-filter';
+    } else {
+        // 預設: 過去 90 天 ~ 未來 180 天 (避免遺漏當週/近期預約)
+        const today = new Date();
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - 90);
+        const futureDate = new Date();
+        futureDate.setDate(today.getDate() + 180);
+        startDateStr = formatDate(pastDate);
+        endDateStr = formatDate(futureDate);
+        dateRangeSource = 'default-range';
+    }
 
     // 驗證至少有一個搜尋條件
     if (!searchInput && !periodFilter) {
@@ -2697,7 +2712,10 @@ async function executeAdvancedSearch() {
     }
 
     const scopeMsg = isAllRooms ? '跨全部場地' : `「${currentRoom}」`;
-    showToast(`正在${scopeMsg}搜尋未來半年內的預約...`, 'info');
+    const rangeMsg = dateRangeSource === 'main-filter'
+        ? `主畫面日期範圍 (${startDateStr} ~ ${endDateStr})`
+        : `${startDateStr} ~ ${endDateStr}`;
+    showToast(`正在${scopeMsg} ${rangeMsg} 內搜尋預約...`, 'info');
 
     try {
         // 建立查詢 (直接查未來半年)
@@ -2743,8 +2761,14 @@ async function executeAdvancedSearch() {
         // 按日期排序
         results.sort((a, b) => a.date.localeCompare(b.date));
 
-        // 渲染搜尋結果
-        renderSearchResults(results, searchInput, { scope: isAllRooms ? 'all' : currentRoom });
+        // 渲染搜尋結果 (v2.41.7: 傳遞完整搜尋條件供摘要顯示)
+        renderSearchResults(results, searchInput, {
+            scope: isAllRooms ? 'all' : currentRoom,
+            periodFilter,
+            startDateStr,
+            endDateStr,
+            dateRangeSource,
+        });
         openSearchModal();
 
     } catch (error) {
@@ -2757,23 +2781,85 @@ async function executeAdvancedSearch() {
  * 渲染搜尋結果
  * @param {Array} results
  * @param {string} searchTerm
- * @param {Object} [opts] { scope: 'all' | <room name> } v2.41.2
+ * @param {Object} [opts] { scope, periodFilter } v2.41.7 完整搜尋條件
  */
 function renderSearchResults(results, searchTerm, opts = {}) {
     const summaryEl = document.getElementById('searchResultSummary');
     const listEl = document.getElementById('searchResultList');
 
-    // v2.41.2: 摘要顯示搜尋範圍
+    // v2.41.7: 完整顯示「搜尋條件」與「結果分布」, 讓使用者一眼看懂為何結果如此
     const scopeBadge = opts.scope === 'all'
-        ? '<span class="search-scope-badge scope-all">🌐 跨全部場地</span>'
+        ? '<span class="search-criteria-chip chip-scope-all">🌐 跨全部場地</span>'
         : opts.scope
-            ? `<span class="search-scope-badge scope-current">🏠 ${escapeHtml(opts.scope)}</span>`
+            ? `<span class="search-criteria-chip chip-scope-current">🏠 ${escapeHtml(opts.scope)}</span>`
             : '';
+
+    // 節次條件 chip
+    const periodName = opts.periodFilter
+        ? (PERIODS.find(p => p.id === opts.periodFilter)?.name || opts.periodFilter)
+        : null;
+    const periodChip = periodName
+        ? `<span class="search-criteria-chip chip-period">⏰ ${escapeHtml(periodName)}</span>`
+        : '<span class="search-criteria-chip chip-empty">⏰ 所有節次</span>';
+
+    // 關鍵字 chip
+    const keywordChip = searchTerm
+        ? `<span class="search-criteria-chip chip-keyword">🔍 「${escapeHtml(searchTerm)}」</span>`
+        : '<span class="search-criteria-chip chip-empty">🔍 不限關鍵字</span>';
+
+    // 期間 chip (v2.41.7: 顯示實際使用的日期範圍)
+    let dateRangeChipText = '📅 今天 ~ 未來 180 天';
+    if (opts.startDateStr && opts.endDateStr) {
+        const sourceLabel = opts.dateRangeSource === 'main-filter'
+            ? '📅 (主畫面範圍)'
+            : '📅';
+        dateRangeChipText = `${sourceLabel} ${opts.startDateStr} ~ ${opts.endDateStr}`;
+    }
+    const dateRangeChip = `<span class="search-criteria-chip chip-date">${escapeHtml(dateRangeChipText)}</span>`;
+
+    // v2.41.7: 場地分布統計 - 解釋「為什麼結果這樣」
+    let distributionHint = '';
+    if (opts.scope === 'all' && results.length > 0) {
+        const roomCounts = {};
+        results.forEach(b => {
+            const room = b.room || '禮堂';
+            roomCounts[room] = (roomCounts[room] || 0) + 1;
+        });
+        const roomNames = Object.keys(roomCounts);
+        if (roomNames.length === 1) {
+            // 全部結果集中在單一場地
+            distributionHint = `
+                <div class="search-distribution-hint">
+                    💡 <strong>結果說明</strong>:符合條件的預約全部來自「<strong>${escapeHtml(roomNames[0])}</strong>」,
+                    其他場地此期間無對應預約。
+                </div>
+            `;
+        } else {
+            // 多場地分布
+            const distLine = roomNames
+                .sort((a, b) => roomCounts[b] - roomCounts[a])
+                .map(r => `${escapeHtml(r)} ${roomCounts[r]} 筆`)
+                .join(' / ');
+            distributionHint = `
+                <div class="search-distribution-hint">
+                    📊 <strong>場地分布</strong>:${distLine}
+                </div>
+            `;
+        }
+    }
 
     // 渲染摘要
     summaryEl.innerHTML = `
-        <span>找到 <span class="count">${results.length}</span> 筆預約記錄</span>
-        ${scopeBadge}
+        <div class="search-summary-main">
+            <span>找到 <span class="count">${results.length}</span> 筆預約記錄</span>
+        </div>
+        <div class="search-criteria-chips">
+            ${scopeBadge}
+            ${periodChip}
+            ${keywordChip}
+            ${dateRangeChip}
+        </div>
+        ${distributionHint}
     `;
 
     // 渲染結果列表

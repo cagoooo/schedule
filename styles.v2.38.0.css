@@ -3182,7 +3182,7 @@ body {
     background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
 }
 
-/* v2.41.2: 搜尋結果範圍 badge */
+/* v2.41.2: 搜尋結果範圍 badge (legacy, 保留向下相容) */
 .search-scope-badge {
     display: inline-block;
     margin-left: 0.5rem;
@@ -3202,6 +3202,84 @@ body {
     background: #fef3c7;
     color: #92400e;
     border: 1px solid #f59e0b;
+}
+
+/* v2.41.7: 完整搜尋條件 chips 與分布提示 */
+.search-summary-main {
+    margin-bottom: 0.5rem;
+}
+.search-summary-main .count {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #6366f1;
+    margin: 0 0.15rem;
+}
+
+.search-criteria-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+.search-criteria-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid;
+    white-space: nowrap;
+}
+
+.chip-scope-current {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #7dd3fc;
+}
+.chip-scope-all {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #f59e0b;
+}
+.chip-period {
+    background: #ede9fe;
+    color: #5b21b6;
+    border-color: #c4b5fd;
+}
+.chip-keyword {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+.chip-date {
+    background: #f0fdf4;
+    color: #15803d;
+    border-color: #86efac;
+}
+.chip-empty {
+    background: #f1f5f9;
+    color: #64748b;
+    border-color: #cbd5e1;
+    font-weight: 500;
+    opacity: 0.85;
+}
+
+.search-distribution-hint {
+    margin-top: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #713f12;
+    line-height: 1.5;
+}
+
+.search-distribution-hint strong {
+    color: #92400e;
 }
 
 @media (max-width: 768px) {
