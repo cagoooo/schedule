@@ -1,5 +1,5 @@
-// Service Worker v2.40.0 - Stale-While-Revalidate Strategy
-const CACHE_NAME = 'booking-system-v2.40.0';
+// Service Worker v2.41.0 - Announcements + Batch Cancel
+const CACHE_NAME = 'booking-system-v2.41.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

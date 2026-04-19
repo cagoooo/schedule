@@ -60,5 +60,30 @@ service cloud.firestore {
       // 禁止修改與刪除日誌 (確保稽核完整性)
       allow update, delete: if false;
     }
+
+    // ===== v2.41.0 (M.1): 場地維護公告 =====
+    match /roomAnnouncements/{annId} {
+      // 所有人可讀取公告 (預約彈窗會顯示)
+      allow read: if true;
+      // 僅管理員可建立、更新、刪除
+      allow create: if request.auth != null && isValidAnnouncement();
+      allow update: if request.auth != null && isValidAnnouncement();
+      allow delete: if request.auth != null;
+
+      function isValidAnnouncement() {
+        let data = request.resource.data;
+        return
+          data.keys().hasAll(['room', 'message', 'startDate', 'endDate', 'importance'])
+          && data.keys().size() <= 10
+          && data.room is string && data.room.size() <= 50
+          && data.message is string && data.message.size() >= 1 && data.message.size() <= 500
+          && data.startDate is string
+          && data.startDate.matches('^[0-9]{4}/[0-9]{2}/[0-9]{2}$')
+          && data.endDate is string
+          && data.endDate.matches('^[0-9]{4}/[0-9]{2}/[0-9]{2}$')
+          && data.importance in ['info', 'warning', 'critical']
+          && (!('lockBookings' in data.keys()) || data.lockBookings is bool);
+      }
+    }
   }
 }

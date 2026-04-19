@@ -10,6 +10,8 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 const bookingsCollection = db.collection('bookings');
+// v2.41.0 (M.1): 場地公告 collection
+const announcementsCollection = db.collection('roomAnnouncements');
 
 // ===== 常數設定 =====
 const PERIODS = [
@@ -249,11 +251,17 @@ function updateAuthUI() {
         text.textContent = '已登入';
         document.getElementById('btnOpenSettings').style.display = 'flex';
         document.getElementById('btnOpenDashboard').style.display = 'flex';
+        // v2.41.0 (M.1): 顯示場地公告管理按鈕
+        const annBtn = document.getElementById('btnOpenAnnouncements');
+        if (annBtn) annBtn.style.display = 'flex';
     } else {
         btn.classList.remove('logged-in');
         text.textContent = '管理員';
         document.getElementById('btnOpenSettings').style.display = 'none';
         document.getElementById('btnOpenDashboard').style.display = 'none';
+        // v2.41.0 (M.1): 隱藏場地公告管理按鈕
+        const annBtn = document.getElementById('btnOpenAnnouncements');
+        if (annBtn) annBtn.style.display = 'none';
     }
 }
 
@@ -1025,6 +1033,11 @@ function openBookingModal(dateStr) {
 
     renderPeriodCheckboxes(dateStr);
 
+    // v2.41.0 (M.1): 顯示場地公告 banner
+    try {
+        renderAnnouncementBannerInBookingModal(getSelectedRoom(), dateStr);
+    } catch (e) { /* announcements not yet loaded */ }
+
     document.getElementById('modalOverlay').classList.add('active');
 }
 
@@ -1203,6 +1216,15 @@ async function submitBooking() {
                 showToast(`${dateStr} 的 ${PERIODS.find(p => p.id === periodId).name} 為固定禁排時段`, 'error');
                 return;
             }
+        }
+    }
+
+    // v2.41.0 (M.1): 公告鎖定檢查 — 若任一日期該場地有 lockBookings 公告，禁止預約
+    for (const dateStr of datesToBook) {
+        if (isRoomLockedByAnnouncement(room, dateStr)) {
+            const lockedAnn = getActiveAnnouncements(room, dateStr).find(a => a.lockBookings);
+            showToast(`🔒 ${dateStr} ${room} 已被公告鎖定：${lockedAnn?.message || '請見公告 banner'}`, 'error');
+            return;
         }
     }
 
@@ -1678,6 +1700,10 @@ function initEventListeners() {
             renderPeriodCheckboxes(selectedDate);
             // 重置 AI 建議 (因為場地變了)
             document.getElementById('smartSuggestions').classList.add('hidden');
+            // v2.41.0 (M.1): 場地切換 → 重新整理公告 banner
+            try {
+                renderAnnouncementBannerInBookingModal(getSelectedRoom(), selectedDate);
+            } catch (e) { /* silent */ }
         }
     });
 
@@ -2889,7 +2915,7 @@ function createBookingItemHTML(booking, options = {}) {
     }
 
     return `
-        <div class="history-item">
+        <div class="history-item" data-booking-id="${booking.id || ''}">
             <span class="history-date">${booking.date}</span>
             <div class="history-periods-container">
                 ${periodTags}
@@ -4108,3 +4134,406 @@ function initKeyboardShortcuts() {
 
     console.log('✅ Keyboard shortcuts initialized (press ? for help)');
 }
+
+// ==========================================================================
+// v2.41.0 (M.1): 場地維護公告系統
+// ==========================================================================
+
+let cachedAnnouncements = [];   // 全域快取，啟動時載入一次
+
+/**
+ * 載入所有公告 (供管理 UI + 預約彈窗 banner 使用)
+ */
+async function loadAllAnnouncements() {
+    try {
+        const snapshot = await announcementsCollection
+            .orderBy('startDate', 'desc')
+            .get();
+        cachedAnnouncements = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        return cachedAnnouncements;
+    } catch (err) {
+        console.error('[Announcements] 載入失敗', err);
+        return [];
+    }
+}
+
+/**
+ * 取得指定場地、指定日期當下生效中的公告
+ * @param {string} room
+ * @param {string} dateStr 'YYYY/MM/DD' (預設今天)
+ * @returns {Array} 生效中的公告陣列
+ */
+function getActiveAnnouncements(room, dateStr) {
+    if (!room) return [];
+    const target = dateStr || formatDate(new Date());
+    return cachedAnnouncements.filter(a =>
+        a.room === room && a.startDate <= target && a.endDate >= target
+    );
+}
+
+/**
+ * 是否該日該場地有「鎖定預約」公告 → 阻擋預約
+ */
+function isRoomLockedByAnnouncement(room, dateStr) {
+    return getActiveAnnouncements(room, dateStr).some(a => a.lockBookings === true);
+}
+
+/**
+ * 顯示公告管理彈窗
+ */
+async function openAnnouncementManager() {
+    const overlay = document.getElementById('announcementModalOverlay');
+    if (!overlay) return;
+    overlay.classList.add('active');
+    resetAnnouncementForm();
+    await loadAllAnnouncements();
+    renderAnnouncementList();
+}
+
+function closeAnnouncementManager() {
+    document.getElementById('announcementModalOverlay')?.classList.remove('active');
+}
+
+function resetAnnouncementForm() {
+    const form = document.getElementById('announcementForm');
+    if (!form) return;
+    form.reset();
+    document.getElementById('annEditId').value = '';
+    document.getElementById('btnAnnSubmit').textContent = '💾 儲存公告';
+}
+
+/**
+ * 渲染現有公告列表
+ */
+function renderAnnouncementList() {
+    const list = document.getElementById('announcementList');
+    if (!list) return;
+    if (cachedAnnouncements.length === 0) {
+        list.innerHTML = `<p class="ann-empty">尚無任何公告。請使用上方表單新增。</p>`;
+        return;
+    }
+    const today = formatDate(new Date());
+    list.innerHTML = cachedAnnouncements.map(a => {
+        const isActive = a.startDate <= today && a.endDate >= today;
+        const isExpired = a.endDate < today;
+        const statusBadge = isActive
+            ? `<span class="ann-badge ann-badge-active">🟢 生效中</span>`
+            : isExpired
+                ? `<span class="ann-badge ann-badge-expired">⏷ 已過期</span>`
+                : `<span class="ann-badge ann-badge-future">⏰ 未生效</span>`;
+        const importanceIcon = a.importance === 'critical' ? '🚨'
+            : a.importance === 'warning' ? '⚠'
+            : 'ℹ';
+        const lockHint = a.lockBookings ? `<span class="ann-lock">🔒 已鎖定預約</span>` : '';
+        return `
+            <div class="announcement-item ann-imp-${a.importance}">
+                <div class="ann-item-head">
+                    <span class="ann-item-room">${importanceIcon} ${a.room}</span>
+                    ${statusBadge}
+                    ${lockHint}
+                </div>
+                <div class="ann-item-dates">${a.startDate} ~ ${a.endDate}</div>
+                <div class="ann-item-msg">${escapeHtml(a.message)}</div>
+                <div class="ann-item-actions">
+                    <button class="btn-ann-edit" data-id="${a.id}" type="button">✏ 編輯</button>
+                    <button class="btn-ann-delete" data-id="${a.id}" type="button">🗑 刪除</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // 綁定事件
+    list.querySelectorAll('.btn-ann-edit').forEach(btn => {
+        btn.addEventListener('click', () => loadAnnouncementToForm(btn.dataset.id));
+    });
+    list.querySelectorAll('.btn-ann-delete').forEach(btn => {
+        btn.addEventListener('click', () => deleteAnnouncement(btn.dataset.id));
+    });
+}
+
+function loadAnnouncementToForm(id) {
+    const a = cachedAnnouncements.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('annEditId').value = a.id;
+    document.getElementById('annRoom').value = a.room;
+    document.getElementById('annImportance').value = a.importance;
+    document.getElementById('annStartDate').value = a.startDate.replaceAll('/', '-');
+    document.getElementById('annEndDate').value = a.endDate.replaceAll('/', '-');
+    document.getElementById('annMessage').value = a.message;
+    document.getElementById('annLockBookings').checked = !!a.lockBookings;
+    document.getElementById('btnAnnSubmit').textContent = '💾 更新公告';
+    document.getElementById('annMessage').focus();
+}
+
+async function submitAnnouncementForm(e) {
+    if (e) e.preventDefault();
+    if (!firebase.auth().currentUser) {
+        showToast('請先以管理員身份登入', 'warning');
+        return;
+    }
+    const editId = document.getElementById('annEditId').value;
+    const room = document.getElementById('annRoom').value;
+    const importance = document.getElementById('annImportance').value;
+    const startDateRaw = document.getElementById('annStartDate').value;
+    const endDateRaw = document.getElementById('annEndDate').value;
+    const message = document.getElementById('annMessage').value.trim();
+    const lockBookings = document.getElementById('annLockBookings').checked;
+
+    if (!startDateRaw || !endDateRaw || !message) {
+        showToast('請完整填寫所有欄位', 'warning');
+        return;
+    }
+    if (startDateRaw > endDateRaw) {
+        showToast('開始日期不能晚於結束日期', 'warning');
+        return;
+    }
+
+    const data = {
+        room,
+        importance,
+        startDate: startDateRaw.replaceAll('-', '/'),
+        endDate: endDateRaw.replaceAll('-', '/'),
+        message,
+        lockBookings,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const submitBtn = document.getElementById('btnAnnSubmit');
+    submitBtn.disabled = true;
+    try {
+        if (editId) {
+            await announcementsCollection.doc(editId).update(data);
+            showToast('✅ 公告已更新', 'success');
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await announcementsCollection.add(data);
+            showToast('✅ 公告已建立', 'success');
+        }
+        await loadAllAnnouncements();
+        renderAnnouncementList();
+        resetAnnouncementForm();
+    } catch (err) {
+        console.error('[Announcements] 儲存失敗', err);
+        showToast('儲存失敗，請檢查權限', 'error');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+
+async function deleteAnnouncement(id) {
+    if (!confirm('確定要刪除這則公告嗎？此動作無法復原。')) return;
+    try {
+        await announcementsCollection.doc(id).delete();
+        await loadAllAnnouncements();
+        renderAnnouncementList();
+        showToast('✅ 公告已刪除', 'success');
+    } catch (err) {
+        console.error('[Announcements] 刪除失敗', err);
+        showToast('刪除失敗', 'error');
+    }
+}
+
+/**
+ * 在預約彈窗顯示對應場地的公告 banner
+ * @param {string} room
+ * @param {string} dateStr
+ */
+function renderAnnouncementBannerInBookingModal(room, dateStr) {
+    const banner = document.getElementById('modalAnnouncementBanner');
+    if (!banner) return;
+    const active = getActiveAnnouncements(room, dateStr);
+    if (active.length === 0) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+    // 多則公告依重要度排序
+    const order = { critical: 0, warning: 1, info: 2 };
+    active.sort((a, b) => (order[a.importance] ?? 9) - (order[b.importance] ?? 9));
+    banner.innerHTML = active.map(a => {
+        const icon = a.importance === 'critical' ? '🚨'
+            : a.importance === 'warning' ? '⚠'
+            : 'ℹ';
+        const lock = a.lockBookings ? '<span class="banner-lock">🔒 此期間禁止新增預約</span>' : '';
+        return `
+            <div class="banner-item banner-${a.importance}">
+                <span class="banner-icon">${icon}</span>
+                <div class="banner-content">
+                    <div class="banner-msg">${escapeHtml(a.message)}</div>
+                    <div class="banner-meta">${a.startDate} ~ ${a.endDate} ${lock}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    banner.style.display = 'flex';
+}
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ==========================================================================
+// v2.41.0 (M.2): 批次取消功能
+// ==========================================================================
+
+let isBatchSelectMode = false;
+const batchSelectedIds = new Set();
+
+function toggleBatchSelectMode() {
+    isBatchSelectMode = !isBatchSelectMode;
+    batchSelectedIds.clear();
+    const toolbar = document.getElementById('historyBatchToolbar');
+    const toggleBtn = document.getElementById('btnBatchSelectToggle');
+    if (toolbar) toolbar.style.display = isBatchSelectMode ? 'flex' : 'none';
+    if (toggleBtn) {
+        toggleBtn.textContent = isBatchSelectMode ? '✕ 結束批次' : '✓ 批次選取';
+        toggleBtn.classList.toggle('active', isBatchSelectMode);
+    }
+    document.querySelectorAll('.history-list .history-item').forEach(updateItemCheckbox);
+    updateBatchSelectionUI();
+}
+
+function updateItemCheckbox(itemEl) {
+    const id = itemEl.dataset.bookingId;
+    let checkbox = itemEl.querySelector('.history-batch-checkbox');
+    if (isBatchSelectMode) {
+        if (!checkbox) {
+            checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'history-batch-checkbox';
+            checkbox.addEventListener('click', (e) => e.stopPropagation());
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) batchSelectedIds.add(id);
+                else batchSelectedIds.delete(id);
+                updateBatchSelectionUI();
+            });
+            itemEl.prepend(checkbox);
+        }
+        checkbox.checked = batchSelectedIds.has(id);
+        itemEl.classList.add('batch-mode');
+    } else {
+        if (checkbox) checkbox.remove();
+        itemEl.classList.remove('batch-mode', 'batch-selected');
+    }
+}
+
+function updateBatchSelectionUI() {
+    const count = batchSelectedIds.size;
+    document.getElementById('batchSelectedCount').textContent = String(count);
+    document.getElementById('btnBatchCancel').disabled = count === 0;
+    // 高亮已選 row
+    document.querySelectorAll('.history-list .history-item').forEach(el => {
+        const id = el.dataset.bookingId;
+        el.classList.toggle('batch-selected', isBatchSelectMode && batchSelectedIds.has(id));
+    });
+}
+
+function batchSelectAll() {
+    document.querySelectorAll('.history-list .history-item').forEach(el => {
+        const id = el.dataset.bookingId;
+        if (id) batchSelectedIds.add(id);
+        const cb = el.querySelector('.history-batch-checkbox');
+        if (cb) cb.checked = true;
+    });
+    updateBatchSelectionUI();
+}
+
+function batchDeselectAll() {
+    batchSelectedIds.clear();
+    document.querySelectorAll('.history-batch-checkbox').forEach(cb => cb.checked = false);
+    updateBatchSelectionUI();
+}
+
+async function executeBatchCancel() {
+    const ids = Array.from(batchSelectedIds);
+    if (ids.length === 0) return;
+
+    // 二次確認 - 必須輸入確認字樣
+    const expected = `確認取消 ${ids.length} 筆`;
+    const input = prompt(
+        `⚠ 即將批次取消 ${ids.length} 筆預約，此動作無法復原。\n\n` +
+        `請輸入「${expected}」以確認執行：`
+    );
+    if (input !== expected) {
+        showToast('輸入不符，已取消批次操作', 'info');
+        return;
+    }
+
+    const cancelBtn = document.getElementById('btnBatchCancel');
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = '處理中...';
+
+    try {
+        const isAdmin = !!firebase.auth().currentUser;
+        const localDeviceId = getDeviceId();
+        // Firestore batch write 上限 500 筆，分批處理
+        const CHUNK = 400;
+        let successCount = 0;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+            const chunk = ids.slice(i, i + CHUNK);
+            const batch = db.batch();
+            for (const id of chunk) {
+                const booking = window.historyBookings?.[id];
+                if (!booking) continue;
+                // 一般使用者僅能取消自己裝置的預約
+                if (!isAdmin && booking.deviceId !== localDeviceId) continue;
+                if (isAdmin) {
+                    batch.delete(bookingsCollection.doc(id));
+                } else {
+                    batch.update(bookingsCollection.doc(id), { periods: [], deviceId: localDeviceId });
+                }
+                successCount += 1;
+            }
+            await batch.commit();
+        }
+
+        await loadBookingsFromFirebase();
+        await loadHistoryData();
+        toggleBatchSelectMode(); // 結束批次模式
+        showToast(`✅ 已批次取消 ${successCount} 筆預約`, 'success');
+    } catch (err) {
+        console.error('[Batch Cancel] 失敗', err);
+        showToast('批次取消失敗，請稍後再試', 'error');
+    } finally {
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = '🗑 批次取消';
+    }
+}
+
+// ==========================================================================
+// v2.41.0 初始化掛載 (在 DOMContentLoaded 後另外綁定)
+// ==========================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // M.1 綁定按鈕
+    const btnOpen = document.getElementById('btnOpenAnnouncements');
+    const btnClose = document.getElementById('btnAnnouncementClose');
+    const overlay = document.getElementById('announcementModalOverlay');
+    const form = document.getElementById('announcementForm');
+    const btnFormReset = document.getElementById('btnAnnFormReset');
+
+    btnOpen?.addEventListener('click', openAnnouncementManager);
+    btnClose?.addEventListener('click', closeAnnouncementManager);
+    overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeAnnouncementManager();
+    });
+    form?.addEventListener('submit', submitAnnouncementForm);
+    btnFormReset?.addEventListener('click', resetAnnouncementForm);
+
+    // M.2 綁定按鈕
+    document.getElementById('btnBatchSelectToggle')?.addEventListener('click', toggleBatchSelectMode);
+    document.getElementById('btnBatchSelectAll')?.addEventListener('click', batchSelectAll);
+    document.getElementById('btnBatchDeselect')?.addEventListener('click', batchDeselectAll);
+    document.getElementById('btnBatchCancel')?.addEventListener('click', executeBatchCancel);
+
+    // 啟動時載入公告 (供 banner 使用)
+    loadAllAnnouncements().then(() => {
+        console.log(`✅ Loaded ${cachedAnnouncements.length} announcements`);
+    });
+});
