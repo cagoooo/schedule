@@ -6774,30 +6774,53 @@ body {
    v2.44.0 (1.1): LINE 綁定 UI
    ========================================================================== */
 
-/* Header LINE 按鈕 (LINE 綠) */
+/* Header LINE 按鈕 (LINE 綠 + 官方風格 logo) */
 .btn-line-bind {
     background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
     color: #fff;
     border: none;
     height: 40px;
-    padding: 0 0.85rem;
+    padding: 0 0.85rem 0 0.4rem; /* 左側留空間給 logo */
     border-radius: 10px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
     transition: transform .15s, box-shadow .15s;
     box-shadow: 0 2px 6px rgba(6, 199, 85, 0.35);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.92rem;
 }
 .btn-line-bind:hover {
     transform: translateY(-1px) scale(1.04);
     box-shadow: 0 4px 12px rgba(6, 199, 85, 0.55);
 }
+
+/* v2.45.1: LINE 官方風格 logo — 白底綠字 LINE,圓角矩形 */
+.line-logo {
+    flex-shrink: 0;
+    display: block;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    border-radius: 22%;
+}
+.btn-line-bind .line-logo {
+    width: 28px;
+    height: 28px;
+}
+
 @media (max-width: 600px) {
-    .line-bind-label { display: none; }
-    .btn-line-bind { padding: 0 0.6rem; }
+    .line-bind-label {
+        display: none;
+    }
+    .btn-line-bind {
+        padding: 0 0.4rem;
+        width: 40px;
+        justify-content: center;
+    }
+    .btn-line-bind .line-logo {
+        width: 30px;
+        height: 30px;
+    }
 }
 
 /* LINE 綁定彈窗 */
