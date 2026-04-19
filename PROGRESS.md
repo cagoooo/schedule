@@ -284,6 +284,19 @@
 
 ---
 
+## 📚 配套文件
+
+| 文件 | 用途 |
+| :--- | :--- |
+| [PROGRESS.md](./PROGRESS.md) | 本文件 — 已完成功能進度 |
+| [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) | 57 項未來優化提案完整清單 |
+| [OPTIMIZATION_PLAYBOOK.md](./OPTIMIZATION_PLAYBOOK.md) | 7 項提案的詳細實作手冊（含程式碼） |
+| [DEV_REFERENCES.md](./DEV_REFERENCES.md) | 開發參考資源彙整（200+ 連結） |
+| [README.md](./README.md) | 專案介紹與使用指引 |
+
+---
+
 > [!NOTE]
 > 本文件追蹤「禮堂&專科教室&IPAD平板車預約系統」的所有已完成功能，確保對開發現況有清楚共識。
 > 未來優化建議詳見 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) 與 [OPTIMIZATION_PLAYBOOK.md](./OPTIMIZATION_PLAYBOOK.md)。
+> 開發時的官方文件連結速查請見 [DEV_REFERENCES.md](./DEV_REFERENCES.md)。
