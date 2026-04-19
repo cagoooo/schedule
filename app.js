@@ -2674,6 +2674,11 @@ async function executeAdvancedSearch() {
     const searchInput = document.getElementById('searchInput').value.trim();
     const periodFilter = document.getElementById('searchPeriodFilter').value;
 
+    // v2.41.2: 場地過濾 - 預設僅搜目前場地, 使用者可切換為全部
+    const scopeBtn = document.getElementById('btnSearchScope');
+    const isAllRooms = scopeBtn?.dataset.scope === 'all';
+    const currentRoom = getSelectedRoom();
+
     // 自動設定搜尋範圍：今天起至未來 180 天
     const today = new Date();
     const futureDate = new Date();
@@ -2688,7 +2693,8 @@ async function executeAdvancedSearch() {
         return;
     }
 
-    showToast('正在搜尋未來半年內的預約...', 'info');
+    const scopeMsg = isAllRooms ? '跨全部場地' : `「${currentRoom}」`;
+    showToast(`正在${scopeMsg}搜尋未來半年內的預約...`, 'info');
 
     try {
         // 建立查詢 (直接查未來半年)
@@ -2701,6 +2707,14 @@ async function executeAdvancedSearch() {
 
         snapshot.forEach(doc => {
             const booking = { id: doc.id, ...doc.data() };
+
+            // v2.41.2: 場地過濾 - 預設只看目前場地
+            if (!isAllRooms) {
+                const bookingRoom = booking.room || '禮堂'; // 舊資料無 room 欄位 → 視為禮堂
+                if (bookingRoom !== currentRoom) {
+                    return;
+                }
+            }
 
             // 關鍵字篩選（同時搜尋姓名與理由）
             if (searchInput) {
@@ -2727,7 +2741,7 @@ async function executeAdvancedSearch() {
         results.sort((a, b) => a.date.localeCompare(b.date));
 
         // 渲染搜尋結果
-        renderSearchResults(results, searchInput);
+        renderSearchResults(results, searchInput, { scope: isAllRooms ? 'all' : currentRoom });
         openSearchModal();
 
     } catch (error) {
@@ -2738,14 +2752,25 @@ async function executeAdvancedSearch() {
 
 /**
  * 渲染搜尋結果
+ * @param {Array} results
+ * @param {string} searchTerm
+ * @param {Object} [opts] { scope: 'all' | <room name> } v2.41.2
  */
-function renderSearchResults(results, searchTerm) {
+function renderSearchResults(results, searchTerm, opts = {}) {
     const summaryEl = document.getElementById('searchResultSummary');
     const listEl = document.getElementById('searchResultList');
+
+    // v2.41.2: 摘要顯示搜尋範圍
+    const scopeBadge = opts.scope === 'all'
+        ? '<span class="search-scope-badge scope-all">🌐 跨全部場地</span>'
+        : opts.scope
+            ? `<span class="search-scope-badge scope-current">🏠 ${escapeHtml(opts.scope)}</span>`
+            : '';
 
     // 渲染摘要
     summaryEl.innerHTML = `
         <span>找到 <span class="count">${results.length}</span> 筆預約記錄</span>
+        ${scopeBadge}
     `;
 
     // 渲染結果列表
@@ -2827,6 +2852,28 @@ function initSearchEventListeners() {
 
     // 搜尋按鈕
     btnAdvancedSearch.addEventListener('click', executeAdvancedSearch);
+
+    // v2.41.2: 場地搜尋範圍切換按鈕
+    const btnScope = document.getElementById('btnSearchScope');
+    const scopeLabel = document.getElementById('searchScopeLabel');
+    if (btnScope) {
+        btnScope.addEventListener('click', () => {
+            const isAll = btnScope.dataset.scope === 'all';
+            if (isAll) {
+                btnScope.dataset.scope = 'current';
+                btnScope.classList.remove('all-rooms');
+                btnScope.firstChild.textContent = '🏠 ';
+                if (scopeLabel) scopeLabel.textContent = '目前場地';
+                btnScope.title = '目前僅搜尋當前場地，點擊切換為全部場地';
+            } else {
+                btnScope.dataset.scope = 'all';
+                btnScope.classList.add('all-rooms');
+                btnScope.firstChild.textContent = '🌐 ';
+                if (scopeLabel) scopeLabel.textContent = '全部場地';
+                btnScope.title = '目前搜尋全部場地，點擊切換為僅當前場地';
+            }
+        });
+    }
 
     // Enter 鍵觸發搜尋
     searchInput.addEventListener('keypress', (e) => {

@@ -3136,6 +3136,68 @@ body {
 }
 
 /* 進階搜尋按鈕 */
+/* v2.41.2: 場地搜尋範圍切換按鈕 */
+.btn-search-scope {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1.5px solid #7dd3fc;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+    white-space: nowrap;
+}
+
+.btn-search-scope:hover {
+    background: #e0f2fe;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+}
+
+.btn-search-scope.all-rooms {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border-color: #f59e0b;
+}
+
+.btn-search-scope.all-rooms:hover {
+    background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+}
+
+/* v2.41.2: 搜尋結果範圍 badge */
+.search-scope-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.search-scope-badge.scope-current {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+}
+
+.search-scope-badge.scope-all {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+}
+
+@media (max-width: 768px) {
+    .btn-search-scope {
+        padding: 0.45rem 0.7rem;
+        font-size: 0.82rem;
+    }
+}
+
 .btn-search-advanced {
     display: flex;
     align-items: center;
