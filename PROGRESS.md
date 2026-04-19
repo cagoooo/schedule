@@ -4,7 +4,65 @@
 
 ---
 
-## 📅 當前版本：v2.43.0 (2026-04-19) - 完整稽核日誌 (1.8)
+## 📅 當前版本：v2.45.0 (2026-04-19) - LINE Phase 2 預約事件推播
+
+### 🎯 核心目的
+延續 Phase 1 的 LINE 綁定基礎,實現預約事件**自動推 LINE Flex Message** —
+讓老師預約成功立刻收到漂亮卡片通知,取消時也即時提醒。
+
+### 📦 新增 3 個 Cloud Functions (Firestore Triggers)
+
+| Function | 觸發 | 推播訊息 |
+| :--- | :--- | :--- |
+| `notifyOnBookingCreate` | bookings onCreate | ✅ 預約成功確認(綠色卡片) |
+| `notifyOnBookingUpdate` | bookings onUpdate (periods 變空) | ❌ 預約已取消(紅色卡片) |
+| `notifyOnBookingDelete` | bookings onDelete | ⚠ 預約被管理員取消(橘色卡片) |
+
+### 🎨 LINE Flex Message 設計
+
+每張卡片都包含:
+- **彩色 Header**(綠/紅/橘 對應事件類型)
+- **內容欄位**:📅 日期 / 📍 場地 / ⏰ 節次(中文化)/ 👤 預約者
+- **預約理由**(分隔線下方)
+- **「🔗 開啟預約系統」按鈕** 跳回 cagoooo.github.io/schedule/
+
+### 🛡 容錯設計
+
+- **未綁定使用者**:`getBoundLineUserId` 回 null → 安靜跳過,不報錯
+- **推播失敗**:`pushFlexToUser` 包 try/catch,失敗只 log,不影響預約流程
+- **重複推送防護**:onDelete 檢查 periods 是否為空,避免「先取消再強刪」推 2 次
+- **節次中文化**:`PERIOD_NAMES` map 把 `period1` 變「第一節」
+
+### 📂 修改檔案
+
+- `functions/index.js`: +220 行(3 個 trigger functions + Flex builder + helpers)
+- `functions/index.js`: 新增 `onDocumentCreated` / `onDocumentUpdated` / `onDocumentDeleted` import
+- `sw.js`、`index.html`、`README.md`: 版本標示
+
+### 💡 部署過程踩雷
+
+**雷:首次 Firestore trigger 部署 IAM 傳播延遲**
+- 第一次 deploy → HTTP 400 「Permission denied while using the Eventarc Service Agent」
+- Firebase 提示:「first time using 2nd gen functions, retry in a few minutes」
+- 等 60 秒後重試 → 全數成功 ✅
+
+### 🧪 驗收測試
+
+1. **建立預約**(已綁定使用者)→ LINE 應 1~3 秒內收到綠色「✅ 預約成功確認」
+2. **取消預約**(自助取消)→ 收到紅色「❌ 預約已取消」
+3. **管理員強刪** → 收到橘色「⚠ 預約已被管理員取消」
+4. **未綁定使用者預約** → 系統照常運作,只是沒推 LINE
+5. **檢查 Functions log**:
+   ```bash
+   firebase functions:log --only notifyOnBookingCreate --lines 5
+   ```
+   應看到 `[Push] ✅ 預約建立 ...` 訊息
+
+---
+
+## 📅 v2.44.3 (2026-04-19) - LINE QR 修正
+## 📅 v2.44.0 (2026-04-19) - LINE Phase 1 綁定基礎建設
+## 📅 v2.43.0 (2026-04-19) - 完整稽核日誌 (1.8)
 
 ### 🎯 核心目標
 v2.41.8 批次取消漏洞顯示「沒有完整 audit 就沒辦法事後追溯」。

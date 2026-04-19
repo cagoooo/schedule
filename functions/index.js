@@ -1,6 +1,7 @@
 /**
  * Cloud Functions for 禮堂&專科教室預約系統
  * Phase 1 (v2.44.0): LINE 綁定基礎建設
+ * Phase 2 (v2.45.0): 預約事件推播 (建立/取消/強刪)
  *
  * 安全提醒:
  * - LINE Channel Secret / Access Token 透過 Firebase Functions Secrets 注入
@@ -11,6 +12,7 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
@@ -398,3 +400,295 @@ exports.checkBindingStatus = onRequest({ cors: true }, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ==========================================================================
+// Phase 2 (v2.45.0): 預約事件推播
+// ==========================================================================
+
+// 節次 ID → 中文名稱對應 (與前端 PERIODS 同步)
+const PERIOD_NAMES = {
+    morning: '晨間/早會',
+    period1: '第一節', period2: '第二節', period3: '第三節', period4: '第四節',
+    lunch: '午餐/午休',
+    period5: '第五節', period6: '第六節', period7: '第七節', period8: '第八節',
+};
+
+const APP_URL = 'https://cagoooo.github.io/schedule/';
+
+/**
+ * 將 period IDs 陣列轉成中文逗號字串
+ */
+function formatPeriods(periodIds) {
+    if (!Array.isArray(periodIds) || periodIds.length === 0) return '無';
+    return periodIds.map(id => PERIOD_NAMES[id] || id).join('、');
+}
+
+/**
+ * 取得綁定的 LINE userId,沒綁定回 null
+ */
+async function getBoundLineUserId(deviceId) {
+    if (!deviceId) return null;
+    try {
+        const doc = await db.collection('lineBindings').doc(deviceId).get();
+        if (!doc.exists) return null;
+        return doc.data().lineUserId;
+    } catch (err) {
+        logger.warn('[Push] 查綁定失敗', err);
+        return null;
+    }
+}
+
+/**
+ * 建立預約相關 Flex Message
+ * @param {Object} booking - 預約資料
+ * @param {'created'|'cancelled'|'force_deleted'} eventType
+ */
+function createBookingFlexMessage(booking, eventType) {
+    const config = {
+        created: {
+            title: '✅ 預約成功確認',
+            color: '#06c755',
+            hint: '感謝您的預約!',
+        },
+        cancelled: {
+            title: '❌ 預約已取消',
+            color: '#ef4444',
+            hint: '此預約已成功取消。',
+        },
+        force_deleted: {
+            title: '⚠ 預約已被管理員取消',
+            color: '#f59e0b',
+            hint: '管理員已強制取消此預約,請洽詢確認原因。',
+        },
+    }[eventType] || { title: '📌 預約異動通知', color: '#6366f1', hint: '' };
+
+    const periodsStr = formatPeriods(booking.periods);
+    const altText = `${config.title}: ${booking.room || '禮堂'} ${booking.date}`;
+
+    return {
+        type: 'flex',
+        altText,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: config.color,
+                paddingAll: '15px',
+                contents: [{
+                    type: 'text',
+                    text: config.title,
+                    color: '#FFFFFF',
+                    weight: 'bold',
+                    size: 'lg',
+                    align: 'center',
+                }],
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '15px',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '📅', size: 'sm', flex: 0 },
+                            { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '📍', size: 'sm', flex: 0 },
+                            { type: 'text', text: '場地', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.room || '禮堂', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '⏰', size: 'sm', flex: 0 },
+                            { type: 'text', text: '節次', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: periodsStr, size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '👤', size: 'sm', flex: 0 },
+                            { type: 'text', text: '預約者', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.booker || '-', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    { type: 'separator', margin: 'md' },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        margin: 'md',
+                        contents: [
+                            { type: 'text', text: '📝 預約理由', size: 'xs', color: '#888888' },
+                            { type: 'text', text: booking.reason || '無', size: 'sm', wrap: true, margin: 'xs' },
+                        ],
+                    },
+                    {
+                        type: 'text',
+                        text: config.hint || '​',
+                        size: 'xs',
+                        color: '#888888',
+                        margin: 'md',
+                        wrap: true,
+                    },
+                ],
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '10px',
+                contents: [{
+                    type: 'button',
+                    style: 'primary',
+                    color: config.color,
+                    height: 'sm',
+                    action: {
+                        type: 'uri',
+                        label: '🔗 開啟預約系統',
+                        uri: APP_URL,
+                    },
+                }],
+            },
+        },
+    };
+}
+
+/**
+ * 推播 Flex Message 到指定 LINE userId (含完整錯誤處理)
+ */
+async function pushFlexToUser(lineUserId, flexMessage, accessToken, contextLog) {
+    try {
+        const client = new line.messagingApi.MessagingApiClient({
+            channelAccessToken: accessToken,
+        });
+        await client.pushMessage({
+            to: lineUserId,
+            messages: [flexMessage],
+        });
+        logger.info(`[Push] ✅ ${contextLog} → ${lineUserId.substring(0, 8)}...`);
+    } catch (err) {
+        logger.error(`[Push] ❌ ${contextLog}: status=${err.statusCode || '?'}, msg=${err.message}`);
+        // 不 throw - 推播失敗不應阻擋主流程
+    }
+}
+
+// ==========================================================================
+// Function #4: notifyOnBookingCreate
+// 監聽 bookings collection onCreate → 推「✅ 預約成功」
+// ==========================================================================
+
+exports.notifyOnBookingCreate = onDocumentCreated(
+    {
+        document: 'bookings/{bookingId}',
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (event) => {
+        const booking = event.data?.data();
+        if (!booking) return;
+
+        const bookingId = event.params.bookingId;
+        const lineUserId = await getBoundLineUserId(booking.deviceId);
+        if (!lineUserId) {
+            logger.info(`[notifyOnBookingCreate] 預約 ${bookingId} 未綁定 LINE,跳過`);
+            return;
+        }
+
+        const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'created');
+        await pushFlexToUser(
+            lineUserId,
+            flex,
+            LINE_ACCESS_TOKEN.value(),
+            `預約建立 ${booking.room} ${booking.date}`
+        );
+    }
+);
+
+// ==========================================================================
+// Function #5: notifyOnBookingUpdate
+// 監聽 bookings onUpdate → 若 periods 從非空變空 (= 取消) → 推「❌ 預約已取消」
+// ==========================================================================
+
+exports.notifyOnBookingUpdate = onDocumentUpdated(
+    {
+        document: 'bookings/{bookingId}',
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (event) => {
+        const before = event.data?.before?.data();
+        const after = event.data?.after?.data();
+        if (!before || !after) return;
+
+        const wasActive = before.periods && before.periods.length > 0;
+        const isCancelled = !after.periods || after.periods.length === 0;
+
+        if (!wasActive || !isCancelled) return; // 不是「從有效變取消」,跳過
+
+        const bookingId = event.params.bookingId;
+        const lineUserId = await getBoundLineUserId(before.deviceId || after.deviceId);
+        if (!lineUserId) {
+            logger.info(`[notifyOnBookingUpdate] ${bookingId} 取消但未綁定`);
+            return;
+        }
+
+        const flex = createBookingFlexMessage({ ...before, id: bookingId }, 'cancelled');
+        await pushFlexToUser(
+            lineUserId,
+            flex,
+            LINE_ACCESS_TOKEN.value(),
+            `預約取消 ${before.room} ${before.date}`
+        );
+    }
+);
+
+// ==========================================================================
+// Function #6: notifyOnBookingDelete
+// 監聽 bookings onDelete → 推「⚠ 預約已被管理員取消」
+// (使用者自取消通常用 update periods=[],會走 #5;只有強刪才走這個)
+// ==========================================================================
+
+exports.notifyOnBookingDelete = onDocumentDeleted(
+    {
+        document: 'bookings/{bookingId}',
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (event) => {
+        const booking = event.data?.data();
+        if (!booking) return;
+
+        // 若刪除前已經沒 periods (= 已取消過),避免重複推
+        if (!booking.periods || booking.periods.length === 0) return;
+
+        const bookingId = event.params.bookingId;
+        const lineUserId = await getBoundLineUserId(booking.deviceId);
+        if (!lineUserId) {
+            logger.info(`[notifyOnBookingDelete] ${bookingId} 強刪但未綁定`);
+            return;
+        }
+
+        const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'force_deleted');
+        await pushFlexToUser(
+            lineUserId,
+            flex,
+            LINE_ACCESS_TOKEN.value(),
+            `預約強刪 ${booking.room} ${booking.date}`
+        );
+    }
+);

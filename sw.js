@@ -1,6 +1,6 @@
-// Service Worker v2.44.3 - LINE QR fix + Add Friend button
-const CACHE_NAME = 'booking-system-v2.44.3';
-const APP_VERSION = 'v2.44.3';
+// Service Worker v2.45.0 - LINE Phase 2: Booking event push notifications
+const CACHE_NAME = 'booking-system-v2.45.0';
+const APP_VERSION = 'v2.45.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
