@@ -4,7 +4,49 @@
 
 ---
 
-## 📅 當前版本：v2.41.2 (2026-04-19) - 搜尋場地過濾修正
+## 📅 當前版本：v2.41.3 (2026-04-19) - Z-Index 階層修正
+
+### 🐛 Bug Report
+- **使用者回報**：在搜尋彈窗點「🔁 再預約」時：
+  1. 預約彈窗開在搜尋彈窗**背後**（看不到）
+  2. Toast 訊息「已套用範本到 YYYY/MM/DD」**被搜尋彈窗遮住**
+
+### 🔍 根因分析
+
+| 元素 | 修正前 z-index | 問題 |
+| :--- | :---: | :--- |
+| Toast | 2000 | 與多個彈窗同層，DOM 順序決定誰在上 |
+| 預約彈窗 (modal-overlay) | 1000 | 與搜尋彈窗同層，但 DOM 順序在前→被搜尋蓋住 |
+| 搜尋彈窗 | 1000 | DOM 順序在後，蓋住預約彈窗 |
+| 公告彈窗 (announcement) | 2200 | 高於 toast，會蓋住所有 toast |
+
+### ✅ Fix 內容
+
+1. **建立統一 z-index 階層 CSS 變數**：
+   ```css
+   --z-modal-secondary: 1000;  /* search/history/settings */
+   --z-modal-primary: 2000;    /* auth/delete/stats/dashboard */
+   --z-modal-critical: 2200;   /* announcement */
+   --z-help-overlay: 2500;     /* keyboard help */
+   --z-tooltip: 3000;          /* in-modal tooltips */
+   --z-toast: 4000;            /* Toast 必須最高 */
+   --z-system-banner: 9999;    /* PWA update banner */
+   ```
+
+2. **Toast 提升至 z-index 4000**（高於所有 modal）
+
+3. **預約彈窗提升至 z-index 1100**（高於其他 secondary modal，但低於 primary）
+
+4. **quickRebook() 修正**：以陣列遍歷同步關閉 `historyModalOverlay` + `searchModalOverlay`
+
+### 📂 修改檔案
+
+- `app.js`: `quickRebook` 改用 forEach 關閉多個來源彈窗
+- `styles.v2.38.0.css`: 新增 `:root` z-index 變數 + 套用到 toast 與 modal-overlay
+
+---
+
+## 📅 v2.41.2 (2026-04-19) - 搜尋場地過濾修正
 
 ### 🐛 Bug Report
 - **使用者回報**：搜尋預約時雖然主畫面選定「三年級IPAD車」，搜尋結果卻包含「禮堂」的預約資料。

@@ -35,6 +35,17 @@
 
     --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* v2.41.3: 統一 z-index 階層 (避免層級衝突) */
+    --z-header: 100;
+    --z-fab: 500;             /* Floating action buttons */
+    --z-modal-secondary: 1000; /* search/history/settings/booking */
+    --z-modal-primary: 2000;   /* auth/delete/stats/dashboard */
+    --z-modal-critical: 2200;  /* announcement (覆蓋所有) */
+    --z-help-overlay: 2500;    /* keyboard help */
+    --z-tooltip: 3000;         /* in-modal tooltips (month-day) */
+    --z-toast: 4000;           /* Toast 必須高於所有 modal */
+    --z-system-banner: 9999;   /* PWA 更新 banner */
 }
 
 * {
@@ -600,7 +611,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    /* v2.41.3: 預約彈窗略高於其他 secondary modal,確保從搜尋/歷史開的預約能蓋過來源 */
+    z-index: 1100;
     opacity: 0;
     visibility: hidden;
     transition: var(--transition-normal);
@@ -914,7 +926,8 @@ body {
     border-radius: var(--radius-md);
     font-weight: 500;
     box-shadow: var(--shadow-lg);
-    z-index: 2000;
+    /* v2.41.3: 提升 z-index 確保 toast 在所有 modal 之上 (4000 > 2200 announcement) */
+    z-index: var(--z-toast, 4000);
     opacity: 0;
     visibility: hidden;
     transition: var(--transition-normal);

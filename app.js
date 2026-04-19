@@ -1094,11 +1094,14 @@ async function quickRebook(booking) {
 
     const newDateStr = formatDate(nextDate);
 
-    // 關閉歷史紀錄彈窗，避免兩個彈窗重疊
-    const historyOverlay = document.getElementById('historyModalOverlay');
-    if (historyOverlay && historyOverlay.classList.contains('active')) {
-        historyOverlay.classList.remove('active');
-    }
+    // 關閉所有可能的來源彈窗 (歷史紀錄 + 搜尋結果)，避免多層彈窗重疊
+    // v2.41.3: 補上搜尋彈窗 (原本只關歷史)
+    ['historyModalOverlay', 'searchModalOverlay'].forEach(id => {
+        const overlay = document.getElementById(id);
+        if (overlay && overlay.classList.contains('active')) {
+            overlay.classList.remove('active');
+        }
+    });
 
     // 同步切換主頁面下拉選單到該場地，讓背景週曆顯示正確
     const mainRoomSelect = document.getElementById('roomSelect');

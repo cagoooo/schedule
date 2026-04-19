@@ -1,6 +1,6 @@
-// Service Worker v2.41.2 - Search Scope Fix
-const CACHE_NAME = 'booking-system-v2.41.2';
-const APP_VERSION = 'v2.41.2';
+// Service Worker v2.41.3 - Z-Index Hierarchy Fix
+const CACHE_NAME = 'booking-system-v2.41.3';
+const APP_VERSION = 'v2.41.3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
