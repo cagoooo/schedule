@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.1</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.1">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,17 +15,117 @@
     <meta name="theme-color" content="#667eea">
     <link rel="apple-touch-icon" href="favicon.png">
     <script>
-        if ('serviceWorker' in navigator) {
+        // ===== v2.41.1: PWA 版本更新通知系統 =====
+        (function () {
+            if (!('serviceWorker' in navigator)) return;
+
+            const APP_VERSION = 'v2.41.1';
+            const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
+            let isReloading = false;
+
             window.addEventListener('load', function () {
                 navigator.serviceWorker.register('./sw.js')
                     .then(function (registration) {
-                        console.log('ServiceWorker registration successful');
+                        console.log(`[PWA] SW registered, app version: ${APP_VERSION}`);
+
+                        // (A) 若已有 waiting 的新版 SW (例如剛重整) → 立即顯示通知
+                        if (registration.waiting && navigator.serviceWorker.controller) {
+                            showUpdateBanner(registration.waiting);
+                        }
+
+                        // (B) 監聽 updatefound: 新版 SW 開始安裝
+                        registration.addEventListener('updatefound', function () {
+                            const newWorker = registration.installing;
+                            if (!newWorker) return;
+                            console.log('[PWA] New SW found, installing...');
+
+                            newWorker.addEventListener('statechange', function () {
+                                if (newWorker.state === 'installed') {
+                                    if (navigator.serviceWorker.controller) {
+                                        // 有 controller 表示「有舊版被替換」→ 顯示更新通知
+                                        showUpdateBanner(newWorker);
+                                    } else {
+                                        // 第一次安裝 (沒有舊版)
+                                        console.log('[PWA] First install, no banner needed');
+                                    }
+                                }
+                            });
+                        });
+
+                        // (C) 定期主動檢查更新 (使用者長時間不關頁面也能收到通知)
+                        setInterval(function () {
+                            registration.update().catch(function (e) {
+                                console.warn('[PWA] Update check failed:', e);
+                            });
+                        }, CHECK_INTERVAL);
+
+                        // (D) 視窗重新獲得焦點時也檢查 (使用者切回分頁)
+                        document.addEventListener('visibilitychange', function () {
+                            if (document.visibilityState === 'visible') {
+                                registration.update().catch(function () { /* silent */ });
+                            }
+                        });
                     })
                     .catch(function (err) {
-                        console.log('ServiceWorker registration failed: ', err);
+                        console.error('[PWA] SW registration failed:', err);
                     });
+
+                // (E) 當 controller 切換 → 自動 reload (banner 觸發 SKIP_WAITING 之後)
+                navigator.serviceWorker.addEventListener('controllerchange', function () {
+                    if (isReloading) return;
+                    isReloading = true;
+                    console.log('[PWA] New SW activated, reloading...');
+                    window.location.reload();
+                });
             });
-        }
+
+            /**
+             * 顯示版本更新通知 banner (右下方滑入)
+             * @param {ServiceWorker} newWorker
+             */
+            function showUpdateBanner(newWorker) {
+                // 避免重複建立
+                if (document.getElementById('pwaUpdateBanner')) return;
+
+                const banner = document.createElement('div');
+                banner.id = 'pwaUpdateBanner';
+                banner.className = 'pwa-update-banner';
+                banner.setAttribute('role', 'status');
+                banner.setAttribute('aria-live', 'polite');
+                banner.innerHTML = `
+                    <div class="pwa-update-icon">🆕</div>
+                    <div class="pwa-update-content">
+                        <div class="pwa-update-title">新版本已就緒</div>
+                        <div class="pwa-update-desc">點「立即更新」載入最新功能</div>
+                    </div>
+                    <div class="pwa-update-actions">
+                        <button type="button" class="btn-pwa-update-now">立即更新</button>
+                        <button type="button" class="btn-pwa-update-later" aria-label="稍後">⏷</button>
+                    </div>
+                `;
+                document.body.appendChild(banner);
+
+                // 滑入動畫
+                requestAnimationFrame(function () {
+                    banner.classList.add('show');
+                });
+
+                // 「立即更新」按鈕
+                banner.querySelector('.btn-pwa-update-now').addEventListener('click', function () {
+                    banner.classList.add('updating');
+                    banner.querySelector('.pwa-update-title').textContent = '更新中…';
+                    banner.querySelector('.pwa-update-desc').textContent = '頁面即將自動重新載入';
+                    // 通知 SW 立即接管 → controllerchange 會觸發 reload
+                    newWorker.postMessage('SKIP_WAITING');
+                });
+
+                // 「稍後」按鈕 (淡出但 30 分鐘後會自動再出現)
+                banner.querySelector('.btn-pwa-update-later').addEventListener('click', function () {
+                    banner.classList.remove('show');
+                    setTimeout(function () { banner.remove(); }, 400);
+                });
+            }
+        })();
     </script>
 </head>
 

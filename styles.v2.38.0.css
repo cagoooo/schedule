@@ -6295,3 +6295,173 @@ body {
         flex-direction: row !important;
     }
 }
+
+/* ==========================================================================
+   v2.41.1: PWA 版本更新通知 Banner
+   ========================================================================== */
+
+.pwa-update-banner {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1.1rem;
+    min-width: 320px;
+    max-width: calc(100vw - 48px);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    color: #fff;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.45),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    backdrop-filter: blur(12px);
+    transform: translateY(120%);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(.4, 0, .2, 1),
+                opacity 0.3s ease;
+    font-family: inherit;
+}
+
+.pwa-update-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+    animation: pwaShimmer 3s ease-in-out 0.4s;
+}
+
+@keyframes pwaShimmer {
+    0%, 100% { box-shadow: 0 12px 40px rgba(99, 102, 241, 0.45),
+                            0 0 0 1px rgba(255, 255, 255, 0.1) inset; }
+    50%      { box-shadow: 0 16px 50px rgba(139, 92, 246, 0.65),
+                            0 0 0 1px rgba(255, 255, 255, 0.25) inset,
+                            0 0 24px rgba(236, 72, 153, 0.4); }
+}
+
+.pwa-update-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    flex-shrink: 0;
+    animation: pwaWiggle 1.4s ease-in-out infinite;
+}
+
+@keyframes pwaWiggle {
+    0%, 100% { transform: rotate(0); }
+    25%      { transform: rotate(-12deg); }
+    75%      { transform: rotate(12deg); }
+}
+
+.pwa-update-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.pwa-update-title {
+    font-weight: 700;
+    font-size: 0.98rem;
+    margin-bottom: 2px;
+    letter-spacing: 0.01em;
+}
+
+.pwa-update-desc {
+    font-size: 0.82rem;
+    opacity: 0.9;
+}
+
+.pwa-update-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.btn-pwa-update-now {
+    background: rgba(255, 255, 255, 0.95);
+    color: #6d28d9;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+}
+
+.btn-pwa-update-now:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.btn-pwa-update-now:active {
+    transform: scale(0.96);
+}
+
+.btn-pwa-update-later {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-pwa-update-later:hover {
+    background: rgba(255, 255, 255, 0.32);
+}
+
+.pwa-update-banner.updating {
+    pointer-events: none;
+}
+
+.pwa-update-banner.updating .pwa-update-icon {
+    animation: pwaSpin 0.8s linear infinite;
+}
+
+.pwa-update-banner.updating .pwa-update-icon::before {
+    content: '⏳';
+}
+
+.pwa-update-banner.updating .pwa-update-icon {
+    color: transparent;
+}
+
+@keyframes pwaSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.pwa-update-banner.updating .btn-pwa-update-now,
+.pwa-update-banner.updating .btn-pwa-update-later {
+    opacity: 0.5;
+}
+
+@media (max-width: 600px) {
+    .pwa-update-banner {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        min-width: auto;
+        padding: 0.75rem 0.9rem;
+    }
+
+    .pwa-update-icon {
+        font-size: 1.5rem;
+    }
+
+    .pwa-update-title {
+        font-size: 0.92rem;
+    }
+
+    .pwa-update-desc {
+        font-size: 0.76rem;
+    }
+
+    .btn-pwa-update-now {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.84rem;
+    }
+}

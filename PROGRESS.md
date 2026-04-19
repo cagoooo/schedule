@@ -4,7 +4,44 @@
 
 ---
 
-## 📅 當前版本：v2.41.0 (2026-04-19) - 管理員實戰功能 (M.1 + M.2)
+## 📅 當前版本：v2.41.1 (2026-04-19) - PWA 版本更新通知系統
+
+### 🆕 PWA Auto-Update Notification
+
+- **自動偵測**：Service Worker 註冊後監聽 `updatefound` 事件，新版安裝完即觸發 banner。
+- **多重觸發策略**：
+  1. 頁面 `load` 時 → 檢查是否已有 waiting 中的 SW
+  2. `visibilitychange` (使用者切回分頁) → 主動 `registration.update()`
+  3. 定時 30 分鐘輪詢 → 即使長時間掛在背景也能收到通知
+- **使用者體驗優先**：
+  - 不主動 `skipWaiting()`，避免使用者填表單到一半被打斷
+  - banner 樣式：右下角彩虹漸層 + 搖擺 icon + 呼吸光暈動畫
+  - 提供「立即更新」與「稍後 ⏷」兩按鈕
+- **更新流程**（從點擊到完成 ~2 秒）：
+  1. 使用者點「立即更新」
+  2. 前端 `postMessage('SKIP_WAITING')` → SW 接管
+  3. `controllerchange` 事件觸發 → 自動 `location.reload()`
+- **首次安裝不打擾**：判斷 `navigator.serviceWorker.controller` 是否存在，第一次裝 PWA 不顯示 banner。
+
+### 📂 修改檔案
+
+- `sw.js`: 移除 install 內 `skipWaiting()` + 加入 `GET_VERSION` 訊息處理
+- `index.html`: 完全重寫 SW 註冊區塊（+90 行）含 update detection
+- `styles.v2.38.0.css`: +160 行 banner 樣式（漸層/動畫/RWD）
+
+### 🎨 視覺設計重點
+
+| 元素 | 設計 |
+| :--- | :--- |
+| 主色 | 紫藍 → 靛紫 → 桃紅 三段漸層（與系統主題一致） |
+| icon | 🆕 emoji 配合 1.4s wiggle 搖擺動畫 |
+| 進場 | 從畫面底部 120% 位移滑入，0.4s cubic-bezier |
+| 進場後 | 0.4s 後額外 3s 呼吸光暈，吸引注意 |
+| 更新中 | icon 換成 ⏳ 旋轉，按鈕半透明，禁止互動 |
+
+---
+
+## 📅 v2.41.0 (2026-04-19) - 管理員實戰功能 (M.1 + M.2)
 
 ### 🎛 M.1 場地維護公告系統
 
@@ -240,6 +277,7 @@
 | 👁 月視圖 hover 預覽 | ✅ | v2.40.0 | 完整節次與借用者列表 |
 | 📢 場地維護公告系統 | ✅ | v2.41.0 | 含 banner + 鎖定預約 + 三階重要度 |
 | ✂ 批次取消功能 | ✅ | v2.41.0 | 二次確認 + 分批 400 筆處理 |
+| 🆕 PWA 版本更新通知 | ✅ | v2.41.1 | 自動偵測新版 + 一鍵更新 + 不打斷使用者 |
 
 ### 🔍 搜尋與統計
 

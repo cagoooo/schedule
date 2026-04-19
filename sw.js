@@ -1,5 +1,6 @@
-// Service Worker v2.41.0 - Announcements + Batch Cancel
-const CACHE_NAME = 'booking-system-v2.41.0';
+// Service Worker v2.41.1 - Update Notification System
+const CACHE_NAME = 'booking-system-v2.41.1';
+const APP_VERSION = 'v2.41.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -13,17 +14,18 @@ const ASSETS_TO_CACHE = [
 ];
 
 // ===== Install: 預快取核心資源 =====
+// v2.41.1: 改為「等候模式」, 由前端通知使用者後再 skipWaiting
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('[SW v2.40.0] Caching app shell');
+            console.log(`[SW ${APP_VERSION}] Caching app shell`);
             return cache.addAll(ASSETS_TO_CACHE).catch(err => {
                 console.warn('[SW] Some assets failed to cache:', err);
             });
         })
     );
-    // 立即啟用新 SW，跳過 waiting 狀態
-    self.skipWaiting();
+    // ⚠ 不主動 skipWaiting, 改由前端 banner 點擊「立即更新」後觸發
+    // 這樣使用者填預約表單時不會被打斷
 });
 
 // ===== Activate: 清理舊快取 =====
@@ -88,9 +90,14 @@ self.addEventListener('fetch', event => {
     }
 });
 
-// ===== 收到主執行緒訊息：手動觸發更新 =====
+// ===== 收到主執行緒訊息：手動觸發更新 / 查詢版本 =====
 self.addEventListener('message', event => {
     if (event.data === 'SKIP_WAITING') {
         self.skipWaiting();
+    } else if (event.data === 'GET_VERSION') {
+        // 回傳當前 SW 版本給前端
+        if (event.source) {
+            event.source.postMessage({ type: 'VERSION', version: APP_VERSION });
+        }
     }
 });
