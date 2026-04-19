@@ -16,6 +16,7 @@ const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const line = require('@line/bot-sdk');
+const crypto = require('crypto');
 
 // 初始化 Firebase Admin
 admin.initializeApp();
@@ -129,22 +130,36 @@ exports.lineWebhook = onRequest(
         const channelSecret = LINE_CHANNEL_SECRET.value();
         const accessToken = LINE_ACCESS_TOKEN.value();
 
-        // 1. 驗證 LINE 簽章 (確保訊息真的來自 LINE)
+        // 1. 驗證 LINE 簽章
         if (!signature) {
             logger.warn('[Webhook] Missing X-Line-Signature header');
             res.status(401).send('Missing signature');
             return;
         }
 
-        const body = JSON.stringify(req.body);
-        try {
-            if (!line.validateSignature(body, channelSecret, signature)) {
-                logger.warn('[Webhook] Invalid signature');
-                res.status(401).send('Unauthorized');
-                return;
-            }
-        } catch (err) {
-            logger.error('[Webhook] Signature validation error', err);
+        // 取得原始 body (Firebase Functions v2 提供 req.rawBody Buffer)
+        let rawBodyBuffer;
+        if (req.rawBody && Buffer.isBuffer(req.rawBody)) {
+            rawBodyBuffer = req.rawBody;
+        } else if (typeof req.body === 'string') {
+            rawBodyBuffer = Buffer.from(req.body, 'utf8');
+        } else {
+            rawBodyBuffer = Buffer.from(JSON.stringify(req.body), 'utf8');
+        }
+
+        // 計算 HMAC-SHA256 並比對 (用 crypto 直接算,避免任何 SDK 編碼問題)
+        // ⚠ 重點: secret 必須是純 32-char hex,任何 \n / 空白都會讓簽章對不上
+        const expectedSig = crypto.createHmac('sha256', channelSecret)
+            .update(rawBodyBuffer)
+            .digest('base64');
+
+        if (expectedSig !== signature) {
+            logger.warn('[Webhook] Signature mismatch', {
+                bodyLen: rawBodyBuffer.length,
+                secretLen: channelSecret.length,
+                receivedPrefix: signature.substring(0, 8),
+                expectedPrefix: expectedSig.substring(0, 8),
+            });
             res.status(401).send('Unauthorized');
             return;
         }
