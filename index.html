@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.44.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.44.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.44.3</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.44.3">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.44.0';
+            const APP_VERSION = 'v2.44.3';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -1195,17 +1195,28 @@
                     </div>
 
                     <div class="line-bind-qr-container">
+                        <!-- v2.44.3: 改用 LINE 官方 Bot QR endpoint (sid/M 是 Bot,sid/L 是 channel) -->
                         <img id="lineBindQrImg" alt="LINE Bot QR Code"
-                             src="https://qr-official.line.me/sid/L/2009444631.png"
+                             src="https://qr-official.line.me/sid/M/450qmudw.png"
                              onerror="this.style.display='none'; document.getElementById('lineBindQrFallback').style.display='block';">
                         <div id="lineBindQrFallback" style="display:none; padding: 1rem;">
                             <p>⚠ QR Code 載入失敗</p>
                             <p style="font-size:0.85rem; color:#64748b;">
-                                請至 LINE Developers Console 下載 QR Code，<br>
-                                或聯絡系統管理員索取 LINE Bot 加好友連結。
+                                請改用下方按鈕直接加好友。
                             </p>
                         </div>
-                        <p class="line-bind-qr-hint">用 LINE 掃描加 Bot 為好友</p>
+                        <p class="line-bind-qr-hint">📱 用 LINE 掃描加 Bot 為好友</p>
+
+                        <!-- v2.44.3: 手機備援 - 直接點按開啟 LINE 加好友 -->
+                        <div class="line-bind-mobile-cta">
+                            <a href="https://line.me/R/ti/p/@450qmudw" target="_blank" rel="noopener"
+                               class="btn-add-line-friend">
+                                ➕ 點此直接加 LINE 好友
+                            </a>
+                            <p class="line-bind-id-hint">
+                                或在 LINE 搜尋 ID: <code>@450qmudw</code>
+                            </p>
+                        </div>
                     </div>
 
                     <div class="line-bind-status-bar" id="lineBindStatusBar">

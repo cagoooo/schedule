@@ -6999,6 +6999,43 @@ body {
     color: #14532d;
 }
 
+/* v2.44.3: 手機加好友 CTA 區塊 */
+.line-bind-mobile-cta {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #86efac;
+}
+.btn-add-line-friend {
+    display: inline-block;
+    padding: 0.7rem 1.4rem;
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: white !important;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 3px 10px rgba(6, 199, 85, 0.35);
+}
+.btn-add-line-friend:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 5px 14px rgba(6, 199, 85, 0.5);
+}
+.line-bind-id-hint {
+    margin-top: 0.5rem !important;
+    font-size: 0.78rem !important;
+    color: #64748b !important;
+}
+.line-bind-id-hint code {
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    color: #334155;
+    font-family: ui-monospace, "SF Mono", monospace;
+    user-select: all;
+}
+
 .line-bind-status-bar {
     background: #fef3c7;
     color: #78350f;
