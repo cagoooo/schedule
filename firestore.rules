@@ -61,6 +61,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ===== v2.44.0 (1.1): LINE 綁定碼 (僅 Cloud Function 可寫,前端可讀以驗證) =====
+    match /lineBindingCodes/{code} {
+      // 只能由 Cloud Function 寫入 (前端透過 createBindingCode API)
+      allow write: if false;
+      // 前端可讀取以輪詢狀態 (僅自己的 deviceId)
+      allow read: if true;
+    }
+
+    // ===== v2.44.0 (1.1): LINE 綁定關係 =====
+    match /lineBindings/{deviceId} {
+      // 只能由 Cloud Function 寫入 (透過 lineWebhook 處理綁定)
+      allow write: if false;
+      // 前端可讀取以判斷是否已綁定 (僅自己的 deviceId)
+      allow read: if true;
+    }
+
     // ===== v2.41.0 (M.1): 場地維護公告 =====
     match /roomAnnouncements/{annId} {
       // 所有人可讀取公告 (預約彈窗會顯示)

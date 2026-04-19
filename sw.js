@@ -1,6 +1,6 @@
-// Service Worker v2.43.0 - Complete Audit Log (1.8)
-const CACHE_NAME = 'booking-system-v2.43.0';
-const APP_VERSION = 'v2.43.0';
+// Service Worker v2.44.0 - LINE Bot 綁定基礎建設 (1.1 Phase 1)
+const CACHE_NAME = 'booking-system-v2.44.0';
+const APP_VERSION = 'v2.44.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

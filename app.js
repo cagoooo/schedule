@@ -4992,3 +4992,165 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`✅ Loaded ${cachedAnnouncements.length} announcements`);
     });
 });
+
+// ==========================================================================
+// v2.44.0 (1.1): LINE 綁定模組
+// ==========================================================================
+
+const LINE_FUNCTIONS_BASE = 'https://asia-east1-schedule-10ed3.cloudfunctions.net';
+let lineBindPollTimer = null;
+let lineBindCountdownTimer = null;
+
+/**
+ * 開啟 LINE 綁定彈窗 — 自動依綁定狀態顯示對應 step
+ */
+async function openLineBindModal() {
+    const overlay = document.getElementById('lineBindOverlay');
+    if (!overlay) return;
+
+    // 重置所有 step
+    ['lineBindStep0', 'lineBindStep1', 'lineBindStep2', 'lineBindStep3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    overlay.classList.add('active');
+
+    // 檢查是否已綁定
+    try {
+        const deviceId = getDeviceId();
+        const doc = await db.collection('lineBindings').doc(deviceId).get();
+        if (doc.exists) {
+            // 已綁定 → 顯示 Step 0
+            const data = doc.data();
+            document.getElementById('lineBindBoundName').textContent =
+                data.lineDisplayName || '(未取得名稱)';
+            document.getElementById('lineBindStep0').style.display = 'block';
+            return;
+        }
+    } catch (err) {
+        console.warn('[LINE Bind] 檢查綁定狀態失敗', err);
+    }
+
+    // 未綁定 → 顯示 Step 1 (開始綁定表單)
+    document.getElementById('lineBindStep1').style.display = 'block';
+}
+
+function closeLineBindModal() {
+    document.getElementById('lineBindOverlay')?.classList.remove('active');
+    if (lineBindPollTimer) { clearInterval(lineBindPollTimer); lineBindPollTimer = null; }
+    if (lineBindCountdownTimer) { clearInterval(lineBindCountdownTimer); lineBindCountdownTimer = null; }
+}
+
+/**
+ * 點「開始綁定」→ 呼叫 createBindingCode → 顯示 Step 2 + QR
+ */
+async function startLineBinding() {
+    const btn = document.getElementById('btnLineBindStart');
+    const nameInput = document.getElementById('lineBindName');
+    const displayName = nameInput?.value.trim() || '';
+
+    btn.disabled = true;
+    btn.textContent = '產生中...';
+
+    try {
+        const deviceId = getDeviceId();
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/createBindingCode`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId, displayName }),
+        });
+
+        if (!res.ok) {
+            throw new Error(`API ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // 顯示 Step 2
+        document.getElementById('lineBindStep1').style.display = 'none';
+        document.getElementById('lineBindStep2').style.display = 'block';
+        document.getElementById('lineBindCode').textContent = data.code;
+
+        // 啟動倒數 (5 分鐘)
+        startBindCountdown(data.expiresInSeconds || 300);
+
+        // 啟動輪詢綁定狀態 (每 3 秒)
+        startBindPolling(data.code);
+
+    } catch (err) {
+        console.error('[LINE Bind] 產生綁定碼失敗', err);
+        showToast('產生綁定碼失敗，請稍後再試', 'error');
+        btn.disabled = false;
+        btn.textContent = '🔗 開始綁定';
+    }
+}
+
+function startBindCountdown(seconds) {
+    if (lineBindCountdownTimer) clearInterval(lineBindCountdownTimer);
+    let remain = seconds;
+    const update = () => {
+        const m = Math.floor(remain / 60);
+        const s = remain % 60;
+        const el = document.getElementById('lineBindCountdown');
+        if (el) el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        if (remain <= 0) {
+            clearInterval(lineBindCountdownTimer);
+            const statusBar = document.getElementById('lineBindStatusBar');
+            if (statusBar) statusBar.innerHTML = '⏰ 綁定碼已過期，請重新產生';
+            stopBindPolling();
+        }
+        remain -= 1;
+    };
+    update();
+    lineBindCountdownTimer = setInterval(update, 1000);
+}
+
+function startBindPolling(code) {
+    if (lineBindPollTimer) clearInterval(lineBindPollTimer);
+    lineBindPollTimer = setInterval(async () => {
+        try {
+            const res = await fetch(`${LINE_FUNCTIONS_BASE}/checkBindingStatus?code=${code}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status === 'bound') {
+                // 綁定成功!
+                stopBindPolling();
+                onBindingSuccess();
+            }
+        } catch (err) {
+            console.warn('[LINE Bind] Poll 失敗', err);
+        }
+    }, 3000);
+}
+
+function stopBindPolling() {
+    if (lineBindPollTimer) { clearInterval(lineBindPollTimer); lineBindPollTimer = null; }
+    if (lineBindCountdownTimer) { clearInterval(lineBindCountdownTimer); lineBindCountdownTimer = null; }
+}
+
+async function onBindingSuccess() {
+    // 從 Firestore 讀取綁定資訊顯示
+    try {
+        const deviceId = getDeviceId();
+        const doc = await db.collection('lineBindings').doc(deviceId).get();
+        const lineName = doc.exists ? (doc.data().lineDisplayName || '') : '';
+        document.getElementById('lineBindNewName').textContent = lineName || '(未取得)';
+    } catch (e) { /* silent */ }
+
+    document.getElementById('lineBindStep2').style.display = 'none';
+    document.getElementById('lineBindStep3').style.display = 'block';
+    showToast('🎉 LINE 綁定成功！', 'success');
+}
+
+// ===== 事件綁定 =====
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnLineBind')?.addEventListener('click', openLineBindModal);
+    document.getElementById('btnLineBindClose')?.addEventListener('click', closeLineBindModal);
+    document.getElementById('btnLineBindStart')?.addEventListener('click', startLineBinding);
+    document.getElementById('btnLineBindCancel')?.addEventListener('click', closeLineBindModal);
+    document.getElementById('btnLineBindDone')?.addEventListener('click', closeLineBindModal);
+    document.getElementById('lineBindOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'lineBindOverlay') closeLineBindModal();
+    });
+});

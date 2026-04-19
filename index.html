@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.43.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.43.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.44.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.44.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.43.0';
+            const APP_VERSION = 'v2.44.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -199,6 +199,13 @@
                         <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                     </svg>
+                </button>
+                <!-- v2.44.0 (1.1): LINE 綁定按鈕 -->
+                <button class="btn-line-bind" id="btnLineBind" title="綁定 LINE 接收預約通知">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span class="line-bind-label">LINE</span>
                 </button>
                 <button class="btn-admin" id="btnAdminLogin">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1126,6 +1133,91 @@
         <div class="pwa-actions">
             <button id="btnPwaInstall" class="btn-pwa-install">立即安裝</button>
             <button id="btnPwaDismiss" class="btn-pwa-dismiss">稍後再說</button>
+        </div>
+    </div>
+
+    <!-- v2.44.0 (1.1): LINE 綁定彈窗 -->
+    <div class="line-bind-overlay" id="lineBindOverlay">
+        <div class="line-bind-modal">
+            <div class="line-bind-header">
+                <h3>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    綁定 LINE 接收通知
+                </h3>
+                <button class="btn-line-bind-close" id="btnLineBindClose" type="button">×</button>
+            </div>
+            <div class="line-bind-body">
+                <!-- Step 0: 已綁定狀態 -->
+                <div id="lineBindStep0" class="line-bind-step" style="display:none;">
+                    <div class="line-bind-success-icon">✅</div>
+                    <h4>已綁定 LINE</h4>
+                    <p>您的裝置已綁定到 LINE 帳號:<br><strong id="lineBindBoundName">—</strong></p>
+                    <p class="line-bind-hint">未來預約成功、提醒、取消都會自動 LINE 通知您。</p>
+                    <p class="line-bind-hint" style="color: #94a3b8; font-size: 0.85rem;">
+                        如要解除綁定,請在 LINE 中封鎖本帳號。
+                    </p>
+                </div>
+
+                <!-- Step 1: 開始綁定 (產生綁定碼) -->
+                <div id="lineBindStep1" class="line-bind-step">
+                    <p class="line-bind-intro">
+                        綁定後將收到:<br>
+                        ✅ 預約成功確認<br>
+                        ⏰ 使用前 30 分鐘提醒<br>
+                        ❌ 取消/異動通知
+                    </p>
+                    <div class="line-bind-form">
+                        <label for="lineBindName">您的姓名 (顯示用):</label>
+                        <input type="text" id="lineBindName" maxlength="30" placeholder="例:張老師">
+                    </div>
+                    <button class="btn-line-bind-start" id="btnLineBindStart" type="button">
+                        🔗 開始綁定
+                    </button>
+                </div>
+
+                <!-- Step 2: 顯示綁定碼 + QR Code -->
+                <div id="lineBindStep2" class="line-bind-step" style="display:none;">
+                    <div class="line-bind-code-display">
+                        <div class="line-bind-code-label">綁定碼 (5 分鐘內有效)</div>
+                        <div class="line-bind-code" id="lineBindCode">------</div>
+                        <div class="line-bind-countdown" id="lineBindCountdown">5:00</div>
+                    </div>
+
+                    <div class="line-bind-instructions">
+                        <h4>📱 操作步驟:</h4>
+                        <ol>
+                            <li>用 LINE 掃下方 QR Code 加 Bot 為好友</li>
+                            <li>把上方綁定碼傳給 Bot</li>
+                            <li>Bot 回覆「✅ 綁定成功」即完成</li>
+                        </ol>
+                    </div>
+
+                    <div class="line-bind-qr-container">
+                        <img id="lineBindQrImg" alt="LINE Bot QR Code"
+                             src="https://qr-official.line.me/sid/L/2008810864.png">
+                        <p class="line-bind-qr-hint">用 LINE 掃描加 Bot 為好友</p>
+                    </div>
+
+                    <div class="line-bind-status-bar" id="lineBindStatusBar">
+                        ⏳ 等待您完成綁定...
+                    </div>
+
+                    <button class="btn-line-bind-cancel" id="btnLineBindCancel" type="button">
+                        取消綁定
+                    </button>
+                </div>
+
+                <!-- Step 3: 綁定成功 -->
+                <div id="lineBindStep3" class="line-bind-step" style="display:none;">
+                    <div class="line-bind-success-icon">🎉</div>
+                    <h4>綁定成功!</h4>
+                    <p>已連結 LINE: <strong id="lineBindNewName">—</strong></p>
+                    <p class="line-bind-hint">未來預約都會自動推播 LINE 通知。</p>
+                    <button class="btn-line-bind-done" id="btnLineBindDone" type="button">完成</button>
+                </div>
+            </div>
         </div>
     </div>
 </body>

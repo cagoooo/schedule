@@ -1,5 +1,17 @@
 .env
+.env.local
 config.js
 node_modules/
 .DS_Store
 *.log
+
+# Firebase Functions secrets and dependencies
+functions/node_modules/
+functions/.runtimeconfig.json
+functions/.env
+functions/.env.local
+.firebase/
+
+# Editor
+.vscode/
+.idea/

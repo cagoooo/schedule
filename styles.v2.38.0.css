@@ -6769,3 +6769,282 @@ body {
         font-size: 0.84rem;
     }
 }
+
+/* ==========================================================================
+   v2.44.0 (1.1): LINE 綁定 UI
+   ========================================================================== */
+
+/* Header LINE 按鈕 (LINE 綠) */
+.btn-line-bind {
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: #fff;
+    border: none;
+    height: 40px;
+    padding: 0 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 2px 6px rgba(6, 199, 85, 0.35);
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+.btn-line-bind:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 12px rgba(6, 199, 85, 0.55);
+}
+@media (max-width: 600px) {
+    .line-bind-label { display: none; }
+    .btn-line-bind { padding: 0 0.6rem; }
+}
+
+/* LINE 綁定彈窗 */
+.line-bind-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal-primary, 2000);
+}
+.line-bind-overlay.active {
+    display: flex;
+    animation: fadeIn .2s ease;
+}
+
+.line-bind-modal {
+    background: white;
+    border-radius: 16px;
+    width: min(94vw, 480px);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+}
+
+.line-bind-header {
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: white;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.line-bind-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.15rem;
+}
+.btn-line-bind-close {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+}
+.btn-line-bind-close:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.line-bind-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.line-bind-step {
+    text-align: center;
+}
+
+.line-bind-intro {
+    background: #f0fdf4;
+    border-left: 4px solid #06c755;
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    text-align: left;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+    color: #14532d;
+}
+
+.line-bind-form {
+    text-align: left;
+    margin-bottom: 1.25rem;
+}
+.line-bind-form label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: #374151;
+}
+.line-bind-form input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+.line-bind-form input:focus {
+    border-color: #06c755;
+    outline: none;
+}
+
+.btn-line-bind-start,
+.btn-line-bind-done {
+    width: 100%;
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: white;
+    border: none;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+.btn-line-bind-start:hover:not(:disabled),
+.btn-line-bind-done:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(6, 199, 85, 0.4);
+}
+.btn-line-bind-start:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.line-bind-cancel {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 0.85rem;
+    width: 100%;
+}
+
+/* Step 2: 綁定碼顯示 */
+.line-bind-code-display {
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: white;
+    padding: 1.25rem;
+    border-radius: 14px;
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+.line-bind-code-label {
+    font-size: 0.82rem;
+    opacity: 0.9;
+    margin-bottom: 0.4rem;
+}
+.line-bind-code {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: 0.4rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    margin-bottom: 0.5rem;
+    user-select: all;
+}
+.line-bind-countdown {
+    font-size: 0.95rem;
+    opacity: 0.95;
+    font-variant-numeric: tabular-nums;
+}
+
+.line-bind-instructions {
+    background: #f8fafc;
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    text-align: left;
+    margin-bottom: 1.25rem;
+}
+.line-bind-instructions h4 {
+    margin: 0 0 0.5rem;
+    color: #1e293b;
+}
+.line-bind-instructions ol {
+    margin: 0;
+    padding-left: 1.5rem;
+    line-height: 1.7;
+    color: #475569;
+}
+
+.line-bind-qr-container {
+    background: #f0fdf4;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+.line-bind-qr-container img {
+    width: 200px;
+    height: 200px;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+.line-bind-qr-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.85rem;
+    color: #14532d;
+}
+
+.line-bind-status-bar {
+    background: #fef3c7;
+    color: #78350f;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    margin-bottom: 0.85rem;
+    font-weight: 600;
+    animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.btn-line-bind-cancel {
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+/* Step 0/3: 已綁定 / 成功 */
+.line-bind-success-icon {
+    font-size: 4rem;
+    margin: 0.5rem 0;
+}
+.line-bind-step h4 {
+    margin: 0.5rem 0;
+    color: #1e293b;
+    font-size: 1.3rem;
+}
+.line-bind-step p {
+    color: #475569;
+    line-height: 1.6;
+    margin: 0.5rem 0;
+}
+.line-bind-step strong {
+    color: #06c755;
+    font-size: 1.1rem;
+}
+.line-bind-hint {
+    font-size: 0.9rem;
+    color: #64748b !important;
+    margin-top: 1rem !important;
+}
