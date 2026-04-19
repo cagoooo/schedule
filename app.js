@@ -4537,6 +4537,22 @@ function escapeHtml(str) {
 let isBatchSelectMode = false;
 const batchSelectedIds = new Set();
 
+// v2.41.8: 批次模式權限工具函式
+function isBatchAdmin() {
+    return !!firebase.auth().currentUser;
+}
+
+/**
+ * 判斷使用者是否能批次取消某筆預約
+ * - 管理員: 任何預約皆可
+ * - 一般使用者: 僅自己 deviceId 建立的預約
+ */
+function canBatchCancelBooking(booking) {
+    if (!booking) return false;
+    if (isBatchAdmin()) return true;
+    return booking.deviceId === getDeviceId();
+}
+
 function toggleBatchSelectMode() {
     isBatchSelectMode = !isBatchSelectMode;
     batchSelectedIds.clear();
@@ -4549,29 +4565,69 @@ function toggleBatchSelectMode() {
     }
     document.querySelectorAll('.history-list .history-item').forEach(updateItemCheckbox);
     updateBatchSelectionUI();
+
+    // v2.41.8: 進入批次模式時, 非管理員顯示權限提示
+    if (isBatchSelectMode && !isBatchAdmin()) {
+        const items = Array.from(document.querySelectorAll('.history-list .history-item'));
+        const total = items.length;
+        const ownCount = items.filter(el => {
+            const b = window.historyBookings?.[el.dataset.bookingId];
+            return b && b.deviceId === getDeviceId();
+        }).length;
+        if (total > 0 && ownCount < total) {
+            showToast(
+                `批次模式: 您僅能選取本機預約 (${ownCount}/${total} 筆可選)。如需取消他人預約請先登入管理員。`,
+                'info',
+                { duration: 6000 }
+            );
+        }
+    }
 }
 
 function updateItemCheckbox(itemEl) {
     const id = itemEl.dataset.bookingId;
     let checkbox = itemEl.querySelector('.history-batch-checkbox');
+
     if (isBatchSelectMode) {
+        // v2.41.8: 權限檢查 - 非管理員只能選自己 deviceId 的預約
+        const booking = window.historyBookings?.[id];
+        const canSelect = canBatchCancelBooking(booking);
+
         if (!checkbox) {
             checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'history-batch-checkbox';
             checkbox.addEventListener('click', (e) => e.stopPropagation());
             checkbox.addEventListener('change', () => {
+                // v2.41.8: 權限再次驗證 (防止 DOM 操作繞過)
+                if (!canBatchCancelBooking(window.historyBookings?.[id])) {
+                    checkbox.checked = false;
+                    showToast('此預約非本機建立，僅管理員可批次取消', 'warning');
+                    return;
+                }
                 if (checkbox.checked) batchSelectedIds.add(id);
                 else batchSelectedIds.delete(id);
                 updateBatchSelectionUI();
             });
             itemEl.prepend(checkbox);
         }
-        checkbox.checked = batchSelectedIds.has(id);
+
+        // v2.41.8: 套用權限 → 無權限者 disabled + 視覺指示
+        checkbox.disabled = !canSelect;
+        if (!canSelect) {
+            checkbox.checked = false;
+            checkbox.title = '此預約非本機建立，僅管理員可批次取消';
+            batchSelectedIds.delete(id); // 確保未授權的不在 selected set 中
+        } else {
+            checkbox.checked = batchSelectedIds.has(id);
+            checkbox.title = '勾選以加入批次取消清單';
+        }
+
         itemEl.classList.add('batch-mode');
+        itemEl.classList.toggle('batch-not-allowed', !canSelect);
     } else {
         if (checkbox) checkbox.remove();
-        itemEl.classList.remove('batch-mode', 'batch-selected');
+        itemEl.classList.remove('batch-mode', 'batch-selected', 'batch-not-allowed');
     }
 }
 
@@ -4579,6 +4635,22 @@ function updateBatchSelectionUI() {
     const count = batchSelectedIds.size;
     document.getElementById('batchSelectedCount').textContent = String(count);
     document.getElementById('btnBatchCancel').disabled = count === 0;
+
+    // v2.41.8: 工具列加入權限提示 chip (僅非管理員顯示)
+    const toolbar = document.getElementById('historyBatchToolbar');
+    let permHint = toolbar?.querySelector('.batch-perm-hint');
+    if (toolbar && isBatchSelectMode && !isBatchAdmin()) {
+        if (!permHint) {
+            permHint = document.createElement('span');
+            permHint.className = 'batch-perm-hint';
+            permHint.textContent = '🔒 僅可選取本機預約';
+            const countEl = toolbar.querySelector('.batch-count');
+            if (countEl) countEl.after(permHint);
+        }
+    } else if (permHint) {
+        permHint.remove();
+    }
+
     // 高亮已選 row
     document.querySelectorAll('.history-list .history-item').forEach(el => {
         const id = el.dataset.bookingId;
@@ -4587,13 +4659,24 @@ function updateBatchSelectionUI() {
 }
 
 function batchSelectAll() {
+    let skippedCount = 0;
     document.querySelectorAll('.history-list .history-item').forEach(el => {
         const id = el.dataset.bookingId;
-        if (id) batchSelectedIds.add(id);
+        if (!id) return;
+        // v2.41.8: 全選時跳過無權限的預約
+        const booking = window.historyBookings?.[id];
+        if (!canBatchCancelBooking(booking)) {
+            skippedCount += 1;
+            return;
+        }
+        batchSelectedIds.add(id);
         const cb = el.querySelector('.history-batch-checkbox');
-        if (cb) cb.checked = true;
+        if (cb && !cb.disabled) cb.checked = true;
     });
     updateBatchSelectionUI();
+    if (skippedCount > 0) {
+        showToast(`已全選 ${batchSelectedIds.size} 筆本機預約 (跳過 ${skippedCount} 筆他人預約)`, 'info');
+    }
 }
 
 function batchDeselectAll() {
@@ -4603,13 +4686,32 @@ function batchDeselectAll() {
 }
 
 async function executeBatchCancel() {
-    const ids = Array.from(batchSelectedIds);
-    if (ids.length === 0) return;
+    // v2.41.8: 執行前再次過濾權限 (防止有人 console 操作繞過 UI)
+    const allIds = Array.from(batchSelectedIds);
+    const ids = allIds.filter(id => canBatchCancelBooking(window.historyBookings?.[id]));
+    const filteredOut = allIds.length - ids.length;
+
+    if (ids.length === 0) {
+        if (filteredOut > 0) {
+            showToast(`所選 ${filteredOut} 筆皆非本機預約，無權限取消`, 'warning');
+            // 清掉選取狀態
+            batchSelectedIds.clear();
+            document.querySelectorAll('.history-list .history-item').forEach(updateItemCheckbox);
+            updateBatchSelectionUI();
+        }
+        return;
+    }
+
+    // 若有部分被過濾,提示使用者
+    let confirmExtra = '';
+    if (filteredOut > 0) {
+        confirmExtra = `\n(已自動排除 ${filteredOut} 筆無權限的預約)`;
+    }
 
     // 二次確認 - 必須輸入確認字樣
     const expected = `確認取消 ${ids.length} 筆`;
     const input = prompt(
-        `⚠ 即將批次取消 ${ids.length} 筆預約，此動作無法復原。\n\n` +
+        `⚠ 即將批次取消 ${ids.length} 筆預約，此動作無法復原。${confirmExtra}\n\n` +
         `請輸入「${expected}」以確認執行：`
     );
     if (input !== expected) {

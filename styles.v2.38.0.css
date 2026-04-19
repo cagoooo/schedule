@@ -6429,6 +6429,49 @@ body {
     margin-right: .35rem;
 }
 
+/* v2.41.8: 無批次取消權限的項目 (非本機預約 + 非管理員) */
+.history-item.batch-not-allowed {
+    opacity: 0.55;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 8px,
+        rgba(148, 163, 184, 0.08) 8px,
+        rgba(148, 163, 184, 0.08) 16px
+    );
+}
+.history-item.batch-not-allowed .history-batch-checkbox {
+    cursor: not-allowed;
+    accent-color: #94a3b8;
+}
+.history-item.batch-not-allowed::before {
+    content: '🔒';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    pointer-events: none;
+}
+.history-item {
+    position: relative;
+}
+
+/* v2.41.8: 工具列權限提示 chip */
+.batch-perm-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 3px 10px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #78350f;
+    border: 1px solid #f59e0b;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
 @media (max-width: 768px) {
     .history-batch-toolbar {
         flex-direction: column;
