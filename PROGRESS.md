@@ -4,15 +4,37 @@
 
 ---
 
-## 📅 當前版本：v2.38.6 (2026-03-23) - Further Rate Limit Relaxation
+## 📅 當前版本：v2.39.0 (2026-04-19) - Quick Re-Book Feature
 
-- **Logic Update**: **預約頻率限制再放寬** — 將每小時預約次數提升至 30 次，每日次數提升至 100 次。
-- **System**: 更新 `sw.js` 快取名稱為 `v2.38.6`，解決舊版限制 5 次的快取殘留問題。
-- **Documentation**: 同步更新 `README.md` 與 `index.html` 的版本資訊。
+- **New Feature**: ⚡ **一鍵重複預約 (Quick Re-Book)** — 歷史紀錄/搜尋結果每筆右側新增 `🔁 再預約` 按鈕。
+- **Smart Date Logic**: 自動計算「下個未來的同星期日期」，避免落入過去日期或同週重複。
+- **UX Optimization**:
+  - 點按鈕後自動關閉歷史彈窗、切換主頁場地、開啟預約彈窗並預填全欄位（場地、節次、預約者、理由）。
+  - 彈窗標題顯示「🔁 快速續訂 YYYY/MM/DD」便於辨識模式。
+  - 已被預約的節次保持 disabled，僅勾選可用節次。
+- **Mobile RWD**: 手機端按鈕只顯示 icon，桌面端顯示「再預約」文字。
+- **System**: 更新 SW cache 至 `booking-system-v2.39.0`，強制刷新前端設定。
+- **Files Modified**: `app.js` (新增 `quickRebook()` + 修改 `createBookingItemHTML`)、`styles.v2.38.0.css`、`sw.js`、`index.html`、`README.md`
+- **Estimated Impact**: 重複性預約（社團、固定週課）填表時間從 30 秒降至 3~5 秒。
+
+---
+
+## 📅 v2.38.6 (2026-03-23) - Further Rate Limit Relaxation
+
+- **Logic Update**: **預約頻率限制再放寬** — 將每小時預約次數提升至 **30 次**，每日次數提升至 **100 次**（v2.38.5 為 20/50，調整前舊版為 5/10）。
+- **System**: 強制更新 `sw.js` 快取名稱為 `cache-v2.38.6`，徹底解決舊版瀏覽器快取殘留導致仍套用 5 次/小時限制的問題。
+- **UX Pain Point Fixed**: 解決教師大量預約（如全學期重複預約、批次預約多教室）時頻繁遭觸發限流的困擾。
+- **Documentation**: 同步更新 `README.md` 與 `index.html` 的版本標示，便於使用者識別。
+- **Files Modified**: `app.js`、`sw.js`、`index.html`、`README.md`、`PROGRESS.md`
 
 ---
 
 ## 📅 v2.38.5 (2026-03-19) - Reservation Limit Adjustment
+
+- **Logic Update**: **預約頻率限制首次放寬** — 將每小時預約次數從 5 次調整為 **20 次**，每日次數從 10 次調整為 **50 次**。
+- **Background**: 老師反映實務上需要一次設定多週重複課程或多教室預約，原 5/10 限制過於嚴格。
+- **System**: 同步更新 `sw.js` 快取版本以強制刷新前端設定。
+- **Files Modified**: `app.js` (RATE_LIMIT 設定)、`sw.js`、`index.html`、`README.md`、`PROGRESS.md`
 
 ---
 
@@ -122,6 +144,7 @@
 | 自定義不開放時段 | ✅ | v2.30.0 | 管理員可手動禁排 |
 | 使用者自助取消 | ✅ | v2.36.0 | 裝置綁定，無需登入 |
 | 月視圖直接預約 | ✅ | v2.35.0 | 點擊日期直開預約彈窗 |
+| ⚡ 一鍵重複預約 | ✅ | v2.39.0 | 歷史/搜尋結果 → 下週同日 |
 
 ### 🔍 搜尋與統計
 
@@ -158,10 +181,13 @@
 | 更新項 | 狀態 | 版本 |
 | :--- | :---: | :---: |
 | Firebase Auth 管理員登入 | ✅ | v1.0.0 |
-| Rate Limiting 節流防洗版 | ✅ | v1.3.0 |
+| Rate Limiting 節流防洗版（5/10）| ✅ | v1.3.0 |
 | GitHub Actions CI/CD 自動部署 | ✅ | v2.31.0 |
 | API Key Secrets 隔離管理 | ✅ | v2.31.0 |
 | Firestore Security Rules 強化 | ✅ | v2.31.0 |
+| Rate Limiting 放寬 (20/50) | ✅ | v2.38.5 |
+| Rate Limiting 再放寬 (30/100) | ✅ | v2.38.6 |
+| SW 強制快取刷新機制 | ✅ | v2.38.6 |
 
 ---
 

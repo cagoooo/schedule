@@ -1,4 +1,4 @@
-const CACHE_NAME = 'booking-system-v2.38.6';
+const CACHE_NAME = 'booking-system-v2.39.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -905,6 +905,73 @@ function closeBookingModal() {
 }
 
 /**
+ * 一鍵重複預約：以歷史紀錄為範本，預約「下週同日」
+ * 若原日期已過去多週，自動推進至最近一個未來的同星期日期
+ * @param {Object} booking 原預約資料 (含 room, periods, booker, reason, date)
+ */
+async function quickRebook(booking) {
+    if (!booking || !booking.date || !Array.isArray(booking.periods)) {
+        showToast('預約資料有誤，無法重複預約', 'error');
+        return;
+    }
+
+    // 計算下個未來的同星期日期 (原日期 + 7n 天，且 > 今天)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextDate = parseDate(booking.date);
+    do {
+        nextDate.setDate(nextDate.getDate() + 7);
+    } while (nextDate <= today);
+
+    const newDateStr = formatDate(nextDate);
+
+    // 關閉歷史紀錄彈窗，避免兩個彈窗重疊
+    const historyOverlay = document.getElementById('historyModalOverlay');
+    if (historyOverlay && historyOverlay.classList.contains('active')) {
+        historyOverlay.classList.remove('active');
+    }
+
+    // 同步切換主頁面下拉選單到該場地，讓背景週曆顯示正確
+    const mainRoomSelect = document.getElementById('roomSelect');
+    if (mainRoomSelect && booking.room) {
+        const exists = Array.from(mainRoomSelect.options).some(o => o.value === booking.room);
+        if (exists) {
+            mainRoomSelect.value = booking.room;
+            mainRoomSelect.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // 略等資料載入後再開啟預約彈窗
+    setTimeout(() => {
+        openBookingModal(newDateStr);
+
+        // 預填欄位
+        if (booking.room) {
+            const modalRoomSelect = document.getElementById('modalRoomSelect');
+            const exists = modalRoomSelect && Array.from(modalRoomSelect.options).some(o => o.value === booking.room);
+            if (exists) modalRoomSelect.value = booking.room;
+        }
+        document.getElementById('bookerName').value = booking.booker || '';
+        document.getElementById('bookingReason').value = booking.reason || '';
+
+        // 勾選相同節次（已被預約的節次將維持 disabled）
+        booking.periods.forEach(pid => {
+            const cb = document.querySelector(`#periodCheckboxes input[value="${pid}"]`);
+            if (cb && !cb.disabled) cb.checked = true;
+        });
+
+        // 修改彈窗標題為「快速續訂」模式
+        const modalDateEl = document.getElementById('modalDate');
+        if (modalDateEl) {
+            modalDateEl.textContent = `🔁 快速續訂 ${newDateStr}`;
+        }
+
+        // 友善提示
+        showToast(`已套用範本到 ${newDateStr}，請確認後送出`, 'success');
+    }, 200);
+}
+
+/**
  * 提交預約
  */
 async function submitBooking() {
@@ -2426,7 +2493,8 @@ function renderSearchResults(results, searchTerm) {
     listEl.innerHTML = results.map(booking => {
         const itemHTML = createBookingItemHTML(booking, {
             searchTerm: searchTerm,
-            showDeleteBtn: false
+            showDeleteBtn: false,
+            showRebookBtn: true
         });
 
         return `
@@ -2514,7 +2582,7 @@ function initSearchEventListeners() {
  * @param {Object} options 選項 { searchTerm, showDeleteBtn }
  */
 function createBookingItemHTML(booking, options = {}) {
-    const { searchTerm = '', showDeleteBtn = false } = options;
+    const { searchTerm = '', showDeleteBtn = false, showRebookBtn = false } = options;
 
     const roomName = (booking.room && booking.room !== '未知場地') ? booking.room : '禮堂';
 
@@ -2554,6 +2622,26 @@ function createBookingItemHTML(booking, options = {}) {
         }
     }
 
+    // ===== 一鍵重複預約按鈕 (v2.39.0) =====
+    let rebookBtnHTML = '';
+    if (showRebookBtn && booking.id) {
+        // 確保 booking 存入全域供 onclick 取用
+        if (!window.historyBookings) window.historyBookings = {};
+        window.historyBookings[booking.id] = booking;
+
+        rebookBtnHTML = `
+            <button class="btn-history-rebook"
+                    onclick="quickRebook(window.historyBookings['${booking.id}'])"
+                    title="以此筆為範本，預約下週同日">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>再預約</span>
+            </button>`;
+    }
+
     return `
         <div class="history-item">
             <span class="history-date">${booking.date}</span>
@@ -2564,6 +2652,7 @@ function createBookingItemHTML(booking, options = {}) {
             <span class="history-booker">${bookerDisplay}</span>
             <div class="history-actions">
                 <span class="history-reason" title="${booking.reason || ''}">${reasonDisplay}</span>
+                ${rebookBtnHTML}
                 ${deleteBtnHTML}
             </div>
         </div>
@@ -2636,7 +2725,7 @@ async function loadHistoryData() {
             // 存入全域變數供 onclick 使用
             window.historyBookings[booking.id] = booking;
 
-            historyList.innerHTML += createBookingItemHTML(booking, { showDeleteBtn: true });
+            historyList.innerHTML += createBookingItemHTML(booking, { showDeleteBtn: true, showRebookBtn: true });
         });
 
         showToast(`已載入 ${snapshot.size} 筆記錄`, 'success');

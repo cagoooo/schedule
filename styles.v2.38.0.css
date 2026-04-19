@@ -3561,6 +3561,49 @@ body {
     transform: scale(1.1);
 }
 
+/* ===== 一鍵重複預約按鈕 (v2.39.0) ===== */
+.btn-history-rebook {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.btn-history-rebook:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.55);
+    filter: brightness(1.06);
+}
+
+.btn-history-rebook:active {
+    transform: scale(0.96);
+}
+
+.btn-history-rebook svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .btn-history-rebook {
+        padding: 5px 10px;
+        font-size: 0.78rem;
+    }
+    .btn-history-rebook span {
+        display: none; /* 手機版只顯示 icon 節省空間 */
+    }
+}
+
 /* ===== 批次預約功能 ===== */
 
 .batch-booking-group {
