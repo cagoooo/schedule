@@ -1,6 +1,6 @@
-// Service Worker v2.42.0 - IndexedDB Persistence (Firestore Offline)
-const CACHE_NAME = 'booking-system-v2.42.0';
-const APP_VERSION = 'v2.42.0';
+// Service Worker v2.43.0 - Complete Audit Log (1.8)
+const CACHE_NAME = 'booking-system-v2.43.0';
+const APP_VERSION = 'v2.43.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

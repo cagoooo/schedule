@@ -1,4 +1,4 @@
-# 禮堂&專科教室&IPAD平板車預約系統 v2.42.0
+# 禮堂&專科教室&IPAD平板車預約系統 v2.43.0
 
 學校禮堂、專科教室及IPAD平板車線上預約借用系統，支援查詢與查詢借用時段。
 
@@ -135,6 +135,15 @@
 - 🔒 預約選單禁排時段自動鎖定與灰階顯示
 - 📱 優化首頁按鈕群組 RWD 排版
 - 🎨 強化 Firestore 安全性規則
+
+### v2.43.0 (2026-04-19) - 完整稽核日誌 (1.8)
+- 📜 **新增 6 個 audit action**：CREATE_BOOKING、UNDO_BOOKING、BATCH_CANCEL、CREATE/UPDATE/DELETE_ANNOUNCEMENT
+- 🔍 **進階篩選**：操作類型、操作者(姓名/email)、起訖日期 → 雙條件複合查詢
+- 📊 **統計列**：載入後顯示 Top 4 操作類型分布 + 總計
+- 📋 **原始 JSON 展開**：每筆 log 可一鍵展開查看完整 metadata
+- 🎨 **6 種顏色標籤**：create / update / undo / batch / warning / other 各有色帶
+- 📱 **完整 RWD**：手機端工具列垂直堆疊
+- 🎯 **保留 200 筆上限**：避免一次拉太多影響效能
 
 ### v2.42.0 (2026-04-19) - IndexedDB 持久化快取 (C.1)
 - 💾 **Firestore IndexedDB 持久化**：啟用後資料自動快取到本地，重複切換週次/月份近乎零延遲。

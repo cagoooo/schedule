@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.42.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.42.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.43.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.43.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.42.0';
+            const APP_VERSION = 'v2.43.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -919,8 +919,25 @@
 
                 <div id="tab-audit" class="tab-content" style="display:none;">
                     <div class="audit-log-container">
-                        <div class="audit-header">
-                            <p class="audit-desc">僅顯示最近 50 筆操作紀錄</p>
+                        <!-- v2.43.0: 篩選工具列 -->
+                        <div class="audit-filters">
+                            <select id="auditFilterAction" class="audit-filter-select">
+                                <option value="">所有操作</option>
+                                <option value="CREATE_BOOKING">📅 建立預約</option>
+                                <option value="DELETE_BOOKING">🗑 取消預約</option>
+                                <option value="FORCE_DELETE_BOOKING">⚠ 強制刪除</option>
+                                <option value="UNDO_BOOKING">↩ 撤銷預約</option>
+                                <option value="BATCH_CANCEL_BOOKINGS">✂ 批次取消</option>
+                                <option value="CREATE_ANNOUNCEMENT">📢 建立公告</option>
+                                <option value="UPDATE_ANNOUNCEMENT">✏ 更新公告</option>
+                                <option value="DELETE_ANNOUNCEMENT">🗑 刪除公告</option>
+                                <option value="EXPORT_CSV">📥 匯出 CSV</option>
+                                <option value="ADMIN_LOGIN">🔑 管理員登入</option>
+                            </select>
+                            <input type="text" id="auditFilterUser" class="audit-filter-input"
+                                   placeholder="🔍 搜尋操作者 (姓名/email)">
+                            <input type="date" id="auditFilterDateFrom" class="audit-filter-date" title="起始日期">
+                            <input type="date" id="auditFilterDateTo" class="audit-filter-date" title="結束日期">
                             <button id="btnRefreshLogs" class="btn-refresh-logs">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
@@ -929,8 +946,12 @@
                                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
                                     </path>
                                 </svg>
-                                刷新
+                                查詢
                             </button>
+                        </div>
+                        <!-- v2.43.0: 統計列 -->
+                        <div class="audit-stats" id="auditStatsBar">
+                            <span class="audit-stat-chip">📊 載入後顯示統計</span>
                         </div>
                         <div id="auditLogList" class="audit-log-list">
                             <div class="loading-spinner"></div>

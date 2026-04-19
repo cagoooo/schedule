@@ -4,7 +4,72 @@
 
 ---
 
-## 📅 當前版本：v2.42.0 (2026-04-19) - IndexedDB 持久化快取 (C.1)
+## 📅 當前版本：v2.43.0 (2026-04-19) - 完整稽核日誌 (1.8)
+
+### 🎯 核心目標
+v2.41.8 批次取消漏洞顯示「沒有完整 audit 就沒辦法事後追溯」。
+本版本將既有的 `logSystemAction` 從覆蓋 4 個 action 擴展到 **10 個 action**，並大幅升級 UI。
+
+### 📜 寫入操作全包覆 (v2.41.x 教訓延伸)
+
+| Action | 何時觸發 | 包含資訊 |
+| :--- | :--- | :--- |
+| `CREATE_BOOKING` 🆕 | 預約建立成功 | booker / room / dates / periods / reason / IDs |
+| `DELETE_BOOKING` | 取消單筆 | reason / period / booker |
+| `FORCE_DELETE_BOOKING` | 管理員強刪 | reason / period / booker |
+| `UNDO_BOOKING` 🆕 | 30 秒內撤銷 | count / IDs / method |
+| `BATCH_CANCEL_BOOKINGS` 🆕 | 批次取消執行 | attemptedCount / successCount / filteredOut / executedBy |
+| `CREATE_ANNOUNCEMENT` 🆕 | 新建場地公告 | room / importance / message / dates / lockBookings |
+| `UPDATE_ANNOUNCEMENT` 🆕 | 編輯公告 | (同上含 ID) |
+| `DELETE_ANNOUNCEMENT` 🆕 | 刪除公告 | id / before snapshot |
+| `EXPORT_CSV` | 匯出資料 | count |
+| `ADMIN_LOGIN` | 管理員登入 | email |
+
+### 🔍 UI 大升級 — 從 50 筆陽春列表到完整稽核中心
+
+**篩選工具列**:
+- 🎯 **Action 下拉**: 10 種操作類型篩選
+- 🔍 **使用者搜尋**: 姓名 / email / deviceId 模糊搜尋
+- 📅 **日期區間**: 起 ~ 訖 (Firestore server-side 過濾)
+- ⏎ **查詢按鈕**: 重新載入
+
+**統計列**:
+- 📊 總計 N 筆 + Top 4 操作分布
+
+**Log 卡片**:
+- 6 種色彩標籤 (create=綠 / update=紫 / undo=黃 / batch=紫 / warning=紅 / other=灰)
+- 中文化 action 名稱 + emoji icon
+- 智慧詳情格式化 (依 action 顯示最相關資訊)
+- **📋 原始 JSON 展開**: 一鍵查看完整 metadata (供深度除錯)
+
+### 📂 修改檔案
+
+- `app.js`: +12 處稽核呼叫 + 重寫 `loadAuditLogs` (+150 行) + 新增 `AUDIT_ACTION_META` 對應表 + `formatAuditDetails`
+- `index.html`: 新增篩選工具列 + 統計列 (+20 行)
+- `styles.v2.38.0.css`: +110 行 (filter / stats / 6 色 action / JSON 展開)
+
+### 🛡 法遵與資安效益
+
+| 場景 | 修正前 | 修正後 |
+| :--- | :--- | :--- |
+| 「誰刪了張老師的預約?」 | ❌ 無紀錄 | ✅ 完整 actor + IP + UA |
+| 「上週公告被誰改過?」 | ❌ 無紀錄 | ✅ create/update/delete 全程追溯 |
+| 「批次取消是誰執行的?」 | ❌ 無紀錄 | ✅ 含 attemptedCount + successCount |
+| 「誰建了 5/15 那 30 筆預約?」 | ❌ 看不出來 | ✅ CREATE_BOOKING 完整紀錄 |
+| 校務評鑑 / 個資稽核 | ❌ 無法出具 | ✅ 一鍵 CSV 匯出 |
+
+### 🧪 驗收測試
+
+1. 不登入管理員 → 預約一筆 → 開儀表板的 Audit 分頁 → 應看到 `📅 建立預約` 紀錄
+2. 登入管理員 → 強刪一筆 → 應看到 `⚠ 強制刪除` 紅色標籤
+3. 批次取消 → 應看到 `✂ 批次取消` 含成功/失敗筆數
+4. 篩選 Action = 「建立預約」 → 只顯示 CREATE_BOOKING
+5. 點任一筆「📋 原始 JSON」→ 展開深色 JSON 區塊
+6. 統計列顯示「總計 N 筆」+ 操作類型分布
+
+---
+
+## 📅 v2.42.0 (2026-04-19) - IndexedDB 持久化快取 (C.1)
 
 ### 💾 核心變更
 - 啟用 Firestore `enablePersistence({ synchronizeTabs: true })`：

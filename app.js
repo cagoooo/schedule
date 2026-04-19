@@ -1345,6 +1345,14 @@ async function submitBooking() {
         // v2.40.0: V.2 累積該場地使用次數供「常用置頂」排序
         try { incrementRoomUsage(room); } catch (e) { /* silent */ }
 
+        // v2.43.0 (1.8): 稽核日誌 - 記錄預約建立
+        logSystemAction('CREATE_BOOKING', {
+            booker, room, periods: selectedPeriods, reason,
+            dates: datesToBook,
+            count: datesToBook.length,
+            createdIds: createdRefs.map(r => r.id),
+        }, createdRefs.map(r => r.id).join(','));
+
         // 預約成功後，若是批次模式則重置狀態
         if (isBatchMode) {
             batchSelectedDates = [];
@@ -1546,6 +1554,13 @@ async function undoRecentBookings(bookingIds) {
         await batch.commit();
         await loadBookingsFromFirebase();
         showToast(`已撤銷 ${bookingIds.length} 筆預約`, 'info');
+
+        // v2.43.0 (1.8): 稽核日誌 - 撤銷
+        logSystemAction('UNDO_BOOKING', {
+            count: bookingIds.length,
+            ids: bookingIds,
+            method: 'gmail_style_undo_30s',
+        }, bookingIds.join(','));
     } catch (err) {
         console.error('[Undo] 撤銷失敗', err);
         showToast('撤銷失敗，請手動至歷史紀錄取消', 'error');
@@ -3959,80 +3974,176 @@ async function logSystemAction(action, details = {}, targetId = null) {
 /**
  * 載入並顯示稽核日誌
  */
+// v2.43.0: 完整 action 對應表 (含 v2.41 新增的 actions)
+const AUDIT_ACTION_META = {
+    CREATE_BOOKING:           { name: '建立預約',      class: 'action-create',  icon: '📅' },
+    DELETE_BOOKING:           { name: '取消預約',      class: 'action-delete',  icon: '🗑' },
+    FORCE_DELETE_BOOKING:     { name: '強制刪除',      class: 'action-warning', icon: '⚠' },
+    UNDO_BOOKING:             { name: '撤銷預約',      class: 'action-undo',    icon: '↩' },
+    BATCH_CANCEL_BOOKINGS:    { name: '批次取消',      class: 'action-batch',   icon: '✂' },
+    CREATE_ANNOUNCEMENT:      { name: '建立場地公告',  class: 'action-create',  icon: '📢' },
+    UPDATE_ANNOUNCEMENT:      { name: '更新場地公告',  class: 'action-update',  icon: '✏' },
+    DELETE_ANNOUNCEMENT:      { name: '刪除場地公告',  class: 'action-warning', icon: '🗑' },
+    EXPORT_CSV:               { name: '匯出 CSV',      class: 'action-export',  icon: '📥' },
+    ADMIN_LOGIN:              { name: '管理員登入',    class: 'action-login',   icon: '🔑' },
+};
+
+/**
+ * v2.43.0: 格式化詳情為人類可讀字串
+ */
+function formatAuditDetails(log) {
+    const d = log.details || {};
+    switch (log.action) {
+        case 'CREATE_BOOKING':
+            return `${d.booker || '?'} 預約 ${d.room || '?'} ${d.dates?.length || 1} 個日期 ${d.periods?.length || 0} 節 (${d.reason?.substring(0, 30) || '無理由'})`;
+        case 'DELETE_BOOKING':
+        case 'FORCE_DELETE_BOOKING':
+            return `預約人: ${d.booker || '?'} | 原因: ${(d.reason || '無').substring(0, 40)} | 節次: ${d.period || 'ALL'}`;
+        case 'UNDO_BOOKING':
+            return `撤銷 ${d.count || 0} 筆 (Gmail 風格 30 秒內)`;
+        case 'BATCH_CANCEL_BOOKINGS':
+            return `批次取消 ${d.successCount || 0} / ${d.attemptedCount || 0} 筆 (執行者: ${d.executedBy || '?'}, 過濾: ${d.filteredOut || 0})`;
+        case 'CREATE_ANNOUNCEMENT':
+        case 'UPDATE_ANNOUNCEMENT':
+            return `${d.room || '?'} | ${d.importance || 'info'} | ${(d.message || '').substring(0, 40)} | ${d.startDate || ''} ~ ${d.endDate || ''}`;
+        case 'DELETE_ANNOUNCEMENT':
+            return `刪除公告: ${d.before?.room || '?'} | ${(d.before?.message || '').substring(0, 40)}`;
+        case 'EXPORT_CSV':
+            return `匯出 ${d.count || 0} 筆預約記錄`;
+        case 'ADMIN_LOGIN':
+            return `登入 email: ${d.email || '?'}`;
+        default:
+            try {
+                const clone = { ...d };
+                delete clone.userAgent;
+                const json = JSON.stringify(clone);
+                return json.length > 80 ? json.substring(0, 80) + '...' : json;
+            } catch { return ''; }
+    }
+}
+
 async function loadAuditLogs() {
     const list = document.getElementById('auditLogList');
     if (!list) return;
 
     list.innerHTML = '<div class="loading-spinner"></div>';
 
-    try {
-        const snapshot = await db.collection('audit_logs')
-            .orderBy('timestamp', 'desc')
-            .limit(50)
-            .get();
+    // v2.43.0: 讀取篩選條件
+    const filterAction = document.getElementById('auditFilterAction')?.value || '';
+    const filterUser = document.getElementById('auditFilterUser')?.value.trim().toLowerCase() || '';
+    const filterDateFrom = document.getElementById('auditFilterDateFrom')?.value || '';
+    const filterDateTo = document.getElementById('auditFilterDateTo')?.value || '';
 
-        if (snapshot.empty) {
-            list.innerHTML = '<div class="no-data">目前沒有日誌記錄</div>';
+    try {
+        let query = db.collection('audit_logs').orderBy('timestamp', 'desc');
+
+        // 伺服器端篩選 (action + 日期)
+        if (filterAction) {
+            query = query.where('action', '==', filterAction);
+        }
+        if (filterDateFrom) {
+            query = query.where('timestamp', '>=', new Date(filterDateFrom + 'T00:00:00'));
+        }
+        if (filterDateTo) {
+            query = query.where('timestamp', '<=', new Date(filterDateTo + 'T23:59:59'));
+        }
+
+        // 預設限制 200 筆 (避免過大)
+        query = query.limit(200);
+        const snapshot = await query.get();
+
+        // 前端篩選 (使用者搜尋)
+        let logs = [];
+        snapshot.forEach(doc => {
+            const log = { id: doc.id, ...doc.data() };
+            if (filterUser) {
+                const haystack = [
+                    log.userEmail || '',
+                    log.performedBy || '',
+                    log.details?.booker || '',
+                    log.deviceId || ''
+                ].join(' ').toLowerCase();
+                if (!haystack.includes(filterUser)) return;
+            }
+            logs.push(log);
+        });
+
+        // v2.43.0: 統計列
+        const statsEl = document.getElementById('auditStatsBar');
+        if (statsEl) {
+            const actionCounts = {};
+            logs.forEach(l => {
+                actionCounts[l.action] = (actionCounts[l.action] || 0) + 1;
+            });
+            const topActions = Object.entries(actionCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 4)
+                .map(([action, count]) => {
+                    const meta = AUDIT_ACTION_META[action] || { icon: '📝', name: action };
+                    return `<span class="audit-stat-chip">${meta.icon} ${meta.name}: ${count}</span>`;
+                }).join('');
+            statsEl.innerHTML = `
+                <span class="audit-stat-chip primary">總計 ${logs.length} 筆</span>
+                ${topActions}
+            `;
+        }
+
+        if (logs.length === 0) {
+            list.innerHTML = '<div class="no-data">📭 無符合條件的日誌</div>';
             return;
         }
 
         list.innerHTML = '';
-        snapshot.forEach(doc => {
-            const log = doc.data();
+        logs.forEach(log => {
             const date = log.timestamp ? log.timestamp.toDate() : new Date();
-            const timeStr = date.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const timeStr = date.toLocaleString('zh-TW', {
+                month: 'numeric', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
 
-            // 格式化詳情
-            let detailsStr = '';
-            if (log.details) {
-                if (log.action === 'DELETE_BOOKING' || log.action === 'FORCE_DELETE_BOOKING') {
-                    detailsStr = `原因: ${log.details.reason || '無'} | 預約人: ${log.details.booker || '未知'}`;
-                } else if (log.action === 'EXPORT_CSV') {
-                    detailsStr = `匯出數量: ${log.details.count || 0}`;
-                } else {
-                    try {
-                        const simpleDetails = { ...log.details };
-                        delete simpleDetails.userAgent; // too long
-                        detailsStr = JSON.stringify(simpleDetails).substring(0, 50) + (JSON.stringify(simpleDetails).length > 50 ? '...' : '');
-                    } catch (e) {
-                        detailsStr = String(log.details);
-                    }
-                }
-            }
-
-            // Action Mapping
-            let actionName = log.action;
-            let actionClass = 'action-other';
-            let icon = '📝';
-
-            if (log.action === 'DELETE_BOOKING') { actionName = '刪除預約'; actionClass = 'action-delete'; icon = '🗑️'; }
-            else if (log.action === 'FORCE_DELETE_BOOKING') { actionName = '強制刪除'; actionClass = 'action-delete'; icon = '⚠️'; }
-            else if (log.action === 'EXPORT_CSV') { actionName = '匯出 CSV'; actionClass = 'action-export'; icon = '📥'; }
-            else if (log.action === 'ADMIN_LOGIN') { actionName = '管理員登入'; actionClass = 'action-login'; icon = '🔑'; }
-
+            const meta = AUDIT_ACTION_META[log.action] || { name: log.action, class: 'action-other', icon: '📝' };
+            const detailsStr = formatAuditDetails(log);
             const userLabel = log.userEmail ? log.userEmail.split('@')[0] : (log.performedBy === 'Guest' ? '訪客' : 'System');
             const ipLabel = log.ip || 'Unknown IP';
+            const deviceLabel = log.deviceId ? log.deviceId.substring(0, 12) + '...' : '';
 
             const item = document.createElement('div');
-            item.className = `audit-log-item ${actionClass}`;
+            item.className = `audit-log-item ${meta.class}`;
 
+            // v2.43.0: 加入展開原始 JSON 的 details 元素
             item.innerHTML = `
                 <div class="log-header">
-                    <span class="log-action">${icon} ${actionName}</span>
+                    <span class="log-action">${meta.icon} ${meta.name}</span>
                     <span class="log-time">${timeStr}</span>
                 </div>
-                <div class="log-details">${detailsStr}</div>
+                <div class="log-details">${escapeHtml(detailsStr)}</div>
                 <div class="log-meta">
-                    <span class="meta-item">👤 ${userLabel}</span>
-                    <span class="meta-item">🌐 ${ipLabel}</span>
+                    <span class="meta-item">👤 ${escapeHtml(userLabel)}</span>
+                    <span class="meta-item">🌐 ${escapeHtml(ipLabel)}</span>
+                    ${deviceLabel ? `<span class="meta-item">📱 ${escapeHtml(deviceLabel)}</span>` : ''}
+                    <button class="meta-expand-btn" type="button" data-log-id="${log.id}">📋 原始 JSON</button>
                 </div>
+                <pre class="log-raw-json" id="raw-${log.id}" style="display:none;">${escapeHtml(JSON.stringify(log, null, 2))}</pre>
             `;
             list.appendChild(item);
         });
 
+        // 綁定展開按鈕
+        list.querySelectorAll('.meta-expand-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.logId;
+                const pre = document.getElementById(`raw-${id}`);
+                if (pre) {
+                    const isShown = pre.style.display !== 'none';
+                    pre.style.display = isShown ? 'none' : 'block';
+                    btn.textContent = isShown ? '📋 原始 JSON' : '📋 收起';
+                }
+            });
+        });
+
     } catch (error) {
         console.error('Load logs error:', error);
-        list.innerHTML = '<div class="error-text">載入失敗</div>';
+        list.innerHTML = '<div class="error-text">❌ 載入失敗: ' + escapeHtml(error.message || '') + '</div>';
     }
 }
 
@@ -4526,10 +4637,14 @@ async function submitAnnouncementForm(e) {
         if (editId) {
             await announcementsCollection.doc(editId).update(data);
             showToast('✅ 公告已更新', 'success');
+            // v2.43.0 (1.8): 稽核日誌 - 更新公告
+            logSystemAction('UPDATE_ANNOUNCEMENT', { id: editId, ...data }, editId);
         } else {
             data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            await announcementsCollection.add(data);
+            const docRef = await announcementsCollection.add(data);
             showToast('✅ 公告已建立', 'success');
+            // v2.43.0 (1.8): 稽核日誌 - 建立公告
+            logSystemAction('CREATE_ANNOUNCEMENT', { id: docRef.id, ...data }, docRef.id);
         }
         await loadAllAnnouncements();
         renderAnnouncementList();
@@ -4545,10 +4660,17 @@ async function submitAnnouncementForm(e) {
 async function deleteAnnouncement(id) {
     if (!confirm('確定要刪除這則公告嗎？此動作無法復原。')) return;
     try {
+        // v2.43.0: 刪除前先撈內容供稽核
+        const snapshot = await announcementsCollection.doc(id).get();
+        const beforeData = snapshot.exists ? snapshot.data() : null;
+
         await announcementsCollection.doc(id).delete();
         await loadAllAnnouncements();
         renderAnnouncementList();
         showToast('✅ 公告已刪除', 'success');
+
+        // v2.43.0 (1.8): 稽核日誌 - 刪除公告 (含原內容快照)
+        logSystemAction('DELETE_ANNOUNCEMENT', { id, before: beforeData }, id);
     } catch (err) {
         console.error('[Announcements] 刪除失敗', err);
         showToast('刪除失敗', 'error');
@@ -4821,6 +4943,15 @@ async function executeBatchCancel() {
         await loadHistoryData();
         toggleBatchSelectMode(); // 結束批次模式
         showToast(`✅ 已批次取消 ${successCount} 筆預約`, 'success');
+
+        // v2.43.0 (1.8): 稽核日誌 - 批次取消
+        logSystemAction('BATCH_CANCEL_BOOKINGS', {
+            attemptedCount: ids.length,
+            successCount,
+            filteredOut,
+            ids,
+            executedBy: isAdmin ? 'admin' : 'user',
+        }, ids.join(','));
     } catch (err) {
         console.error('[Batch Cancel] 失敗', err);
         showToast('批次取消失敗，請稍後再試', 'error');

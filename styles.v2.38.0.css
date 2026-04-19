@@ -5570,6 +5570,114 @@ body {
     background: #94a3b8 !important;
 }
 
+/* v2.43.0: 新增 action class 顏色 */
+.audit-log-item.action-create::before {
+    background: linear-gradient(to bottom, #10b981, #34d399) !important;
+}
+.audit-log-item.action-update::before {
+    background: linear-gradient(to bottom, #6366f1, #818cf8) !important;
+}
+.audit-log-item.action-undo::before {
+    background: linear-gradient(to bottom, #f59e0b, #fbbf24) !important;
+}
+.audit-log-item.action-batch::before {
+    background: linear-gradient(to bottom, #8b5cf6, #a78bfa) !important;
+}
+.audit-log-item.action-warning::before {
+    background: linear-gradient(to bottom, #ef4444, #f59e0b) !important;
+}
+
+/* v2.43.0: 篩選工具列 */
+.audit-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+    padding: 0.65rem 0.85rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.audit-filter-select,
+.audit-filter-input,
+.audit-filter-date {
+    padding: 0.4rem 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-family: inherit;
+}
+.audit-filter-input { flex: 1; min-width: 160px; }
+.audit-filter-select { min-width: 140px; }
+
+/* v2.43.0: 統計列 */
+.audit-stats {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
+    border-radius: 10px;
+}
+.audit-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.85);
+    color: #6d28d9;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.audit-stat-chip.primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+}
+
+/* v2.43.0: 展開原始 JSON */
+.meta-expand-btn {
+    margin-left: auto;
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: #6366f1;
+    transition: all .15s;
+}
+.meta-expand-btn:hover {
+    background: #6366f1;
+    color: white;
+    border-color: transparent;
+}
+.log-raw-json {
+    margin-top: 0.5rem;
+    padding: 0.65rem;
+    background: #1e293b;
+    color: #93c5fd;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (max-width: 768px) {
+    .audit-filters {
+        flex-direction: column;
+    }
+    .audit-filter-input,
+    .audit-filter-select,
+    .audit-filter-date {
+        width: 100%;
+    }
+}
+
 .log-action {
     font-size: 1.1rem !important;
     font-weight: 700 !important;
