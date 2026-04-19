@@ -13,9 +13,17 @@
   - 彈窗標題顯示「🔁 快速續訂 YYYY/MM/DD」便於辨識模式。
   - 已被預約的節次保持 disabled，僅勾選可用節次。
 - **Mobile RWD**: 手機端按鈕只顯示 icon，桌面端顯示「再預約」文字。
-- **System**: 更新 SW cache 至 `booking-system-v2.39.0`，強制刷新前端設定。
+- **System**: 更新 SW cache 至 `booking-system-v2.39.0`,強制刷新前端設定。
 - **Files Modified**: `app.js` (新增 `quickRebook()` + 修改 `createBookingItemHTML`)、`styles.v2.38.0.css`、`sw.js`、`index.html`、`README.md`
-- **Estimated Impact**: 重複性預約（社團、固定週課）填表時間從 30 秒降至 3~5 秒。
+- **Estimated Impact**: 重複性預約(社團、固定週課)填表時間從 30 秒降至 3~5 秒。
+- **Documentation Bonus**:
+  - 📘 新增 [OPTIMIZATION_PLAYBOOK.md](./OPTIMIZATION_PLAYBOOK.md) — 7 項提案完整實作手冊(含程式碼範例與避雷指南)。
+  - 📚 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) 大擴充: 12 項 → 27 項提案,含 4 條施工路徑。
+- **Deployment**:
+  - ✅ Commit `c2391c6` 推送至 GitHub (main branch)
+  - ✅ GitHub Actions CI/CD 13 秒完成部署
+  - ✅ 線上版本確認: https://cagoooo.github.io/schedule/ 已套用 v2.39.0
+  - ⚠️ CI 警告: Node.js 20 將於 2026/9/16 從 runner 移除,建議 Q3 前升級 actions 版本
 
 ---
 
@@ -191,6 +199,35 @@
 
 ---
 
+## 🎯 下個迭代目標 (Next Sprint Roadmap)
+
+> 依據 [OPTIMIZATION_PLAYBOOK.md](./OPTIMIZATION_PLAYBOOK.md) 的施工順序，當前進度與後續規劃：
+
+| 階段 | 提案 | 工時 | 狀態 |
+| :---: | :--- | :---: | :---: |
+| 🥇 速勝 1 | 1.7 一鍵重複預約 | 1~2 天 | ✅ **v2.39.0 已完成** |
+| 🥈 速勝 2 | F.3 Sentry RUM 錯誤監控 | 1~2 天 | ⏳ 規劃中 |
+| 🥉 速勝 3 | 1.8 完整稽核日誌 | 3~4 天 | ⏳ 規劃中 |
+| 4 | F.1 Vitest + Playwright 測試 | 10~14 天 | ⏳ 規劃中 |
+| 5 | 1.6 Web Push 瀏覽器通知 | 4~6 天 | ⏳ 規劃中 |
+| 6 | F.2 漸進式 TypeScript | 14~21 天 | ⏳ 規劃中 |
+| 7 | 3.3 AI 學期白皮書 | 3~4 週 | ⏳ 規劃中 |
+
+更多選項與創新提案見 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) (合計 30+ 項)。
+
+---
+
+## 🌐 部署狀態
+
+- **正式站**: https://cagoooo.github.io/schedule/
+- **CI/CD**: GitHub Actions (`.github/workflows/`)
+- **最新部署**: v2.39.0 @ 2026-04-19 (13 秒完成)
+- **Service Worker**: `booking-system-v2.39.0`
+- **DB**: Firebase Firestore
+- **Auth**: Firebase Authentication
+
+---
+
 > [!NOTE]
 > 本文件追蹤「禮堂&專科教室&IPAD平板車預約系統」的所有已完成功能，確保對開發現況有清楚共識。
-> 未來優化建議詳見 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md)。
+> 未來優化建議詳見 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) 與 [OPTIMIZATION_PLAYBOOK.md](./OPTIMIZATION_PLAYBOOK.md)。
