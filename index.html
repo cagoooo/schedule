@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.5</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.5">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.6</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.6">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.41.5';
+            const APP_VERSION = 'v2.41.6';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -72,12 +72,28 @@
 
                 // (E) 當 controller 切換 → 自動 reload (banner 觸發 SKIP_WAITING 之後)
                 navigator.serviceWorker.addEventListener('controllerchange', function () {
-                    if (isReloading) return;
-                    isReloading = true;
-                    console.log('[PWA] New SW activated, reloading...');
-                    window.location.reload();
+                    triggerReload('controllerchange');
+                });
+
+                // (F) v2.41.6: 備援方案 - SW 主動推 SW_ACTIVATED 訊息
+                // 即使 controllerchange 不觸發 (例如多分頁/瀏覽器策略), 仍能 reload
+                navigator.serviceWorker.addEventListener('message', function (event) {
+                    if (event.data && event.data.type === 'SW_ACTIVATED') {
+                        console.log('[PWA] Received SW_ACTIVATED message, reloading...');
+                        triggerReload('SW_ACTIVATED message');
+                    }
                 });
             });
+
+            /**
+             * 統一的 reload 觸發點 - 含一次性 guard 防無限重整
+             */
+            function triggerReload(source) {
+                if (isReloading) return;
+                isReloading = true;
+                console.log(`[PWA] Reloading via ${source}...`);
+                window.location.reload();
+            }
 
             /**
              * 顯示版本更新通知 banner (右下方滑入)
@@ -115,8 +131,17 @@
                     banner.classList.add('updating');
                     banner.querySelector('.pwa-update-title').textContent = '更新中…';
                     banner.querySelector('.pwa-update-desc').textContent = '頁面即將自動重新載入';
-                    // 通知 SW 立即接管 → controllerchange 會觸發 reload
+                    // 通知 SW 立即接管 → controllerchange / SW_ACTIVATED 會觸發 reload
                     newWorker.postMessage('SKIP_WAITING');
+
+                    // v2.41.6: 保險絲 - 若 3 秒內無事件觸發 reload, 強制 reload
+                    // (避免某些瀏覽器/多分頁情境下事件不觸發, 使用者卡在「更新中」)
+                    setTimeout(function () {
+                        if (!isReloading) {
+                            console.warn('[PWA] No event fired within 3s, force reloading...');
+                            triggerReload('3s timeout fallback');
+                        }
+                    }, 3000);
                 });
 
                 // 「稍後」按鈕 (淡出但 30 分鐘後會自動再出現)

@@ -4,7 +4,56 @@
 
 ---
 
-## 📅 當前版本：v2.41.5 (2026-04-19) - 搜尋場地切換按鈕語意明確化
+## 📅 當前版本：v2.41.6 (2026-04-19) - PWA 更新流程三道保險絲
+
+### 🐛 使用者回報
+> 每次按下「立即更新」後就會停在「更新中…」狀態，但是網站還是能正常使用。
+
+### 🔍 根因分析
+
+`controllerchange` 事件在以下情境**不會觸發**：
+1. **多分頁同時開啟**：瀏覽器需所有分頁都同意接管
+2. **某些瀏覽器策略**：例如 Brave 隱私模式、Safari 部分版本
+3. **clients.claim() 被 cache cleanup 拖延**：原本是 `.then()` 鏈式呼叫，若 cache 操作慢/失敗會延遲 claim
+
+### ✅ 三道保險絲機制
+
+| 保險絲 | 位置 | 作用 |
+| :---: | :--- | :--- |
+| **#1** | sw.js activate | `Promise.all([cleanup, claim])` 並行，cleanup 失敗也不影響 claim |
+| **#2** | sw.js activate.then | 主動 `postMessage({type: 'SW_ACTIVATED'})` 給所有 client |
+| **#3** | index.html click handler | 點更新後 `setTimeout 3000ms`，若無事件觸發強制 reload |
+
+### 🎯 實際效果
+
+| 情境 | 修正前 | 修正後 |
+| :--- | :---: | :---: |
+| 單分頁正常情況 | ✅ controllerchange | ✅ controllerchange (相同) |
+| 單分頁但事件失敗 | ❌ 卡住 | ✅ 3 秒後 setTimeout fallback |
+| 多分頁開啟 | ❌ 卡住 | ✅ SW_ACTIVATED message 觸發 |
+| 隱私模式 / 嚴格瀏覽器 | ❌ 卡住 | ✅ 3 秒後 setTimeout fallback |
+
+### 📊 統一 triggerReload() 函式
+
+```javascript
+function triggerReload(source) {
+    if (isReloading) return;  // 防無限重整
+    isReloading = true;
+    console.log(`[PWA] Reloading via ${source}...`);
+    window.location.reload();
+}
+```
+
+三個觸發源（controllerchange / SW_ACTIVATED / 3s timeout）皆收斂到同一個函式。
+
+### 📂 修改檔案
+
+- `sw.js`: activate handler 重構（並行 + 主動推 message）
+- `index.html`: SW 註冊區塊 +20 行（保險絲機制）
+
+---
+
+## 📅 v2.41.5 (2026-04-19) - 搜尋場地切換按鈕語意明確化
 
 ### 🐛 使用者回報
 > v2.41.2 加入的「🏠 目前場地」按鈕意思不夠清楚，使用者不確定按了會發生什麼。

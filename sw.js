@@ -1,6 +1,6 @@
-// Service Worker v2.41.5 - Search Scope Label Clarity
-const CACHE_NAME = 'booking-system-v2.41.5';
-const APP_VERSION = 'v2.41.5';
+// Service Worker v2.41.6 - PWA Update Reload Fix (3-fuse mechanism)
+const CACHE_NAME = 'booking-system-v2.41.6';
+const APP_VERSION = 'v2.41.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -28,17 +28,32 @@ self.addEventListener('install', event => {
     // 這樣使用者填預約表單時不會被打斷
 });
 
-// ===== Activate: 清理舊快取 =====
+// ===== Activate: 清理舊快取 + 立即接管所有分頁 =====
+// v2.41.6: 並行執行 cleanup + claim, 避免 cleanup 卡住導致 claim 不執行
 self.addEventListener('activate', event => {
+    console.log(`[SW ${APP_VERSION}] Activating...`);
     event.waitUntil(
-        caches.keys().then(keyList => {
-            return Promise.all(keyList.map(key => {
-                if (key !== CACHE_NAME) {
-                    console.log('[SW v2.40.0] Removing old cache:', key);
-                    return caches.delete(key);
-                }
-            }));
-        }).then(() => self.clients.claim())
+        Promise.all([
+            // 清理舊快取
+            caches.keys().then(keyList => Promise.all(
+                keyList
+                    .filter(key => key !== CACHE_NAME)
+                    .map(key => {
+                        console.log(`[SW ${APP_VERSION}] Removing old cache:`, key);
+                        return caches.delete(key);
+                    })
+            )),
+            // 立即接管所有 client (這是 controllerchange 觸發的關鍵)
+            self.clients.claim()
+        ]).then(() => {
+            console.log(`[SW ${APP_VERSION}] Activated and claimed clients`);
+            // 主動通知所有 client 已啟用 (備援方案, 萬一 controllerchange 沒觸發)
+            return self.clients.matchAll({ type: 'window' }).then(clients => {
+                clients.forEach(client => {
+                    client.postMessage({ type: 'SW_ACTIVATED', version: APP_VERSION });
+                });
+            });
+        })
     );
 });
 
