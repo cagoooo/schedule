@@ -1,4 +1,4 @@
-# 禮堂&專科教室&IPAD平板車預約系統 v2.41.3
+# 禮堂&專科教室&IPAD平板車預約系統 v2.41.4
 
 學校禮堂、專科教室及IPAD平板車線上預約借用系統，支援查詢與查詢借用時段。
 
@@ -135,6 +135,13 @@
 - 🔒 預約選單禁排時段自動鎖定與灰階顯示
 - 📱 優化首頁按鈕群組 RWD 排版
 - 🎨 強化 Firestore 安全性規則
+
+### v2.41.4 (2026-04-19) - SW Scheme 過濾與容錯
+- 🐛 **Bug Fix**: SW 嘗試快取瀏覽器擴充功能 (chrome-extension://) 請求拋出錯誤。
+- ✅ **協定白名單**：SW 僅處理 http/https，自動跳過 chrome-extension/moz-extension/data/blob 等。
+- ✅ **來源限制**：只快取同源 + 已知 CDN (Google Fonts)，避免攔截第三方追蹤工具。
+- ✅ **Response 類型檢查**：拒絕 opaque response 寫入快取，避免污染。
+- ✅ **try/catch 雙保險**：個別 cache.put 失敗不再噴錯到 console。
 
 ### v2.41.3 (2026-04-19) - Z-Index 階層修正
 - 🐛 **Bug Fix**: 從搜尋結果按「再預約」時，預約彈窗開在搜尋彈窗背後，且 Toast 訊息被搜尋彈窗覆蓋。

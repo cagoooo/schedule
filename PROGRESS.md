@@ -4,7 +4,34 @@
 
 ---
 
-## 📅 當前版本：v2.41.3 (2026-04-19) - Z-Index 階層修正
+## 📅 當前版本：v2.41.4 (2026-04-19) - SW Scheme 過濾與容錯
+
+### 🐛 Bug Report
+使用者 Console 出現錯誤：
+```
+Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache':
+Request scheme 'chrome-extension' is unsupported
+```
+
+### 🔍 根因
+- v2.40.0 引入 Stale-While-Revalidate 後，SW 攔截所有 GET 請求嘗試快取
+- 瀏覽器擴充功能（書籤同步、密碼管理器等）會發出 `chrome-extension://` 請求
+- Cache API 只支援 `http://` 與 `https://`，遇到其他 scheme 會 throw
+- 雖不影響功能但 Console 持續噴錯，干擾除錯
+
+### ✅ Fix 內容（4 道防線）
+
+1. **協定白名單**：`url.protocol === 'http:' || 'https:'` 才繼續
+2. **來源限制**：只處理同源 + 已知 CDN（Google Fonts），其他直接放行
+3. **Response 類型檢查**：拒絕 `opaque` response（無 CORS 跨網域）寫入快取
+4. **try/catch 包覆 cache.put**：個別失敗只 console.warn 不 throw
+
+### 📂 修改檔案
+- `sw.js`: fetch handler +18 行（協定/來源檢查 + cache.put 容錯）
+
+---
+
+## 📅 v2.41.3 (2026-04-19) - Z-Index 階層修正
 
 ### 🐛 Bug Report
 - **使用者回報**：在搜尋彈窗點「🔁 再預約」時：

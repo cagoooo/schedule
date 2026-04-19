@@ -1,6 +1,6 @@
-// Service Worker v2.41.3 - Z-Index Hierarchy Fix
-const CACHE_NAME = 'booking-system-v2.41.3';
-const APP_VERSION = 'v2.41.3';
+// Service Worker v2.41.4 - SW Scheme Filter
+const CACHE_NAME = 'booking-system-v2.41.4';
+const APP_VERSION = 'v2.41.4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -46,6 +46,21 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
+    // v2.41.4: 過濾 Cache API 不支援的 scheme (chrome-extension/moz-extension/data:/blob: 等)
+    // 否則背景擴充功能 (例如書籤同步、密碼管理器) 會觸發 cache.put 失敗錯誤
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return; // 直接交給瀏覽器處理
+    }
+
+    // 只處理同 origin + 已知 CDN, 避免攔截到第三方追蹤工具
+    const isSameOrigin = url.origin === self.location.origin;
+    const isAllowedCDN = url.hostname === 'fonts.googleapis.com'
+        || url.hostname === 'fonts.gstatic.com'
+        || url.hostname === 'www.gstatic.com';
+    if (!isSameOrigin && !isAllowedCDN) {
+        return; // Firebase/其他 CDN 走網路, 不快取
+    }
+
     // Firebase / Firestore / Auth 一律走網路 (即時資料)
     if (url.hostname.includes('firebaseio.com')
         || url.hostname.includes('googleapis.com')
@@ -76,10 +91,20 @@ self.addEventListener('fetch', event => {
         event.respondWith(
             caches.match(event.request).then(cachedResponse => {
                 const fetchPromise = fetch(event.request).then(networkResponse => {
-                    // 2xx 才更新快取，避免 4xx/5xx 污染
-                    if (networkResponse && networkResponse.status === 200) {
+                    // v2.41.4: 多重檢查避免快取污染
+                    // - 必須 2xx 狀態
+                    // - 必須是 basic 或 cors response (不能是 opaque)
+                    // - 雙重保險: try/catch 包住 cache.put
+                    if (networkResponse
+                        && networkResponse.status === 200
+                        && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
                         const clone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, clone).catch(err => {
+                                // 個別請求快取失敗不影響使用者 (例如 chrome-extension 雖已過濾但留底)
+                                console.warn('[SW] cache.put failed:', event.request.url, err.message);
+                            });
+                        });
                     }
                     return networkResponse;
                 }).catch(() => cachedResponse); // 離線：fallback 到快取
