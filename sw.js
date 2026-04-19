@@ -1,6 +1,6 @@
-// Service Worker v2.41.4 - SW Scheme Filter
-const CACHE_NAME = 'booking-system-v2.41.4';
-const APP_VERSION = 'v2.41.4';
+// Service Worker v2.41.5 - Search Scope Label Clarity
+const CACHE_NAME = 'booking-system-v2.41.5';
+const APP_VERSION = 'v2.41.5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -2856,27 +2856,43 @@ function initSearchEventListeners() {
     // 搜尋按鈕
     btnAdvancedSearch.addEventListener('click', executeAdvancedSearch);
 
-    // v2.41.2: 場地搜尋範圍切換按鈕
+    // v2.41.5: 場地搜尋範圍切換按鈕 (動態顯示實際場地名)
     const btnScope = document.getElementById('btnSearchScope');
     const scopeLabel = document.getElementById('searchScopeLabel');
+
+    /**
+     * 依當前 scope state 與目前選定場地, 同步更新按鈕標籤
+     */
+    function refreshScopeButtonLabel() {
+        if (!btnScope || !scopeLabel) return;
+        const isAll = btnScope.dataset.scope === 'all';
+        const currentRoom = document.getElementById('roomSelect')?.value || '禮堂';
+        if (isAll) {
+            btnScope.classList.add('all-rooms');
+            btnScope.firstChild.textContent = '🌐 ';
+            scopeLabel.textContent = '全部場地一起搜';
+            btnScope.title = '目前搜尋「全部場地」的預約。點擊切換為僅搜尋目前選定的場地。';
+        } else {
+            btnScope.classList.remove('all-rooms');
+            btnScope.firstChild.textContent = '🏠 ';
+            scopeLabel.textContent = `僅看「${currentRoom}」`;
+            btnScope.title = `目前只搜尋「${currentRoom}」的預約。點擊切換為跨全部場地搜尋。`;
+        }
+    }
+
     if (btnScope) {
         btnScope.addEventListener('click', () => {
             const isAll = btnScope.dataset.scope === 'all';
-            if (isAll) {
-                btnScope.dataset.scope = 'current';
-                btnScope.classList.remove('all-rooms');
-                btnScope.firstChild.textContent = '🏠 ';
-                if (scopeLabel) scopeLabel.textContent = '目前場地';
-                btnScope.title = '目前僅搜尋當前場地，點擊切換為全部場地';
-            } else {
-                btnScope.dataset.scope = 'all';
-                btnScope.classList.add('all-rooms');
-                btnScope.firstChild.textContent = '🌐 ';
-                if (scopeLabel) scopeLabel.textContent = '全部場地';
-                btnScope.title = '目前搜尋全部場地，點擊切換為僅當前場地';
-            }
+            btnScope.dataset.scope = isAll ? 'current' : 'all';
+            refreshScopeButtonLabel();
         });
     }
+
+    // 主畫面場地切換時, 同步更新按鈕標籤
+    document.getElementById('roomSelect')?.addEventListener('change', refreshScopeButtonLabel);
+
+    // 初始化載入時呼叫一次
+    refreshScopeButtonLabel();
 
     // Enter 鍵觸發搜尋
     searchInput.addEventListener('keypress', (e) => {

@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.4</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.4">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.41.5</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.41.5">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.41.4';
+            const APP_VERSION = 'v2.41.5';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -279,10 +279,10 @@
                     <option value="period7">第七節</option>
                     <option value="period8">第八節</option>
                 </select>
-                <!-- v2.41.2: 場地搜尋範圍切換 (預設僅當前場地, 點擊切換為全部) -->
+                <!-- v2.41.5: 場地搜尋範圍切換 - 動態顯示實際場地名,意思更明確 -->
                 <button class="btn-search-scope" id="btnSearchScope" type="button"
-                        title="點擊切換搜尋範圍" data-scope="current">
-                    🏠 <span id="searchScopeLabel">目前場地</span>
+                        title="目前僅搜尋當前場地的預約,點擊切換為跨全部場地" data-scope="current">
+                    🏠 <span id="searchScopeLabel">僅看「禮堂」</span>
                 </button>
                 <button class="btn-search-advanced" id="btnAdvancedSearch">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
