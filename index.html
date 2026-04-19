@@ -1196,7 +1196,15 @@
 
                     <div class="line-bind-qr-container">
                         <img id="lineBindQrImg" alt="LINE Bot QR Code"
-                             src="https://qr-official.line.me/sid/L/2008810864.png">
+                             src="https://qr-official.line.me/sid/L/2009444631.png"
+                             onerror="this.style.display='none'; document.getElementById('lineBindQrFallback').style.display='block';">
+                        <div id="lineBindQrFallback" style="display:none; padding: 1rem;">
+                            <p>⚠ QR Code 載入失敗</p>
+                            <p style="font-size:0.85rem; color:#64748b;">
+                                請至 LINE Developers Console 下載 QR Code，<br>
+                                或聯絡系統管理員索取 LINE Bot 加好友連結。
+                            </p>
+                        </div>
                         <p class="line-bind-qr-hint">用 LINE 掃描加 Bot 為好友</p>
                     </div>
 

@@ -130,9 +130,21 @@ exports.lineWebhook = onRequest(
         const accessToken = LINE_ACCESS_TOKEN.value();
 
         // 1. 驗證 LINE 簽章 (確保訊息真的來自 LINE)
+        if (!signature) {
+            logger.warn('[Webhook] Missing X-Line-Signature header');
+            res.status(401).send('Missing signature');
+            return;
+        }
+
         const body = JSON.stringify(req.body);
-        if (!line.validateSignature(body, channelSecret, signature)) {
-            logger.warn('[Webhook] Invalid signature');
+        try {
+            if (!line.validateSignature(body, channelSecret, signature)) {
+                logger.warn('[Webhook] Invalid signature');
+                res.status(401).send('Unauthorized');
+                return;
+            }
+        } catch (err) {
+            logger.error('[Webhook] Signature validation error', err);
             res.status(401).send('Unauthorized');
             return;
         }
