@@ -4,7 +4,49 @@
 
 ---
 
-## 📅 當前版本：v2.39.0 (2026-04-19) - Quick Re-Book Feature
+## 📅 當前版本：v2.40.0 (2026-04-19) - UX/Perf 大躍進 (V/C 系列 7 項)
+
+> 一次推進 7 項提案：V 系列 5 項 (預約效率微優化) + C 系列 2 項 (字型/SW 效能)。
+
+### 🚄 V 系列 — 預約效率微優化
+
+- **V.1 ⌨️ 鍵盤快捷鍵**: 12 組快捷鍵 (N/H/S/T/D/1/2/←→/Esc/Ctrl+Enter/?)，輸入時自動關閉避免誤觸。按 `?` 顯示說明彈窗。
+- **V.2 ⭐ 常用場地置頂**: 預約成功時累積使用次數至 localStorage，自動重排下拉選單（主頁 + 彈窗），前 3 名加 ⭐ 標示。
+- **V.3 🌡️ 衝突時段預警染色**: 月視圖 cell 依預約密度染色 (free/light/medium/busy/full)，右下角顯示 `n/10` 計數。
+- **V.4 👁 月視圖 hover 預覽**: 滑鼠懸停顯示完整節次與借用者列表 (含理由)，手機長按 700ms 觸發。
+- **V.5 ↩ 預約撤銷按鈕**: 預約成功 toast 內加入「↩ 撤銷」按鈕 + 30 秒倒數，模仿 Gmail。
+
+### 💰 C 系列 — 成本與效能
+
+- **C.3 🅰 字型 fallback 強化**: 擴展 system font fallback 鏈 (PingFang TC / 微軟正黑體 / system-ui)，Web Font 載入前不再空白。Google Fonts 已啟用 `display=swap`。
+- **C.4 🚀 SW Stale-While-Revalidate**: 靜態資源策略升級—立即回傳快取（快），背景刷新（不錯過更新）。Firebase API 直接走網路。新增 `skipWaiting` + `clients.claim` 加速生效。
+
+### 📂 修改檔案
+
+- `app.js`: 新增 6 個函式 (~430 行)
+  - `incrementRoomUsage`、`getRoomUsageCounts`、`sortRoomDropdownByUsage`、`resetRoomUsageSorting` (V.2)
+  - `undoRecentBookings` + `showToast` 升級支援 action (V.5)
+  - `initKeyboardShortcuts`、`showKeyboardHelp`、`jumpToToday`、`isTypingFocus`、`isAnyModalOpen`、`closeAllModals` (V.1)
+  - `showMonthDayTooltip`、`hideMonthDayTooltip`、`ensureMonthDayTooltip` (V.4)
+  - `submitBooking`: 追蹤 `createdRefs` 供撤銷用 (V.5)
+  - `renderMonthCalendar`: 加入 heat-level CSS class (V.3) + hover handler (V.4)
+- `styles.v2.38.0.css`: 新增 ~280 行樣式 (toast.has-action / heat-* / month-day-tooltip / keyboard-help)
+- `sw.js`: 完全重寫 (43→90 行) — Stale-While-Revalidate + Firebase 直連
+- `index.html`、`README.md`、`PROGRESS.md`: 版本標示
+
+### 📊 預期影響
+
+| 指標 | v2.39.0 | v2.40.0 後 |
+| :--- | :---: | :---: |
+| 高頻使用者操作步數 | 滑鼠 5+ 次 | 鍵盤 1 次 |
+| 重新整理頁面看到新版速度 | 2~3 次刷新 | 1 次刷新 |
+| 誤按取消的補救時間 | 30~60 秒 | 1 秒撤銷 |
+| 月視圖辨識繁忙日 | 點開查看 | 一眼判斷 |
+| 場地切換次數 | 平均 3 次 | 1~2 次 (常用置頂) |
+
+---
+
+## 📅 v2.39.0 (2026-04-19) - Quick Re-Book Feature
 
 - **New Feature**: ⚡ **一鍵重複預約 (Quick Re-Book)** — 歷史紀錄/搜尋結果每筆右側新增 `🔁 再預約` 按鈕。
 - **Smart Date Logic**: 自動計算「下個未來的同星期日期」，避免落入過去日期或同週重複。
@@ -153,6 +195,11 @@
 | 使用者自助取消 | ✅ | v2.36.0 | 裝置綁定，無需登入 |
 | 月視圖直接預約 | ✅ | v2.35.0 | 點擊日期直開預約彈窗 |
 | ⚡ 一鍵重複預約 | ✅ | v2.39.0 | 歷史/搜尋結果 → 下週同日 |
+| ↩ 預約撤銷按鈕 (Gmail 風格) | ✅ | v2.40.0 | 30 秒倒數一鍵 Undo |
+| ⭐ 常用場地置頂 | ✅ | v2.40.0 | localStorage 排序 + ⭐ 標示 |
+| ⌨️ 鍵盤快捷鍵 | ✅ | v2.40.0 | 12 組快捷鍵 + 說明彈窗 (按 ?) |
+| 🌡️ 月視圖衝突熱度染色 | ✅ | v2.40.0 | 5 階段顏色 + n/10 計數 |
+| 👁 月視圖 hover 預覽 | ✅ | v2.40.0 | 完整節次與借用者列表 |
 
 ### 🔍 搜尋與統計
 
@@ -196,6 +243,8 @@
 | Rate Limiting 放寬 (20/50) | ✅ | v2.38.5 |
 | Rate Limiting 再放寬 (30/100) | ✅ | v2.38.6 |
 | SW 強制快取刷新機制 | ✅ | v2.38.6 |
+| SW Stale-While-Revalidate 策略 | ✅ | v2.40.0 |
+| Web Font fallback 強化 | ✅ | v2.40.0 |
 
 ---
 
@@ -205,13 +254,20 @@
 
 | 階段 | 提案 | 工時 | 狀態 |
 | :---: | :--- | :---: | :---: |
-| 🥇 速勝 1 | 1.7 一鍵重複預約 | 1~2 天 | ✅ **v2.39.0 已完成** |
-| 🥈 速勝 2 | F.3 Sentry RUM 錯誤監控 | 1~2 天 | ⏳ 規劃中 |
-| 🥉 速勝 3 | 1.8 完整稽核日誌 | 3~4 天 | ⏳ 規劃中 |
-| 4 | F.1 Vitest + Playwright 測試 | 10~14 天 | ⏳ 規劃中 |
-| 5 | 1.6 Web Push 瀏覽器通知 | 4~6 天 | ⏳ 規劃中 |
-| 6 | F.2 漸進式 TypeScript | 14~21 天 | ⏳ 規劃中 |
-| 7 | 3.3 AI 學期白皮書 | 3~4 週 | ⏳ 規劃中 |
+| 🥇 速勝 1 | 1.7 一鍵重複預約 | 1~2 天 | ✅ **v2.39.0** |
+| 🥇 速勝 2-8 | **V.1~V.5 + C.3 + C.4** | 7 項合計 ~5 天 | ✅ **v2.40.0** |
+| 🥈 下一批 | M.1 場地公告 + M.2 批次取消 | 2+2 天 | 🚧 v2.41.0 規劃 |
+| 🥉 後續 | C.1 IndexedDB 快取 | 3~4 天 | 🚧 v2.42.0 規劃 |
+| 4 | M.3 個人化儀表板 | 3~4 天 | 🚧 v2.43.0 規劃 |
+| 5 | F.3 Sentry RUM 錯誤監控 | 1~2 天 | ⏳ 待註冊 sentry.io |
+| 6 | 1.8 完整稽核日誌 | 3~4 天 | ⏳ 規劃中 |
+| 7 | 1.6 Web Push 瀏覽器通知 | 4~6 天 | ⏳ 規劃中 |
+| 8 | F.1 Vitest + Playwright 測試 | 10~14 天 | ⏳ 規劃中 |
+| 9 | F.2 漸進式 TypeScript | 14~21 天 | ⏳ 規劃中 |
+| 10 | 3.3 AI 學期白皮書 | 3~4 週 | ⏳ 規劃中 |
+| ⏸ | M.4 異常使用者管理 | 4~5 天 | ⛔ 依賴 QR 簽到 (3.2) |
+| ⏸ | M.5 異動自動通知 | 2 天 | ⛔ 依賴 1.6 Web Push |
+| ⏸ | C.2 Code Splitting | 4~5 天 | ⛔ 重構風險高，待 F.1 測試完成後 |
 
 更多選項與創新提案見 [FUTURE_PROPOSAL.md](./FUTURE_PROPOSAL.md) (合計 30+ 項)。
 

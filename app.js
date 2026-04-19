@@ -53,6 +53,77 @@ const RATE_LIMIT = {
     storageKey: 'bookingRateLimit'
 };
 
+// ===== v2.40.0 (V.2): 場地常用置頂 (Room Usage Tracker) =====
+const ROOM_USAGE_KEY = 'roomUsageCount';
+
+/**
+ * 預約成功時呼叫，累積該場地使用次數
+ * @param {string} room
+ */
+function incrementRoomUsage(room) {
+    if (!room) return;
+    const counts = JSON.parse(localStorage.getItem(ROOM_USAGE_KEY) || '{}');
+    counts[room] = (counts[room] || 0) + 1;
+    localStorage.setItem(ROOM_USAGE_KEY, JSON.stringify(counts));
+}
+
+/**
+ * 取得場地使用次數 map
+ */
+function getRoomUsageCounts() {
+    return JSON.parse(localStorage.getItem(ROOM_USAGE_KEY) || '{}');
+}
+
+/**
+ * 重排場地下拉選單：依使用次數降序，前 3 名加 ⭐ 標記
+ * 同時更新主選單 (#roomSelect) 與彈窗選單 (#modalRoomSelect)
+ */
+function sortRoomDropdownByUsage() {
+    const counts = getRoomUsageCounts();
+    const ids = ['roomSelect', 'modalRoomSelect'];
+
+    ids.forEach(id => {
+        const select = document.getElementById(id);
+        if (!select || select.options.length < 2) return;
+
+        const currentValue = select.value;
+        const items = Array.from(select.options).map(opt => ({
+            value: opt.value,
+            label: opt.textContent.replace(/^⭐\s/, '').trim(), // 清掉舊星號
+            count: counts[opt.value] || 0
+        }));
+
+        // 排序：先按 count desc，count 相同維持原 order (用 index 穩定)
+        const originalOrder = items.map((it, i) => ({ ...it, originalIdx: i }));
+        originalOrder.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.originalIdx - b.originalIdx;
+        });
+
+        // 重建 options
+        select.innerHTML = '';
+        originalOrder.forEach((item, idx) => {
+            const opt = document.createElement('option');
+            opt.value = item.value;
+            opt.textContent = (idx < 3 && item.count > 0) ? `⭐ ${item.label}` : item.label;
+            select.appendChild(opt);
+        });
+
+        // 還原使用者選擇
+        if (currentValue) select.value = currentValue;
+    });
+}
+
+/**
+ * 重設場地排序（清除使用次數紀錄）
+ */
+function resetRoomUsageSorting() {
+    if (confirm('確定要重設場地排序嗎？這會清除您的使用次數紀錄。')) {
+        localStorage.removeItem(ROOM_USAGE_KEY);
+        location.reload();
+    }
+}
+
 /**
  * 取得或建立裝置識別碼
  */
@@ -697,6 +768,18 @@ function renderMonthCalendar() {
         if (isWeekend) dayEl.classList.add('weekend');
         if (isToday) dayEl.classList.add('today');
 
+        // v2.40.0 (V.3): 衝突時段預警染色 (依該日當前場地的已預約節次數)
+        const totalPeriods = PERIODS.length; // 10
+        const bookedSlots = displayItems.length;
+        const ratio = bookedSlots / totalPeriods;
+        let heatLevel = 'free';
+        if (ratio >= 0.9) heatLevel = 'full';
+        else if (ratio >= 0.6) heatLevel = 'busy';
+        else if (ratio >= 0.3) heatLevel = 'medium';
+        else if (ratio > 0) heatLevel = 'light';
+        dayEl.classList.add(`heat-${heatLevel}`);
+        dayEl.dataset.bookedCount = `${bookedSlots}/${totalPeriods}`;
+
         let bookingsHtml = '';
         if (displayItems.length > 0) {
             bookingsHtml = `<div class="month-day-bookings">`;
@@ -734,9 +817,82 @@ function renderMonthCalendar() {
             openBookingModal(clickDateStr);
         });
 
+        // v2.40.0 (V.4): 月視圖 hover 預覽 (詳細預約資訊)
+        if (displayItems.length > 0) {
+            dayEl.addEventListener('mouseenter', () => {
+                showMonthDayTooltip(dayEl, clickDateStr, displayItems);
+            });
+            dayEl.addEventListener('mouseleave', hideMonthDayTooltip);
+
+            // 手機長按 (touchstart 700ms)
+            let touchTimer = null;
+            dayEl.addEventListener('touchstart', () => {
+                touchTimer = setTimeout(() => {
+                    showMonthDayTooltip(dayEl, clickDateStr, displayItems);
+                }, 700);
+            }, { passive: true });
+            dayEl.addEventListener('touchend', () => {
+                if (touchTimer) clearTimeout(touchTimer);
+            });
+            dayEl.addEventListener('touchmove', () => {
+                if (touchTimer) clearTimeout(touchTimer);
+            }, { passive: true });
+        }
+
         grid.appendChild(dayEl);
         currentDate.setDate(currentDate.getDate() + 1);
     }
+}
+
+// ===== v2.40.0 (V.4): 月視圖 hover Tooltip =====
+
+let monthDayTooltipEl = null;
+
+function ensureMonthDayTooltip() {
+    if (monthDayTooltipEl) return monthDayTooltipEl;
+    monthDayTooltipEl = document.createElement('div');
+    monthDayTooltipEl.className = 'month-day-tooltip';
+    monthDayTooltipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(monthDayTooltipEl);
+    return monthDayTooltipEl;
+}
+
+function showMonthDayTooltip(anchorEl, dateStr, items) {
+    const tip = ensureMonthDayTooltip();
+    const lines = items.map(it =>
+        `<div class="mdt-row"><span class="mdt-period">${it.fullPeriodName}</span><span class="mdt-booker">${it.booker}</span></div>`
+    ).join('');
+    tip.innerHTML = `
+        <div class="mdt-header">📅 ${dateStr} <span class="mdt-count">(${items.length} 筆)</span></div>
+        <div class="mdt-body">${lines}</div>
+        <div class="mdt-hint">點擊日期可預約其他節次</div>
+    `;
+
+    // 計算位置：靠 anchor 上方，超出視窗則改下方
+    const rect = anchorEl.getBoundingClientRect();
+    tip.style.visibility = 'hidden';
+    tip.classList.add('visible');
+    const tipRect = tip.getBoundingClientRect();
+
+    let top = rect.top + window.scrollY - tipRect.height - 8;
+    let left = rect.left + window.scrollX + (rect.width - tipRect.width) / 2;
+
+    // 邊界保護
+    const margin = 8;
+    if (top < window.scrollY + margin) {
+        top = rect.bottom + window.scrollY + 8;
+    }
+    if (left < margin) left = margin;
+    const maxLeft = window.scrollX + document.documentElement.clientWidth - tipRect.width - margin;
+    if (left > maxLeft) left = maxLeft;
+
+    tip.style.top = `${top}px`;
+    tip.style.left = `${left}px`;
+    tip.style.visibility = 'visible';
+}
+
+function hideMonthDayTooltip() {
+    if (monthDayTooltipEl) monthDayTooltipEl.classList.remove('visible');
 }
 
 /**
@@ -1074,8 +1230,10 @@ async function submitBooking() {
         }
 
         const batch = db.batch();
+        const createdRefs = []; // v2.40.0: 追蹤新建立 ID 供「撤銷」使用
         for (const dateStr of datesToBook) {
             const docRef = bookingsCollection.doc();
+            createdRefs.push(docRef);
             batch.set(docRef, {
                 date: dateStr,
                 room: room, // 儲存場地資訊
@@ -1088,6 +1246,9 @@ async function submitBooking() {
         }
         await batch.commit();
         recordBooking(); // 記錄本次預約用於 Rate Limiting
+
+        // v2.40.0: V.2 累積該場地使用次數供「常用置頂」排序
+        try { incrementRoomUsage(room); } catch (e) { /* silent */ }
 
         // 預約成功後，若是批次模式則重置狀態
         if (isBatchMode) {
@@ -1105,7 +1266,15 @@ async function submitBooking() {
         const msg = datesToBook.length > 1
             ? `已成功預約 ${datesToBook.length} 個日期`
             : '預約成功！';
-        showToast(msg, 'success');
+
+        // v2.40.0: V.5 預約撤銷按鈕 (Gmail 風格)
+        showToast(msg, 'success', {
+            action: {
+                label: '↩ 撤銷',
+                countdown: 30,
+                onClick: () => undoRecentBookings(createdRefs.map(r => r.id))
+            }
+        });
 
     } catch (error) {
         if (error.message !== '衝突') {
@@ -1270,16 +1439,93 @@ async function executeDeleteBooking() {
     }
 }
 
+/**
+ * v2.40.0 (V.5): 撤銷剛建立的預約 (Gmail 風格 30 秒回復)
+ * @param {string[]} bookingIds Firestore doc IDs
+ */
+async function undoRecentBookings(bookingIds) {
+    if (!bookingIds || bookingIds.length === 0) return;
+    try {
+        const batch = db.batch();
+        bookingIds.forEach(id => batch.delete(bookingsCollection.doc(id)));
+        await batch.commit();
+        await loadBookingsFromFirebase();
+        showToast(`已撤銷 ${bookingIds.length} 筆預約`, 'info');
+    } catch (err) {
+        console.error('[Undo] 撤銷失敗', err);
+        showToast('撤銷失敗，請手動至歷史紀錄取消', 'error');
+    }
+}
+
 // ===== Toast 通知 =====
 
-function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.className = `toast ${type} show`;
+let toastDismissTimer = null;
+let toastCountdownTimer = null;
 
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
+/**
+ * 顯示 Toast 通知
+ * @param {string} message 訊息
+ * @param {string} type 'info' | 'success' | 'warning' | 'error'
+ * @param {Object} [options] 進階選項 (v2.40.0)
+ * @param {number} [options.duration=3000] 顯示時間 (ms)，傳 0 = 不自動關閉
+ * @param {{label: string, onClick: Function, countdown?: number}} [options.action] 動作按鈕
+ */
+function showToast(message, type = 'info', options = {}) {
+    const toast = document.getElementById('toast');
+    const { duration = 3000, action } = options;
+
+    // 清除既有 timer
+    if (toastDismissTimer) { clearTimeout(toastDismissTimer); toastDismissTimer = null; }
+    if (toastCountdownTimer) { clearInterval(toastCountdownTimer); toastCountdownTimer = null; }
+
+    // 構建 toast 內容
+    if (action) {
+        const initial = action.countdown || 30;
+        toast.innerHTML = `
+            <span class="toast-message">${message}</span>
+            <button class="toast-action-btn" type="button">
+                ${action.label}
+                <span class="toast-countdown">(${initial}s)</span>
+            </button>
+        `;
+        const btn = toast.querySelector('.toast-action-btn');
+        const countEl = toast.querySelector('.toast-countdown');
+
+        let remaining = initial;
+        toastCountdownTimer = setInterval(() => {
+            remaining -= 1;
+            if (countEl) countEl.textContent = `(${remaining}s)`;
+            if (remaining <= 0) {
+                clearInterval(toastCountdownTimer);
+                toastCountdownTimer = null;
+                toast.classList.remove('show');
+            }
+        }, 1000);
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try { await action.onClick(); }
+            finally {
+                if (toastCountdownTimer) { clearInterval(toastCountdownTimer); toastCountdownTimer = null; }
+                toast.classList.remove('show');
+            }
+        });
+    } else {
+        toast.textContent = message;
+    }
+
+    toast.className = `toast ${type} show${action ? ' has-action' : ''}`;
+
+    if (duration > 0 && !action) {
+        toastDismissTimer = setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    } else if (action) {
+        // 撤銷型 toast：用 countdown 控制關閉時機，超時後保留淡出
+        toastDismissTimer = setTimeout(() => {
+            toast.classList.remove('show');
+        }, (action.countdown || 30) * 1000 + 500);
+    }
 }
 
 // ===== 事件綁定 =====
@@ -2988,6 +3234,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearchEventListeners();
     initHistoryEventListeners();
     initBatchBooking();
+    sortRoomDropdownByUsage();   // v2.40.0 V.2 場地常用置頂
+    initKeyboardShortcuts();     // v2.40.0 V.1 鍵盤快捷鍵
     loadBookingsFromFirebase();
 });
 
@@ -3674,3 +3922,189 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ App initialized with Event Delegation for Dashboard buttons');
     // 其他初始化...
 });
+
+// ===== v2.40.0 (V.1): 鍵盤快捷鍵 =====
+
+const KEYBOARD_SHORTCUTS = [
+    { key: 'N',          desc: '新預約 (今天)' },
+    { key: 'H',          desc: '開啟歷史紀錄' },
+    { key: 'S',          desc: '開啟搜尋' },
+    { key: 'T',          desc: '跳到本週/本月' },
+    { key: '←',          desc: '上一週 / 上個月' },
+    { key: '→',          desc: '下一週 / 下個月' },
+    { key: '1',          desc: '切換到週視圖' },
+    { key: '2',          desc: '切換到月視圖' },
+    { key: 'D',          desc: '開啟管理員儀表板' },
+    { key: 'Esc',        desc: '關閉所有彈窗' },
+    { key: 'Ctrl+Enter', desc: '送出預約 (彈窗開啟時)' },
+    { key: '?',          desc: '顯示此說明' },
+];
+
+/**
+ * 判斷是否處於可輸入狀態 (input/textarea/select/contenteditable)
+ */
+function isTypingFocus() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (el.isContentEditable) return true;
+    return false;
+}
+
+/**
+ * 是否有任何彈窗開啟
+ */
+function isAnyModalOpen() {
+    return document.querySelectorAll('.modal-overlay.active').length > 0
+        || document.querySelectorAll('[id$="ModalOverlay"].active').length > 0;
+}
+
+/**
+ * 關閉所有彈窗
+ */
+function closeAllModals() {
+    document.querySelectorAll('.modal-overlay.active, [id$="ModalOverlay"].active')
+        .forEach(el => el.classList.remove('active'));
+    // 關閉鍵盤說明彈窗
+    const help = document.getElementById('keyboardHelpOverlay');
+    if (help) help.classList.remove('active');
+}
+
+/**
+ * 顯示鍵盤快捷鍵說明 (動態建立 / 已存在則直接顯示)
+ */
+function showKeyboardHelp() {
+    let overlay = document.getElementById('keyboardHelpOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'keyboardHelpOverlay';
+        overlay.className = 'modal-overlay keyboard-help-overlay';
+        overlay.innerHTML = `
+            <div class="modal keyboard-help-modal">
+                <div class="modal-header">
+                    <h2>⌨️ 鍵盤快捷鍵</h2>
+                    <button class="btn-close" type="button" aria-label="關閉">×</button>
+                </div>
+                <div class="modal-body">
+                    <table class="keyboard-help-table">
+                        <thead>
+                            <tr><th style="width:35%">按鍵</th><th>動作</th></tr>
+                        </thead>
+                        <tbody>
+                            ${KEYBOARD_SHORTCUTS.map(s => `
+                                <tr>
+                                    <td><kbd>${s.key}</kbd></td>
+                                    <td>${s.desc}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <p class="keyboard-help-hint">💡 在輸入框輸入時快捷鍵會自動關閉，避免干擾打字</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('.btn-close').addEventListener('click', () => overlay.classList.remove('active'));
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.classList.remove('active');
+        });
+    }
+    overlay.classList.add('active');
+}
+
+/**
+ * 跳到本週 (週視圖) 或本月 (月視圖)
+ */
+function jumpToToday() {
+    if (viewMode === 'week') {
+        currentWeekStart = getMonday(new Date());
+        displayMode = 'week';
+        rangeStartDate = null;
+        rangeEndDate = null;
+        loadBookingsFromFirebase();
+    } else {
+        currentMonth = new Date();
+        loadMonthBookings();
+    }
+    showToast('已跳到今天', 'info');
+}
+
+/**
+ * 初始化鍵盤快捷鍵監聽
+ */
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // 處於輸入狀態時，僅允許 Esc 與 Ctrl+Enter
+        const isTyping = isTypingFocus();
+
+        // Esc - 關閉所有彈窗 (任何時候)
+        if (e.key === 'Escape') {
+            if (isAnyModalOpen()) {
+                e.preventDefault();
+                closeAllModals();
+            }
+            return;
+        }
+
+        // Ctrl+Enter - 送出預約 (彈窗開啟時)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            const submitBtn = document.getElementById('btnModalSubmit');
+            if (submitBtn && !submitBtn.disabled
+                && document.getElementById('modalOverlay')?.classList.contains('active')) {
+                e.preventDefault();
+                submitBtn.click();
+            }
+            return;
+        }
+
+        // 其他快捷鍵：輸入中或彈窗開啟時不觸發
+        if (isTyping || isAnyModalOpen()) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+        switch (e.key) {
+            case 'n': case 'N':
+                e.preventDefault();
+                openBookingModal(formatDate(new Date()));
+                break;
+            case 'h': case 'H':
+                e.preventDefault();
+                document.getElementById('btnHistory')?.click();
+                break;
+            case 's': case 'S':
+                e.preventDefault();
+                document.getElementById('btnAdvancedSearch')?.click();
+                break;
+            case 't': case 'T':
+                e.preventDefault();
+                jumpToToday();
+                break;
+            case 'd': case 'D':
+                e.preventDefault();
+                document.getElementById('btnOpenDashboard')?.click();
+                break;
+            case '1':
+                e.preventDefault();
+                switchView('week');
+                break;
+            case '2':
+                e.preventDefault();
+                switchView('month');
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                document.getElementById('btnPrev')?.click();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                document.getElementById('btnNext')?.click();
+                break;
+            case '?':
+                e.preventDefault();
+                showKeyboardHelp();
+                break;
+        }
+    });
+
+    console.log('✅ Keyboard shortcuts initialized (press ? for help)');
+}
