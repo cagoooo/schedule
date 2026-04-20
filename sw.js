@@ -1,6 +1,6 @@
-// Service Worker v2.47.0 - 意見回饋 → LINE 推管理員
-const CACHE_NAME = 'booking-system-v2.47.0';
-const APP_VERSION = 'v2.47.0';
+// Service Worker v2.47.4 - Header admin RWD 全面優化
+const CACHE_NAME = 'booking-system-v2.47.4';
+const APP_VERSION = 'v2.47.4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
