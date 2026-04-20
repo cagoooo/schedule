@@ -1252,18 +1252,24 @@ exports.submitFeedback = onRequest(
             const validType = ['bug', 'suggestion', 'question', 'other'].includes(type) ? type : 'other';
 
             // 防灌水: 同 deviceId 5 分鐘內最多 1 筆
-            const fiveMinAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
-            const recent = await db.collection('feedbacks')
-                .where('deviceId', '==', deviceId)
-                .where('createdAt', '>=', fiveMinAgo)
-                .limit(1)
-                .get();
+            // 用 try/catch 包覆,即使索引在建置中或 query 出錯也不阻擋回饋送出
+            try {
+                const fiveMinAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
+                const recent = await db.collection('feedbacks')
+                    .where('deviceId', '==', deviceId)
+                    .where('createdAt', '>=', fiveMinAgo)
+                    .limit(1)
+                    .get();
 
-            if (!recent.empty) {
-                res.status(429).json({
-                    error: '請等 5 分鐘後再送出下一則回饋 (避免重複)',
-                });
-                return;
+                if (!recent.empty) {
+                    res.status(429).json({
+                        error: '請等 5 分鐘後再送出下一則回饋 (避免重複)',
+                    });
+                    return;
+                }
+            } catch (queryErr) {
+                // 通常是索引還在建置 (FAILED_PRECONDITION),不影響核心功能
+                logger.warn('[submitFeedback] 防灌水 query 失敗 (可能索引建置中),跳過檢查', queryErr.code);
             }
 
             // 建立 feedback 紀錄
