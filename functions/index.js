@@ -1251,19 +1251,19 @@ exports.submitFeedback = onRequest(
             }
             const validType = ['bug', 'suggestion', 'question', 'other'].includes(type) ? type : 'other';
 
-            // 防灌水: 同 deviceId 5 分鐘內最多 1 筆
+            // 防灌水: 同 deviceId 1 分鐘內最多 1 筆
             // 用 try/catch 包覆,即使索引在建置中或 query 出錯也不阻擋回饋送出
             try {
-                const fiveMinAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
+                const oneMinAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 1000);
                 const recent = await db.collection('feedbacks')
                     .where('deviceId', '==', deviceId)
-                    .where('createdAt', '>=', fiveMinAgo)
+                    .where('createdAt', '>=', oneMinAgo)
                     .limit(1)
                     .get();
 
                 if (!recent.empty) {
                     res.status(429).json({
-                        error: '請等 5 分鐘後再送出下一則回饋 (避免重複)',
+                        error: '請等 1 分鐘後再送出下一則回饋 (避免重複)',
                     });
                     return;
                 }
