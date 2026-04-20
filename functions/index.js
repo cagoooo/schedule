@@ -1454,11 +1454,13 @@ async function aggregateSemesterStats(startDate, endDate) {
 
 /**
  * 用 Gemini API 撰寫 4 段繁中分析文案
+ * v2.48.1: 模型 gemini-1.5-flash 已被 v1beta API 棄用 → 改 gemini-2.5-flash
+ * 回傳 { narrative, source: 'gemini' | 'fallback', error?: string }
  */
 async function narrateStatsWithGemini(stats, semesterName, apiKey) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.5-flash',
         generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.7,
@@ -1494,11 +1496,16 @@ ${JSON.stringify({
     try {
         const result = await model.generateContent(prompt);
         const text = result.response.text();
-        return JSON.parse(text);
+        const narrative = JSON.parse(text);
+        logger.info('[Gemini] ✅ 文案生成成功 (gemini-2.5-flash)');
+        return { narrative, source: 'gemini' };
     } catch (err) {
-        logger.error('[Gemini] 文案生成失敗', err);
+        logger.error('[Gemini] 文案生成失敗,使用 fallback', {
+            message: err.message,
+            status: err.status,
+        });
         // Fallback 文案
-        return {
+        const narrative = {
             summary: `本學期共有 ${stats.totalBookings} 筆預約紀錄,有效 ${stats.totalActive} 筆,取消率 ${stats.cancellationRate}%。`,
             hotspots: stats.classroomRanking.length > 0
                 ? `最熱門場地為「${stats.classroomRanking[0].name}」共 ${stats.classroomRanking[0].count} 次預約。`
@@ -1508,6 +1515,7 @@ ${JSON.stringify({
                 : '取消率在合理範圍內。',
             suggestions: '建議持續監測使用情況,並於下學期初檢討場地配置。',
         };
+        return { narrative, source: 'fallback', error: err.message };
     }
 }
 
@@ -1850,20 +1858,11 @@ exports.generateSemesterReport = onRequest(
             const stats = await aggregateSemesterStats(startDate, endDate);
             logger.info(`[Report] 統計完成: ${stats.totalBookings} 筆預約`);
 
-            // 2. Gemini 撰寫文案
-            let narrative;
-            try {
-                narrative = await narrateStatsWithGemini(stats, semesterName, GEMINI_API_KEY.value());
-                logger.info('[Report] Gemini 文案生成成功');
-            } catch (e) {
-                logger.error('[Report] Gemini 失敗,使用預設文案', e);
-                narrative = {
-                    summary: `本學期共有 ${stats.totalBookings} 筆預約紀錄。`,
-                    hotspots: '見下方圖表分析。',
-                    anomalies: '取消率 ' + stats.cancellationRate + '%。',
-                    suggestions: '請參考圖表自行判斷。',
-                };
-            }
+            // 2. Gemini 撰寫文案 (v2.48.1: 回傳 { narrative, source, error? })
+            const geminiResult = await narrateStatsWithGemini(stats, semesterName, GEMINI_API_KEY.value());
+            const narrative = geminiResult.narrative;
+            const narrativeSource = geminiResult.source; // 'gemini' or 'fallback'
+            const geminiError = geminiResult.error;
 
             // 3. 渲染 HTML
             const tw = new Date(Date.now() + 8 * 3600 * 1000);
@@ -1902,9 +1901,17 @@ exports.generateSemesterReport = onRequest(
                 generatedBy: req.body?.deviceId || 'system',
             });
 
-            // 6. 推 LINE 給所有管理員
+            // 6. 推 LINE 給所有管理員 (v2.48.1: 細查 push results, 不再粉飾失敗)
             const adminIds = await getAdminLineUserIds();
-            if (adminIds.length > 0) {
+            const pushDiagnostics = {
+                adminCount: adminIds.length,
+                succeeded: 0,
+                failed: 0,
+                failures: [], // [{ uid, status, message }]
+            };
+            if (adminIds.length === 0) {
+                logger.warn('[Report] ⚠ adminLineRecipients 為空, 無人收到通知 — 請先在 Header → LINE → 訂閱告警');
+            } else {
                 const client = new line.messagingApi.MessagingApiClient({
                     channelAccessToken: LINE_ACCESS_TOKEN.value(),
                 });
@@ -1928,16 +1935,20 @@ exports.generateSemesterReport = onRequest(
                                 { type: 'text', text: semesterName, weight: 'bold', size: 'md', color: '#4c1d95' },
                                 { type: 'separator', margin: 'md' },
                                 { type: 'box', layout: 'baseline', margin: 'md', contents: [
-                                    { type: 'text', text: '📅 期間', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: '📅 期間', size: 'xs', color: '#888888', flex: 2 },
                                     { type: 'text', text: `${startDate} ~ ${endDate}`, size: 'sm', flex: 5, weight: 'bold' },
                                 ]},
                                 { type: 'box', layout: 'baseline', contents: [
-                                    { type: 'text', text: '📊 總筆數', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: '📊 總筆數', size: 'xs', color: '#888888', flex: 2 },
                                     { type: 'text', text: `${stats.totalBookings} 筆 (取消率 ${stats.cancellationRate}%)`, size: 'sm', flex: 5, weight: 'bold' },
                                 ]},
                                 { type: 'box', layout: 'baseline', contents: [
-                                    { type: 'text', text: '🏆 熱門場地', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: '🏆 熱門場地', size: 'xs', color: '#888888', flex: 2 },
                                     { type: 'text', text: stats.classroomRanking[0]?.name || '-', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                                ]},
+                                { type: 'box', layout: 'baseline', contents: [
+                                    { type: 'text', text: '🤖 AI 文案', size: 'xs', color: '#888888', flex: 2 },
+                                    { type: 'text', text: narrativeSource === 'gemini' ? '✅ Gemini' : '⚠ 預設模板', size: 'sm', flex: 5, weight: 'bold', color: narrativeSource === 'gemini' ? '#16a34a' : '#ea580c' },
                                 ]},
                             ],
                         },
@@ -1950,10 +1961,74 @@ exports.generateSemesterReport = onRequest(
                         },
                     },
                 };
-                await Promise.allSettled(
-                    adminIds.map(uid => client.pushMessage({ to: uid, messages: [flex] }))
-                );
-                logger.info(`[Report] ✅ 已推送給 ${adminIds.length} 位管理員`);
+
+                // v2.48.1: 嘗試 Flex,失敗自動退化為純文字 + 詳細解析 LINE SDK v9 錯誤
+                async function pushOneAdmin(uid) {
+                    try {
+                        await client.pushMessage({ to: uid, messages: [flex] });
+                        return { uid, ok: true, type: 'flex' };
+                    } catch (flexErr) {
+                        // Flex 失敗 → 退化為純文字 (確保至少能收到通知)
+                        const detail = parseLineError(flexErr);
+                        logger.warn(`[Report] Flex 推播失敗,改試純文字 uid=${uid.substring(0, 8)}***`, detail);
+                        try {
+                            await client.pushMessage({
+                                to: uid,
+                                messages: [{
+                                    type: 'text',
+                                    text: `📊 ${semesterName} AI 學期報告已產出！\n\n📅 期間：${startDate} ~ ${endDate}\n📊 總筆數：${stats.totalBookings} 筆 (取消率 ${stats.cancellationRate}%)\n🏆 熱門場地：${stats.classroomRanking[0]?.name || '-'}\n\n🔗 完整報告：${publicUrl}`,
+                                }],
+                            });
+                            return { uid, ok: true, type: 'text-fallback', flexError: detail };
+                        } catch (textErr) {
+                            return { uid, ok: false, type: 'both-failed', flexError: detail, textError: parseLineError(textErr) };
+                        }
+                    }
+                }
+
+                function parseLineError(err) {
+                    const out = {
+                        message: err?.message || String(err).substring(0, 200),
+                        status: err?.statusCode || err?.status || err?.response?.status || 'unknown',
+                    };
+                    // LINE SDK v9 (官方 messagingApi.MessagingApiClient) 錯誤格式
+                    if (err?.body) {
+                        out.body = typeof err.body === 'string' ? err.body.substring(0, 300) : JSON.stringify(err.body).substring(0, 300);
+                    }
+                    if (err?.response?.data) {
+                        out.responseData = JSON.stringify(err.response.data).substring(0, 300);
+                    }
+                    if (err?.originalError?.response?.data) {
+                        out.lineDetail = JSON.stringify(err.originalError.response.data).substring(0, 300);
+                    }
+                    // 印出所有 enumerable keys (debug 用)
+                    out.errKeys = Object.keys(err || {}).join(',');
+                    return out;
+                }
+
+                const results = await Promise.allSettled(adminIds.map(pushOneAdmin));
+                results.forEach((r, idx) => {
+                    const uid = adminIds[idx];
+                    if (r.status === 'fulfilled' && r.value.ok) {
+                        pushDiagnostics.succeeded++;
+                        if (r.value.type === 'text-fallback') {
+                            logger.warn(`[Report] ⚠ Flex 失敗改純文字成功 uid=${uid.substring(0, 8)}***`, r.value.flexError);
+                        }
+                    } else {
+                        pushDiagnostics.failed++;
+                        const detail = r.status === 'fulfilled' ? r.value : { error: r.reason };
+                        pushDiagnostics.failures.push({
+                            uid: uid.substring(0, 8) + '***',
+                            ...detail,
+                        });
+                        logger.error(`[Report] ❌ LINE 推播全失敗 uid=${uid.substring(0, 8)}***`, detail);
+                    }
+                });
+                if (pushDiagnostics.failed === 0) {
+                    logger.info(`[Report] ✅ LINE 推播完全成功 (${pushDiagnostics.succeeded}/${adminIds.length})`);
+                } else {
+                    logger.warn(`[Report] ⚠ LINE 推播部分失敗: 成功 ${pushDiagnostics.succeeded} / 失敗 ${pushDiagnostics.failed}`);
+                }
             }
 
             res.status(200).json({
@@ -1965,6 +2040,10 @@ exports.generateSemesterReport = onRequest(
                     totalBookings: stats.totalBookings,
                     cancellationRate: stats.cancellationRate,
                 },
+                // v2.48.1: 文案來源 + LINE 推播診斷,讓前端可顯示
+                narrativeSource,
+                geminiError: geminiError || null,
+                linePush: pushDiagnostics,
             });
         } catch (err) {
             logger.error('[generateSemesterReport]', err);

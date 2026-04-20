@@ -1,6 +1,6 @@
-// Service Worker v2.48.0 - 🤖 AI 學期白皮書 (Gemini + HTML 報告 + Firebase Storage)
-const CACHE_NAME = 'booking-system-v2.48.0';
-const APP_VERSION = 'v2.48.0';
+// Service Worker v2.48.1 - 🐛 修正 Gemini 模型 + LINE 推播診斷透明化
+const CACHE_NAME = 'booking-system-v2.48.1';
+const APP_VERSION = 'v2.48.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

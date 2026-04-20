@@ -5388,15 +5388,41 @@ async function generateSemesterReport() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '產出失敗');
 
+        // v2.48.1: 顯示文案來源 + LINE 推播診斷
+        const aiSourceLabel = data.narrativeSource === 'gemini'
+            ? '<span style="color:#16a34a;font-weight:700">✅ Gemini AI 撰寫</span>'
+            : `<span style="color:#ea580c;font-weight:700">⚠ 預設模板 (Gemini 失敗${data.geminiError ? ': ' + data.geminiError.substring(0, 60) : ''})</span>`;
+
+        const lp = data.linePush || {};
+        let lineLabel = '';
+        if (lp.adminCount === 0) {
+            lineLabel = '<span style="color:#dc2626;font-weight:700">⚠ 無管理員訂閱告警 — 請先去 Header → LINE → 訂閱告警</span>';
+        } else if (lp.failed === 0) {
+            lineLabel = `<span style="color:#16a34a;font-weight:700">✅ 已推送給 ${lp.succeeded}/${lp.adminCount} 位管理員</span>`;
+        } else {
+            const firstErr = lp.failures?.[0];
+            const errStr = firstErr ? `(status=${firstErr.status}, ${firstErr.message?.substring(0, 80)})` : '';
+            lineLabel = `<span style="color:#dc2626;font-weight:700">❌ 推送失敗 ${lp.failed}/${lp.adminCount} ${errStr}</span>`;
+        }
+
         statusEl.className = 'report-gen-status success';
         statusEl.innerHTML = `
             ✅ 報告產出成功!共聚合 ${data.stats?.totalBookings || 0} 筆預約。<br>
+            <div style="margin-top:8px;font-size:13px;line-height:1.7">
+                <div>🤖 AI 文案：${aiSourceLabel}</div>
+                <div>📲 LINE 推播：${lineLabel}</div>
+            </div>
             <a href="${data.publicUrl}" target="_blank" rel="noopener"
-               style="color:#6d28d9;font-weight:700;text-decoration:underline;">
+               style="display:inline-block;margin-top:10px;color:#6d28d9;font-weight:700;text-decoration:underline;">
                🔗 立即開啟 ${data.semesterName} 報告
             </a>
         `;
-        showToast('✅ AI 學期報告產出成功!', 'success');
+        const toastMsg = lp.adminCount === 0
+            ? '✅ 報告產出成功（但無人訂閱告警，故未推 LINE）'
+            : lp.failed === 0
+                ? '✅ AI 學期報告產出成功，已推 LINE!'
+                : `⚠ 報告已產出，LINE 推播失敗 ${lp.failed} 位`;
+        showToast(toastMsg, lp.failed > 0 ? 'warning' : 'success');
 
         // 重新載入歷史清單
         loadReportsHistory();
