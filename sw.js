@@ -1,6 +1,6 @@
-// Service Worker v2.47.4 - Header admin RWD 全面優化
-const CACHE_NAME = 'booking-system-v2.47.4';
-const APP_VERSION = 'v2.47.4';
+// Service Worker v2.47.5 - 月視圖 grid 不再被 nowrap 文字撐寬
+const CACHE_NAME = 'booking-system-v2.47.5';
+const APP_VERSION = 'v2.47.5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -1576,6 +1576,9 @@ body {
     flex-direction: column;
     gap: 0.25rem;
     position: relative;
+    /* v2.47.5: 防止內部 nowrap 文字撐寬 grid cell, 確保 7 欄等寬 */
+    min-width: 0;
+    overflow: hidden;
 }
 
 /* 移除舊有的 nth-child 邊框處理，改用容器 gap 控制 */
@@ -1635,6 +1638,9 @@ body {
     border-radius: 2px;
     font-size: 0.75rem;
     overflow: hidden;
+    /* v2.47.5: 防止內部 nowrap 文字撐寬 booking item */
+    min-width: 0;
+    max-width: 100%;
 }
 
 .mb-period {
@@ -1654,6 +1660,21 @@ body {
     text-overflow: ellipsis;
     color: var(--text-secondary);
     font-weight: 500;
+    /* v2.47.5: 確保 ellipsis 真的生效 (flex item 需要 min-width: 0) */
+    min-width: 0;
+    flex: 1;
+}
+
+/* v2.47.5: month-calendar-grid 防止總寬度溢出視窗 */
+.month-calendar-grid,
+.month-calendar-header {
+    width: 100%;
+    box-sizing: border-box;
+}
+.month-calendar {
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .month-booking-more {
