@@ -1,6 +1,6 @@
-// Service Worker v2.46.0 - LINE Phase 3: Scheduled reminders + admin alerts
-const CACHE_NAME = 'booking-system-v2.46.0';
-const APP_VERSION = 'v2.46.0';
+// Service Worker v2.47.0 - 意見回饋 → LINE 推管理員
+const CACHE_NAME = 'booking-system-v2.47.0';
+const APP_VERSION = 'v2.47.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

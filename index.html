@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.46.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.46.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.47.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.47.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.46.0';
+            const APP_VERSION = 'v2.47.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -1138,6 +1138,76 @@
         <div class="pwa-actions">
             <button id="btnPwaInstall" class="btn-pwa-install">立即安裝</button>
             <button id="btnPwaDismiss" class="btn-pwa-dismiss">稍後再說</button>
+        </div>
+    </div>
+
+    <!-- v2.47.0: 浮動意見回饋按鈕 (右下角 FAB) -->
+    <button id="btnFeedbackFab" class="btn-feedback-fab" type="button"
+            title="意見回饋 — 直接 LINE 推給管理員">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="feedback-fab-label">意見回饋</span>
+    </button>
+
+    <!-- v2.47.0: 意見回饋彈窗 -->
+    <div class="feedback-overlay" id="feedbackOverlay">
+        <div class="feedback-modal">
+            <div class="feedback-header">
+                <h3>📮 意見回饋</h3>
+                <button class="btn-feedback-close" id="btnFeedbackClose" type="button">×</button>
+            </div>
+            <div class="feedback-body">
+                <p class="feedback-intro">
+                    遇到問題或有建議?直接告訴管理員!<br>
+                    <span style="color:#94a3b8;font-size:0.85rem;">管理員將透過 LINE 即時收到您的回饋。</span>
+                </p>
+
+                <form id="feedbackForm" class="feedback-form">
+                    <div class="feedback-form-row">
+                        <label>類型:</label>
+                        <div class="feedback-type-grid">
+                            <label class="feedback-type-option">
+                                <input type="radio" name="feedbackType" value="bug">
+                                <span>🐛 錯誤</span>
+                            </label>
+                            <label class="feedback-type-option">
+                                <input type="radio" name="feedbackType" value="suggestion">
+                                <span>💡 建議</span>
+                            </label>
+                            <label class="feedback-type-option">
+                                <input type="radio" name="feedbackType" value="question" checked>
+                                <span>❓ 問題</span>
+                            </label>
+                            <label class="feedback-type-option">
+                                <input type="radio" name="feedbackType" value="other">
+                                <span>📝 其他</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="feedback-form-row">
+                        <label for="feedbackName">姓名 (選填):</label>
+                        <input type="text" id="feedbackName" maxlength="30" placeholder="例:張老師">
+                    </div>
+
+                    <div class="feedback-form-row">
+                        <label for="feedbackMessage">內容 *</label>
+                        <textarea id="feedbackMessage" rows="5" maxlength="1000" required
+                                  placeholder="請描述您遇到的問題或建議..."></textarea>
+                        <small class="feedback-char-count">
+                            <span id="feedbackCharCount">0</span> / 1000
+                        </small>
+                    </div>
+
+                    <div class="feedback-actions">
+                        <button type="button" id="btnFeedbackCancel" class="btn-feedback-cancel">取消</button>
+                        <button type="submit" id="btnFeedbackSubmit" class="btn-feedback-submit">
+                            📤 送出回饋
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

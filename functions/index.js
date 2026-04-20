@@ -1103,3 +1103,207 @@ exports.checkAdminAlertStatus = onRequest({ cors: true }, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ==========================================================================
+// Function #11: submitFeedback
+// 老師意見回饋 → 寫入 Firestore + 推送 LINE 給訂閱告警的管理員
+// ==========================================================================
+
+const FEEDBACK_TYPE_META = {
+    bug:         { label: '🐛 錯誤回報', color: '#dc2626' },
+    suggestion:  { label: '💡 功能建議', color: '#06c755' },
+    question:    { label: '❓ 使用問題', color: '#3b82f6' },
+    other:       { label: '📝 其他',     color: '#6b7280' },
+};
+
+/**
+ * 建立意見回饋的 Flex Message (送給管理員)
+ */
+function createFeedbackFlexMessage(feedback) {
+    const meta = FEEDBACK_TYPE_META[feedback.type] || FEEDBACK_TYPE_META.other;
+    const tw = new Date(Date.now() + 8 * 3600 * 1000);
+    const timeStr = `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')} ${String(tw.getUTCHours()).padStart(2, '0')}:${String(tw.getUTCMinutes()).padStart(2, '0')}`;
+
+    return {
+        type: 'flex',
+        altText: `📮 新意見回饋 [${meta.label}] from ${feedback.name || '匿名'}`,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: meta.color,
+                paddingAll: '15px',
+                contents: [{
+                    type: 'text',
+                    text: '📮 新意見回饋',
+                    color: '#FFFFFF',
+                    weight: 'bold',
+                    size: 'lg',
+                    align: 'center',
+                }],
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '15px',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '類型', size: 'xs', color: '#888888', flex: 2 },
+                            { type: 'text', text: meta.label, size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '姓名', size: 'xs', color: '#888888', flex: 2 },
+                            { type: 'text', text: feedback.name || '匿名老師', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    {
+                        type: 'box',
+                        layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '時間', size: 'xs', color: '#888888', flex: 2 },
+                            { type: 'text', text: timeStr, size: 'sm', flex: 5 },
+                        ],
+                    },
+                    { type: 'separator', margin: 'md' },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        margin: 'md',
+                        contents: [
+                            { type: 'text', text: '📝 內容', size: 'xs', color: '#888888' },
+                            {
+                                type: 'text',
+                                text: feedback.message || '(無內容)',
+                                size: 'sm',
+                                wrap: true,
+                                margin: 'sm',
+                                color: '#1f2937',
+                            },
+                        ],
+                    },
+                    {
+                        type: 'text',
+                        text: `📱 來源: ${(feedback.deviceId || 'unknown').substring(0, 16)}...`,
+                        size: 'xs',
+                        color: '#94a3b8',
+                        margin: 'md',
+                    },
+                ],
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '10px',
+                contents: [{
+                    type: 'button',
+                    style: 'primary',
+                    color: meta.color,
+                    height: 'sm',
+                    action: {
+                        type: 'uri',
+                        label: '🔗 開啟系統',
+                        uri: APP_URL,
+                    },
+                }],
+            },
+        },
+    };
+}
+
+exports.submitFeedback = onRequest(
+    {
+        cors: true,
+        secrets: [LINE_ACCESS_TOKEN],
+        region: 'asia-east1',
+    },
+    async (req, res) => {
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const { type, name, message, deviceId } = req.body || {};
+
+            // 驗證輸入
+            if (!message || typeof message !== 'string' || message.trim().length === 0) {
+                res.status(400).json({ error: '請填寫回饋內容' });
+                return;
+            }
+            if (message.length > 1000) {
+                res.status(400).json({ error: '回饋內容過長 (上限 1000 字)' });
+                return;
+            }
+            if (!deviceId || typeof deviceId !== 'string') {
+                res.status(400).json({ error: 'deviceId required' });
+                return;
+            }
+            const validType = ['bug', 'suggestion', 'question', 'other'].includes(type) ? type : 'other';
+
+            // 防灌水: 同 deviceId 5 分鐘內最多 1 筆
+            const fiveMinAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
+            const recent = await db.collection('feedbacks')
+                .where('deviceId', '==', deviceId)
+                .where('createdAt', '>=', fiveMinAgo)
+                .limit(1)
+                .get();
+
+            if (!recent.empty) {
+                res.status(429).json({
+                    error: '請等 5 分鐘後再送出下一則回饋 (避免重複)',
+                });
+                return;
+            }
+
+            // 建立 feedback 紀錄
+            const feedback = {
+                type: validType,
+                name: (name || '').toString().trim().substring(0, 50) || null,
+                message: message.trim(),
+                deviceId,
+                userAgent: (req.headers['user-agent'] || '').substring(0, 200),
+                status: 'new', // new / read / resolved
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            };
+            const docRef = await db.collection('feedbacks').add(feedback);
+
+            // 推給管理員
+            const flex = createFeedbackFlexMessage({ ...feedback, id: docRef.id });
+            const adminIds = await getAdminLineUserIds();
+
+            if (adminIds.length === 0) {
+                logger.warn('[submitFeedback] 已收到回饋但無註冊管理員,只存 Firestore');
+            } else {
+                const client = new line.messagingApi.MessagingApiClient({
+                    channelAccessToken: LINE_ACCESS_TOKEN.value(),
+                });
+                await Promise.allSettled(
+                    adminIds.map(uid =>
+                        client.pushMessage({ to: uid, messages: [flex] })
+                    )
+                );
+                logger.info(`[submitFeedback] ✅ 已推給 ${adminIds.length} 位管理員`);
+            }
+
+            res.status(200).json({
+                status: 'ok',
+                feedbackId: docRef.id,
+                pushedToAdmins: adminIds.length,
+            });
+        } catch (err) {
+            logger.error('[submitFeedback]', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);

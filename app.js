@@ -5238,4 +5238,112 @@ document.addEventListener('DOMContentLoaded', () => {
         () => toggleAdminAlerts('subscribe'));
     document.getElementById('btnUnsubscribeAdminAlerts')?.addEventListener('click',
         () => toggleAdminAlerts('unsubscribe'));
+
+    // v2.47.0: 意見回饋系統
+    initFeedbackSystem();
 });
+
+// ==========================================================================
+// v2.47.0: 意見回饋系統
+// ==========================================================================
+
+function initFeedbackSystem() {
+    const fab = document.getElementById('btnFeedbackFab');
+    const overlay = document.getElementById('feedbackOverlay');
+    const closeBtn = document.getElementById('btnFeedbackClose');
+    const cancelBtn = document.getElementById('btnFeedbackCancel');
+    const form = document.getElementById('feedbackForm');
+    const messageInput = document.getElementById('feedbackMessage');
+    const charCount = document.getElementById('feedbackCharCount');
+
+    if (!fab || !overlay) return;
+
+    fab.addEventListener('click', openFeedbackModal);
+    closeBtn?.addEventListener('click', closeFeedbackModal);
+    cancelBtn?.addEventListener('click', closeFeedbackModal);
+    overlay.addEventListener('click', (e) => {
+        if (e.target.id === 'feedbackOverlay') closeFeedbackModal();
+    });
+
+    // 字數即時統計
+    messageInput?.addEventListener('input', () => {
+        if (charCount) charCount.textContent = String(messageInput.value.length);
+    });
+
+    form?.addEventListener('submit', submitFeedback);
+}
+
+function openFeedbackModal() {
+    const overlay = document.getElementById('feedbackOverlay');
+    overlay.classList.add('active');
+    // 預填姓名 (若以前 LINE 綁定有存)
+    const nameInput = document.getElementById('feedbackName');
+    if (nameInput && !nameInput.value) {
+        const lastName = localStorage.getItem('lastBookerName') || '';
+        if (lastName) nameInput.value = lastName;
+    }
+    document.getElementById('feedbackMessage')?.focus();
+}
+
+function closeFeedbackModal() {
+    document.getElementById('feedbackOverlay')?.classList.remove('active');
+}
+
+async function submitFeedback(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById('btnFeedbackSubmit');
+    const message = document.getElementById('feedbackMessage').value.trim();
+    const name = document.getElementById('feedbackName').value.trim();
+    const type = document.querySelector('input[name="feedbackType"]:checked')?.value || 'other';
+
+    if (!message) {
+        showToast('請填寫回饋內容', 'warning');
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送出中…';
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/submitFeedback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type,
+                name,
+                message,
+                deviceId: getDeviceId(),
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || '送出失敗');
+        }
+
+        // 成功 — 顯示 toast + 清表單 + 關閉
+        if (data.pushedToAdmins > 0) {
+            showToast(`📤 已送出!管理員會盡快回覆`, 'success');
+        } else {
+            showToast(`📤 已收到回饋(管理員尚未訂閱告警,將透過後台處理)`, 'info', { duration: 5000 });
+        }
+
+        // 記住姓名給下次用
+        if (name) localStorage.setItem('lastBookerName', name);
+
+        // 清空表單
+        document.getElementById('feedbackMessage').value = '';
+        const charCount = document.getElementById('feedbackCharCount');
+        if (charCount) charCount.textContent = '0';
+
+        closeFeedbackModal();
+
+    } catch (err) {
+        console.error('[Feedback] 送出失敗', err);
+        showToast(err.message || '送出失敗', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📤 送出回饋';
+    }
+}

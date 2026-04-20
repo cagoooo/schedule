@@ -4,7 +4,90 @@
 
 ---
 
-## 📅 當前版本：v2.46.0 (2026-04-19) - LINE Phase 3:排程提醒 + 管理員告警
+## 📅 當前版本：v2.47.0 (2026-04-19) - 意見回饋系統 → LINE 推管理員
+
+### 🎯 核心目的
+讓老師遇到問題或有建議時,可在系統內直接送出 → 管理員 LINE 即時收到。
+**不需要管理員提供 User ID**(已透過 Phase 3 的 `adminLineRecipients` 機制處理)。
+
+### 📦 新增 1 個 Cloud Function
+
+| Function | 觸發 | 功能 |
+| :--- | :--- | :--- |
+| `submitFeedback` | HTTP POST | 寫入 feedbacks + LINE Flex 推所有訂閱告警的管理員 |
+
+### 🎨 4 種回饋類型 (含色彩標識)
+
+| 類型 | 顏色 | 用途 |
+| :---: | :---: | :--- |
+| 🐛 錯誤回報 | 紅色 | 系統 bug |
+| 💡 功能建議 | 綠色 | 想要的新功能 |
+| ❓ 使用問題 | 藍色 | 不會用、操作疑問 |
+| 📝 其他 | 灰色 | 其他想法 |
+
+### 🛡 防灌水機制
+
+- 同 deviceId **5 分鐘內最多 1 則**(429 Too Many Requests)
+- 內容長度 1~1000 字
+- 姓名選填上限 50 字
+
+### 🎨 前端 UI
+
+**浮動 FAB 按鈕** (右下角):
+- 紫色漸層 + 訊息圖示
+- 桌面顯示「意見回饋」文字
+- 手機僅顯示 icon 節省空間
+
+**回饋彈窗**:
+- 4 個類型按鈕(radio 樣式)
+- 姓名輸入框(自動帶入上次預約姓名)
+- 內容 textarea + 即時字數統計
+- 預設選「❓ 使用問題」(最常見類型)
+
+### 📊 LINE Flex Message 設計
+
+管理員收到的卡片:
+- 彩色 Header (依類型變色)
+- 顯示:類型 / 姓名 / 時間
+- 完整內容 (white-space: pre-wrap)
+- 來源 deviceId 前 16 字 (供追蹤)
+- 「🔗 開啟系統」按鈕
+
+### 🔒 Firestore 安全
+
+`feedbacks` collection 規則:
+- ❌ 前端不能直接寫(必須透過 Cloud Function)
+- ✅ 管理員可讀 + 改 status (new/read/resolved)
+- ❌ 不允許刪除(保留歷史)
+
+### 📂 修改檔案
+
+- `functions/index.js`: +200 行 (`submitFeedback` + Flex builder + 防灌水邏輯)
+- `index.html`: 新增浮動 FAB + 回饋彈窗 (~75 行)
+- `app.js`: `initFeedbackSystem` + `submitFeedback` (~120 行)
+- `styles.v2.38.0.css`: +220 行 (FAB + modal + form 樣式)
+- `firestore.rules`: 新增 feedbacks collection 規則
+
+### 💡 設計亮點
+
+- **使用既有的 `pushToAdmins` 函式** — 不重複建立通知通道
+- **不限制使用者身分** — 老師、訪客都能用,降低反映門檻
+- **預填姓名** — 使用 localStorage 上次預約姓名,省輸入
+- **type 預設選「❓ 使用問題」** — 最常見類型,降低決策成本
+
+### 🧪 驗收測試
+
+1. **管理員先訂閱告警**(若還沒):點 LINE 按鈕 → Step 0 → 訂閱
+2. **任何使用者**(可不登入):點右下紫色「💬 意見回饋」FAB
+3. 填寫:類型「❓ 使用問題」+ 姓名「測試老師」+ 內容「測試訊息」
+4. 點「📤 送出回饋」
+5. 管理員 LINE 應立即收到藍色 Flex 卡片
+6. **5 分鐘內再送** → 應顯示「請等 5 分鐘後再送出」
+7. Firestore Console 應看到 `feedbacks` 集合有新文件
+
+---
+
+## 📅 v2.46.0 (2026-04-19) - LINE Phase 3:排程提醒 + 管理員告警
 
 ### 🎯 核心目的
 LINE Phase 3 完成 — 系統現在能**主動提醒老師**(預約 30 分鐘前),並能**自我監控**(異常事件直推管理員 LINE,取代 Sentry 角色)。

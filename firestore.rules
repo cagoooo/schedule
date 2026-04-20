@@ -93,6 +93,15 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // ===== v2.47.0: 老師意見回饋 =====
+    match /feedbacks/{feedbackId} {
+      // 只能由 Cloud Function (submitFeedback) 寫入
+      allow create: if false;
+      // 僅管理員可讀寫 (修改 status 等)
+      allow read, update: if request.auth != null;
+      allow delete: if false;
+    }
+
     // ===== v2.41.0 (M.1): 場地維護公告 =====
     match /roomAnnouncements/{annId} {
       // 所有人可讀取公告 (預約彈窗會顯示)
