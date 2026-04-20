@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.47.5</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.47.5">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.48.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.48.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.47.5';
+            const APP_VERSION = 'v2.48.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -829,6 +829,7 @@
                     <button class="tab-btn active" data-tab="overview">總覽</button>
                     <button class="tab-btn" data-tab="audit">系統日誌</button>
                     <button class="tab-btn" data-tab="analytics">📊 進階分析</button>
+                    <button class="tab-btn" data-tab="reports">📄 AI 學期報告</button>
                 </div>
                 <div class="dashboard-actions" style="display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn-export-csv" id="btnExportCSV" title="匯出預約資料 (完整)">
@@ -972,6 +973,37 @@
                 </div>
 
                 <!-- 進階分析 Tab -->
+                <!-- v2.48.0: AI 學期報告 Tab -->
+                <div id="tab-reports" class="tab-content" style="display:none;">
+                    <div class="reports-container">
+                        <div class="reports-intro">
+                            <h3 style="margin-top:0;color:#4c1d95;">📊 AI 自動學期使用報告</h3>
+                            <p style="color:#6b7280;margin:0.5rem 0;">
+                                點擊下方按鈕,系統會自動聚合本學期所有預約資料,
+                                透過 <strong style="color:#6d28d9;">Gemini AI</strong> 撰寫專業分析,
+                                產出含互動圖表的精美 HTML 報告。
+                            </p>
+                            <p style="color:#92400e;font-size:0.85rem;background:#fef3c7;padding:0.6rem 1rem;border-radius:8px;border-left:4px solid #f59e0b;">
+                                💡 報告產出後會自動推 LINE 給已訂閱告警的管理員,並儲存到歷史清單。
+                            </p>
+                        </div>
+
+                        <div class="reports-actions">
+                            <button id="btnGenerateReport" class="btn-generate-report">
+                                🪄 產出本學期報告 (約 30 秒)
+                            </button>
+                            <div id="reportGenStatus" class="report-gen-status"></div>
+                        </div>
+
+                        <div class="reports-history">
+                            <h4 style="margin:1.5rem 0 0.5rem;color:#4c1d95;">📚 歷史報告</h4>
+                            <div id="reportsList" class="reports-list">
+                                <div class="reports-loading">載入中...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="tab-analytics" class="tab-content" style="display:none;">
                     <!-- 學期區間選擇器 -->
                     <div class="analytics-controls">

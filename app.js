@@ -5241,6 +5241,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // v2.47.0: 意見回饋系統
     initFeedbackSystem();
+
+    // v2.48.0: AI 學期報告
+    initSemesterReports();
 });
 
 // ==========================================================================
@@ -5346,4 +5349,115 @@ async function submitFeedback(e) {
         submitBtn.disabled = false;
         submitBtn.textContent = '📤 送出回饋';
     }
+}
+
+// ==========================================================================
+// v2.48.0: AI 學期報告
+// ==========================================================================
+
+function initSemesterReports() {
+    const btn = document.getElementById('btnGenerateReport');
+    if (!btn) return;
+    btn.addEventListener('click', generateSemesterReport);
+
+    // 監聽 tab 切換 → 進入 reports tab 時載入歷史清單
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(t => {
+        t.addEventListener('click', () => {
+            if (t.dataset.tab === 'reports') {
+                loadReportsHistory();
+            }
+        });
+    });
+}
+
+async function generateSemesterReport() {
+    const btn = document.getElementById('btnGenerateReport');
+    const statusEl = document.getElementById('reportGenStatus');
+    btn.disabled = true;
+    btn.textContent = '⏳ 產出中... (Gemini AI 撰寫中,約 30 秒)';
+    statusEl.className = 'report-gen-status';
+    statusEl.textContent = '正在聚合資料、呼叫 Gemini API...';
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/generateSemesterReport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: getDeviceId() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '產出失敗');
+
+        statusEl.className = 'report-gen-status success';
+        statusEl.innerHTML = `
+            ✅ 報告產出成功!共聚合 ${data.stats?.totalBookings || 0} 筆預約。<br>
+            <a href="${data.publicUrl}" target="_blank" rel="noopener"
+               style="color:#6d28d9;font-weight:700;text-decoration:underline;">
+               🔗 立即開啟 ${data.semesterName} 報告
+            </a>
+        `;
+        showToast('✅ AI 學期報告產出成功!', 'success');
+
+        // 重新載入歷史清單
+        loadReportsHistory();
+    } catch (err) {
+        console.error('[Report] 產出失敗', err);
+        statusEl.className = 'report-gen-status error';
+        statusEl.textContent = '❌ ' + (err.message || '產出失敗');
+        showToast('產出失敗:' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🪄 產出本學期報告 (約 30 秒)';
+    }
+}
+
+async function loadReportsHistory() {
+    const list = document.getElementById('reportsList');
+    if (!list) return;
+    list.innerHTML = '<div class="reports-loading">載入中...</div>';
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/listSemesterReports`);
+        const data = await res.json();
+
+        if (!data.reports || data.reports.length === 0) {
+            list.innerHTML = '<div class="reports-empty">📭 尚無歷史報告</div>';
+            return;
+        }
+
+        list.innerHTML = data.reports.map(r => {
+            const dt = r.generatedAt ? new Date(r.generatedAt) : null;
+            const dateStr = dt
+                ? `${dt.getFullYear()}/${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+                : '-';
+            return `
+                <div class="report-item">
+                    <div class="report-item-info">
+                        <div class="report-item-name">📊 ${escapeHtml(r.semesterName)}</div>
+                        <div class="report-item-meta">
+                            <span>📅 ${escapeHtml(r.startDate)} ~ ${escapeHtml(r.endDate)}</span>
+                            <span>🪄 產出於 ${dateStr}</span>
+                            <span>📊 ${r.stats?.totalBookings || 0} 筆預約</span>
+                            ${r.stats?.cancellationRate ? `<span>❌ 取消率 ${r.stats.cancellationRate}%</span>` : ''}
+                        </div>
+                    </div>
+                    <a href="${r.publicUrl}" target="_blank" rel="noopener" class="btn-view-report">
+                        📄 查看
+                    </a>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('[Report] 載入歷史失敗', err);
+        list.innerHTML = '<div class="reports-empty">❌ 載入失敗</div>';
+    }
+}
+
+// 簡單 escapeHtml (若主檔已有可省略)
+if (typeof escapeHtml !== 'function') {
+    window.escapeHtml = function(str) {
+        const div = document.createElement('div');
+        div.textContent = String(str || '');
+        return div.innerHTML;
+    };
 }

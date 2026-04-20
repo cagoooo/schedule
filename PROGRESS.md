@@ -4,7 +4,93 @@
 
 ---
 
-## 📅 當前版本：v2.47.0 (2026-04-19) - 意見回饋系統 → LINE 推管理員
+## 📅 當前版本：v2.48.0 (2026-04-20) - 🤖 AI 學期白皮書 (Gemini + HTML 報告 + Storage)
+
+### 🎯 核心目的
+每學期結束自動產出一份「校長/主任也看得懂」的使用報告 — Gemini 撰寫文案 + Chart.js 圖表 + 一鍵 LINE 分享。
+
+### 📦 新增 2 個 Cloud Function
+
+| Function | 觸發 | 功能 |
+| :--- | :--- | :--- |
+| `generateSemesterReport` | HTTP POST | 統計 → Gemini 撰寫 → 渲染 HTML → 上傳 Storage → LINE 推管理員 |
+| `listSemesterReports` | HTTP GET | 取得最近 20 份報告供後台列表渲染 |
+
+### 🧠 Gemini 1.5 Flash 文案邏輯
+
+1. **聚合 10 個維度統計** (aggregateSemesterStats):
+   - 總預約 / 已完成 / 已取消數
+   - 取消率 (%)
+   - 場地排行 (Top 10)
+   - 預約者排行 (Top 10)
+   - 節次熱門度
+   - 月度趨勢 (Bar)
+   - 星期分布
+   - 重複預約率
+2. **Prompt 要求 JSON 格式** 4 個段落：
+   - `summary` (學期綜述, 100 字內)
+   - `highlights` (3 大亮點, 條列)
+   - `anomalies` (異常觀察, 100 字內)
+   - `suggestions` (給管理員的 3 條建議, 條列)
+3. **失敗 fallback**：若 Gemini API 異常，使用內建 stats 模板生成基本敘述。
+
+### 📊 HTML 報告結構
+
+- **Hero Header**：紫色漸層 + 學期名稱 + 生成時間
+- **核心數據卡** (4 格)：總預約 / 完成數 / 取消率 / 場地數
+- **AI 文案區** (4 段)：綜述 / 亮點 / 異常 / 建議
+- **Chart.js 圖表** (4 張)：場地排行 / 節次熱度 / 月度趨勢 / 星期分布
+- **Top 10 預約者表**
+- **底部 watermark** + 「打印 / 儲存 PDF」提示
+
+### ☁️ Firebase Storage 託管
+
+- Bucket: `schedule-10ed3.firebasestorage.app` (顯式於 `admin.initializeApp` 指定)
+- Path: `reports/{timestamp}_{semesterName}.html`
+- 公開讀取 (`makePublic`) + 中文檔名 URL-encode
+- Cache-Control: `public, max-age=86400`
+
+### 🔔 LINE Flex 卡片
+
+報告產出後 1 秒內推所有訂閱告警的管理員：
+- 紫色 Header「📄 學期報告產出」
+- 顯示 學期 / 總預約 / 取消率 / 熱門場地
+- 「🔗 查看完整報告」按鈕（直連 publicUrl）
+
+### 🔐 安全
+
+- `GEMINI_API_KEY` 透過 Firebase Functions Secrets 管理 (`printf` 寫入避免 \\n 雷)
+- `LINE_ACCESS_TOKEN` 共用既有 secret
+- Storage 規則：`reports/*` 僅 Admin SDK 可寫，所有人可讀
+
+### 📂 修改檔案
+
+- `functions/index.js`: +480 行 (4 helper + 2 Cloud Function + Flex builder)
+- `functions/package.json`: +1 dependency (`@google/generative-ai@^0.21.0`)
+- `index.html`: 新增「📄 AI 學期報告」分頁 (~30 行)
+- `app.js`: `initSemesterReports` + `generateSemesterReport` + `loadReportsHistory` (~150 行)
+- `styles.v2.38.0.css`: +180 行 (按鈕 + 卡片 + 報告 list 樣式)
+- `firebase.json`: 新增 storage section
+- `storage.rules`: 新建（`reports/*` 公開讀，預設拒絕）
+
+### 🧪 驗收測試
+
+1. 管理員後台 → 「📄 AI 學期報告」分頁
+2. 按「🤖 立即產出本學期報告」
+3. 顯示「正在統計 → 分析 → 上傳…」進度
+4. 約 30 秒後跳「✅ 報告已產出」
+5. 自動列在歷史列表，點開即可看完整 HTML
+6. 管理員 LINE 收到 Flex 卡片，點按鈕直接開報告
+
+### 🐛 踩雷紀錄 (已加入 SKILL)
+
+- **Firebase Storage 預設 bucket 不會自動存在**：新版 Firebase 專案需手動透過 Firebase Console 或 `POST https://firebasestorage.googleapis.com/v1beta/projects/{pid}/defaultBucket` 啟用
+- **新版 bucket 是 `.firebasestorage.app` 而非 `.appspot.com`**：必須在 `admin.initializeApp({ storageBucket: '...firebasestorage.app' })` 顯式指定
+- **中文檔名需 URL-encode**：`https://storage.googleapis.com/{bucket}/{path}` 直接帶中文會 403，需 `encodeURIComponent` 處理
+
+---
+
+## 📅 v2.47.0 (2026-04-19) - 意見回饋系統 → LINE 推管理員
 
 ### 🎯 核心目的
 讓老師遇到問題或有建議時,可在系統內直接送出 → 管理員 LINE 即時收到。

@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Cloud Storage Security Rules for 禮堂&專科教室預約系統
+// v2.48.0: AI 學期白皮書 (HTML 報告儲存於 reports/ 路徑)
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 報告路徑：所有人可讀（HTML 公開分享連結），僅 Cloud Functions 可寫
+    match /reports/{file=**} {
+      allow read: if true;
+      allow write: if false; // 僅後端 Admin SDK 可寫
+    }
+
+    // 預設拒絕其他所有路徑
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

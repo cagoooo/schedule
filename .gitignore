@@ -15,3 +15,6 @@ functions/.env.local
 # Editor
 .vscode/
 .idea/
+
+# Claude Code local settings
+.claude/

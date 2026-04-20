@@ -3,13 +3,15 @@
  * Phase 1 (v2.44.0): LINE 綁定基礎建設
  * Phase 2 (v2.45.0): 預約事件推播 (建立/取消/強刪)
  * Phase 3 (v2.46.0): 排程提醒 + 管理員告警 (取代 Sentry)
+ * v2.48.0: AI 學期白皮書 (Gemini + HTML 報告 + Storage)
  *
  * 安全提醒:
- * - LINE Channel Secret / Access Token 透過 Firebase Functions Secrets 注入
+ * - LINE Channel Secret / Access Token / GEMINI_API_KEY 透過 Firebase Functions Secrets 注入
  * - 永遠不在此檔案 hardcode 任何 secrets
- * - 設定方式:
- *     firebase functions:secrets:set LINE_CHANNEL_SECRET
- *     firebase functions:secrets:set LINE_ACCESS_TOKEN
+ * - 設定方式 (用 printf 不加換行):
+ *     printf "..." | firebase functions:secrets:set LINE_CHANNEL_SECRET --data-file -
+ *     printf "..." | firebase functions:secrets:set LINE_ACCESS_TOKEN --data-file -
+ *     printf "..." | firebase functions:secrets:set GEMINI_API_KEY --data-file -
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -23,7 +25,10 @@ const line = require('@line/bot-sdk');
 const crypto = require('crypto');
 
 // 初始化 Firebase Admin
-admin.initializeApp();
+// v2.48.0: 顯式指定 storageBucket (新版 Firebase 預設 bucket 為 .firebasestorage.app)
+admin.initializeApp({
+    storageBucket: 'schedule-10ed3.firebasestorage.app',
+});
 const db = admin.firestore();
 
 // 全域設定 — 部署到 asia-east1 (台灣最近)
@@ -36,6 +41,8 @@ setGlobalOptions({
 // LINE Secrets (在 Firebase Functions Secrets 中設定, 不寫入程式碼)
 const LINE_CHANNEL_SECRET = defineSecret('LINE_CHANNEL_SECRET');
 const LINE_ACCESS_TOKEN = defineSecret('LINE_ACCESS_TOKEN');
+// v2.48.0: Gemini API Key (用於 AI 學期白皮書文案撰寫)
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 // ===== 工具函式 =====
 
@@ -1313,3 +1320,685 @@ exports.submitFeedback = onRequest(
         }
     }
 );
+
+// ==========================================================================
+// v2.48.0: AI 學期白皮書 (Gemini + HTML 報告)
+// ==========================================================================
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+/**
+ * 自動偵測學期區間
+ * 春季學期: 2/1 ~ 6/30
+ * 秋季學期: 8/1 ~ 1/31 (跨年)
+ * @returns { name, startDate, endDate } (YYYY/MM/DD 格式)
+ */
+function detectSemester(refDate) {
+    const d = refDate || new Date();
+    const tw = new Date(d.getTime() + 8 * 3600 * 1000);
+    const year = tw.getUTCFullYear();
+    const month = tw.getUTCMonth() + 1;
+
+    if (month >= 2 && month <= 7) {
+        // 春季學期
+        return {
+            name: `${year} 春季學期`,
+            startDate: `${year}/02/01`,
+            endDate: `${year}/06/30`,
+        };
+    }
+    // 秋季學期 (8月~隔年1月)
+    if (month >= 8) {
+        return {
+            name: `${year} 秋季學期`,
+            startDate: `${year}/08/01`,
+            endDate: `${year + 1}/01/31`,
+        };
+    }
+    // 1 月 = 上一年的秋季學期
+    return {
+        name: `${year - 1} 秋季學期`,
+        startDate: `${year - 1}/08/01`,
+        endDate: `${year}/01/31`,
+    };
+}
+
+/**
+ * 聚合該學期的所有預約統計
+ */
+async function aggregateSemesterStats(startDate, endDate) {
+    const snap = await db.collection('bookings')
+        .where('date', '>=', startDate)
+        .where('date', '<=', endDate)
+        .get();
+
+    const stats = {
+        totalBookings: 0,
+        totalActive: 0,
+        totalCancelled: 0,
+        byClassroom: {},
+        byPeriod: {},
+        byWeekday: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+        topUsers: {},
+        ipadByGrade: { '三年級': 0, '四年級': 0, '五年級': 0, '六年級': 0 },
+        leadTimeDistribution: { '當天': 0, '1-3 天': 0, '4-7 天': 0, '8-30 天': 0, '> 30 天': 0 },
+    };
+
+    snap.forEach(doc => {
+        const b = doc.data();
+        const isActive = b.periods && b.periods.length > 0;
+        stats.totalBookings += 1;
+        if (isActive) stats.totalActive += 1;
+        else stats.totalCancelled += 1;
+
+        if (!isActive) return; // 取消的預約不算入熱度統計
+
+        // 場地統計
+        const room = b.room || '禮堂';
+        stats.byClassroom[room] = (stats.byClassroom[room] || 0) + 1;
+
+        // 節次統計
+        b.periods.forEach(p => {
+            stats.byPeriod[p] = (stats.byPeriod[p] || 0) + 1;
+        });
+
+        // 週幾統計 (date 是 YYYY/MM/DD)
+        const dateParts = b.date.split('/');
+        if (dateParts.length === 3) {
+            const dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+            stats.byWeekday[dateObj.getDay()] += 1;
+
+            // 提前天數
+            if (b.createdAt) {
+                const createdMs = b.createdAt.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+                const targetMs = dateObj.getTime();
+                const diffDays = Math.floor((targetMs - createdMs) / (86400 * 1000));
+                if (diffDays === 0) stats.leadTimeDistribution['當天'] += 1;
+                else if (diffDays <= 3) stats.leadTimeDistribution['1-3 天'] += 1;
+                else if (diffDays <= 7) stats.leadTimeDistribution['4-7 天'] += 1;
+                else if (diffDays <= 30) stats.leadTimeDistribution['8-30 天'] += 1;
+                else stats.leadTimeDistribution['> 30 天'] += 1;
+            }
+        }
+
+        // Top users
+        const booker = b.booker || '未知';
+        stats.topUsers[booker] = (stats.topUsers[booker] || 0) + 1;
+
+        // IPAD 各年級借用
+        ['三年級', '四年級', '五年級', '六年級'].forEach(grade => {
+            if (room.includes(grade)) {
+                stats.ipadByGrade[grade] += 1;
+            }
+        });
+    });
+
+    // 計算取消率
+    stats.cancellationRate = stats.totalBookings > 0
+        ? (stats.totalCancelled / stats.totalBookings * 100).toFixed(1)
+        : 0;
+
+    // Top 10 老師
+    stats.topUsersList = Object.entries(stats.topUsers)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([name, count]) => ({ name, count }));
+
+    // 場地排行
+    stats.classroomRanking = Object.entries(stats.byClassroom)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({ name, count }));
+
+    return stats;
+}
+
+/**
+ * 用 Gemini API 撰寫 4 段繁中分析文案
+ */
+async function narrateStatsWithGemini(stats, semesterName, apiKey) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7,
+        },
+    });
+
+    const prompt = `你是一位資深教育行政專家,根據以下「${semesterName}」學校場地預約系統統計資料,撰寫 4 段繁體中文分析報告。
+
+統計資料 (JSON):
+${JSON.stringify({
+        總預約: stats.totalBookings,
+        有效預約: stats.totalActive,
+        取消預約: stats.totalCancelled,
+        取消率: stats.cancellationRate + '%',
+        場地排行: stats.classroomRanking,
+        節次熱度: stats.byPeriod,
+        週幾分布: stats.byWeekday,
+        老師排行Top10: stats.topUsersList,
+        IPAD各年級: stats.ipadByGrade,
+        提前天數分布: stats.leadTimeDistribution,
+    }, null, 2)}
+
+請以 JSON 格式回傳:
+{
+  "summary": "整體摘要,150 字內,點出本學期最重要的 3 個發現",
+  "hotspots": "場地使用熱點分析,150 字內,提到使用率最高與最低的場地及推測原因",
+  "anomalies": "異常與取消模式分析,150 字內,點出取消率高的場地或時段並推測原因",
+  "suggestions": "下學期改善建議,150 字內,提供 2-3 個具體可執行的建議"
+}
+
+語氣專業但親切,適合校長/主任閱讀。直接回傳 JSON,不要額外文字。`;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        return JSON.parse(text);
+    } catch (err) {
+        logger.error('[Gemini] 文案生成失敗', err);
+        // Fallback 文案
+        return {
+            summary: `本學期共有 ${stats.totalBookings} 筆預約紀錄,有效 ${stats.totalActive} 筆,取消率 ${stats.cancellationRate}%。`,
+            hotspots: stats.classroomRanking.length > 0
+                ? `最熱門場地為「${stats.classroomRanking[0].name}」共 ${stats.classroomRanking[0].count} 次預約。`
+                : '本學期無有效預約資料。',
+            anomalies: stats.cancellationRate > 20
+                ? `取消率達 ${stats.cancellationRate}% 偏高,建議檢視可能原因。`
+                : '取消率在合理範圍內。',
+            suggestions: '建議持續監測使用情況,並於下學期初檢討場地配置。',
+        };
+    }
+}
+
+/**
+ * 渲染 HTML 報告
+ */
+function renderReportHTML(stats, narrative, semesterName, generatedAt) {
+    const periodNames = {
+        morning: '晨間/早會',
+        period1: '第一節', period2: '第二節', period3: '第三節', period4: '第四節',
+        lunch: '午餐/午休',
+        period5: '第五節', period6: '第六節', period7: '第七節', period8: '第八節',
+    };
+    const weekdayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+
+    const periodLabels = Object.keys(stats.byPeriod).map(p => periodNames[p] || p);
+    const periodValues = Object.values(stats.byPeriod);
+
+    const weekdayLabels = weekdayNames;
+    const weekdayValues = [0, 1, 2, 3, 4, 5, 6].map(d => stats.byWeekday[d] || 0);
+
+    const classroomLabels = stats.classroomRanking.map(r => r.name);
+    const classroomValues = stats.classroomRanking.map(r => r.count);
+
+    const ipadLabels = Object.keys(stats.ipadByGrade);
+    const ipadValues = Object.values(stats.ipadByGrade);
+
+    const leadLabels = Object.keys(stats.leadTimeDistribution);
+    const leadValues = Object.values(stats.leadTimeDistribution);
+
+    return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${semesterName} 場地預約使用報告</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Noto Sans TC', -apple-system, sans-serif;
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+        color: #1f2937;
+        line-height: 1.7;
+        min-height: 100vh;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .cover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; border-radius: 20px; padding: 3rem 2rem;
+        text-align: center; margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    }
+    .cover h1 { font-size: 2.5rem; font-weight: 900; margin-bottom: 0.5rem; }
+    .cover .subtitle { font-size: 1.1rem; opacity: 0.95; margin-bottom: 1.5rem; }
+    .cover .meta { font-size: 0.9rem; opacity: 0.85; }
+    .ai-badge {
+        display: inline-block; background: rgba(255,255,255,0.2);
+        padding: 0.4rem 1rem; border-radius: 999px; margin-top: 1rem;
+        font-weight: 600; font-size: 0.85rem;
+    }
+
+    .section {
+        background: white; border-radius: 16px; padding: 2rem;
+        margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .section h2 {
+        color: #4c1d95; font-size: 1.5rem; margin-bottom: 1rem;
+        padding-bottom: 0.75rem; border-bottom: 3px solid #ede9fe;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .section .narrative {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        padding: 1rem 1.25rem; border-left: 4px solid #f59e0b;
+        border-radius: 8px; margin-bottom: 1.5rem; color: #78350f;
+        font-size: 0.95rem;
+    }
+    .ai-narration-label {
+        display: inline-block; background: rgba(245, 158, 11, 0.2);
+        padding: 2px 10px; border-radius: 999px; font-size: 0.75rem;
+        font-weight: 700; color: #92400e; margin-bottom: 0.5rem;
+    }
+
+    .stats-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
+        padding: 1.25rem; border-radius: 12px; text-align: center;
+    }
+    .stat-card .num {
+        font-size: 2.2rem; font-weight: 900; color: #6d28d9;
+        font-family: 'Noto Sans TC', sans-serif;
+    }
+    .stat-card .label { color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem; }
+
+    .chart-container {
+        position: relative; height: 320px; margin-top: 1rem;
+        background: white; padding: 1rem; border-radius: 8px;
+    }
+    .chart-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 1.5rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th { text-align: left; padding: 0.75rem; background: #ede9fe; color: #4c1d95; font-size: 0.9rem; }
+    td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; }
+    tr:hover td { background: #fafafa; }
+    .rank-badge {
+        display: inline-block; min-width: 32px; height: 24px; line-height: 24px;
+        background: #6d28d9; color: white; border-radius: 999px;
+        text-align: center; font-weight: 700; font-size: 0.8rem;
+    }
+    .rank-badge.gold { background: #f59e0b; }
+    .rank-badge.silver { background: #94a3b8; }
+    .rank-badge.bronze { background: #b45309; }
+
+    footer {
+        text-align: center; color: #94a3b8; font-size: 0.85rem;
+        padding: 2rem 0; border-top: 1px solid #e5e7eb; margin-top: 2rem;
+    }
+    @media print {
+        body { background: white; }
+        .section { box-shadow: none; border: 1px solid #e5e7eb; page-break-inside: avoid; }
+        .cover { box-shadow: none; }
+    }
+    @media (max-width: 600px) {
+        .container { padding: 1rem; }
+        .cover h1 { font-size: 1.8rem; }
+        .chart-container { height: 260px; }
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="cover">
+            <h1>📊 ${semesterName}</h1>
+            <div class="subtitle">場地預約使用報告</div>
+            <div class="meta">${generatedAt}</div>
+            <div class="ai-badge">🤖 由 Gemini AI 智慧分析撰寫</div>
+        </div>
+
+        <div class="section">
+            <h2>📌 整體摘要</h2>
+            <div class="narrative">
+                <span class="ai-narration-label">🤖 AI 分析</span><br>
+                ${narrative.summary}
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="num">${stats.totalBookings}</div><div class="label">總預約筆數</div></div>
+                <div class="stat-card"><div class="num">${stats.totalActive}</div><div class="label">有效預約</div></div>
+                <div class="stat-card"><div class="num">${stats.totalCancelled}</div><div class="label">已取消</div></div>
+                <div class="stat-card"><div class="num">${stats.cancellationRate}%</div><div class="label">取消率</div></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🏆 場地使用排行</h2>
+            <div class="narrative">
+                <span class="ai-narration-label">🤖 AI 分析</span><br>
+                ${narrative.hotspots}
+            </div>
+            <div class="chart-grid">
+                <div>
+                    <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#6b7280;">場地預約量分布</h3>
+                    <div class="chart-container"><canvas id="classroomChart"></canvas></div>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#6b7280;">節次使用熱度</h3>
+                    <div class="chart-container"><canvas id="periodChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📅 時間分布分析</h2>
+            <div class="chart-grid">
+                <div>
+                    <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#6b7280;">週間預約分布</h3>
+                    <div class="chart-container"><canvas id="weekdayChart"></canvas></div>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#6b7280;">提前預約天數分布</h3>
+                    <div class="chart-container"><canvas id="leadTimeChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>👥 老師預約 Top 10</h2>
+            ${stats.topUsersList.length > 0 ? `
+            <table>
+                <thead><tr><th style="width:80px;">排名</th><th>姓名</th><th style="text-align:right;">預約次數</th></tr></thead>
+                <tbody>
+                    ${stats.topUsersList.map((u, i) => {
+                        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                        return `<tr><td><span class="rank-badge ${rankClass}">${i + 1}</span></td><td><strong>${u.name}</strong></td><td style="text-align:right;font-weight:700;color:#6d28d9;">${u.count}</td></tr>`;
+                    }).join('')}
+                </tbody>
+            </table>` : '<p style="color:#94a3b8;">本學期尚無預約紀錄</p>'}
+        </div>
+
+        ${Object.values(stats.ipadByGrade).some(v => v > 0) ? `
+        <div class="section">
+            <h2>📱 IPAD 平板車各年級借用</h2>
+            <div class="chart-container" style="max-width:500px;margin:0 auto;"><canvas id="ipadChart"></canvas></div>
+        </div>` : ''}
+
+        <div class="section">
+            <h2>⚠ 異常與取消分析</h2>
+            <div class="narrative">
+                <span class="ai-narration-label">🤖 AI 分析</span><br>
+                ${narrative.anomalies}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>💡 下學期改善建議</h2>
+            <div class="narrative">
+                <span class="ai-narration-label">🤖 AI 分析</span><br>
+                ${narrative.suggestions}
+            </div>
+        </div>
+
+        <footer>
+            🏫 禮堂&專科教室&IPAD平板車預約系統 — AI 學期白皮書<br>
+            生成時間: ${generatedAt} · 報告版本: v2.48.0
+        </footer>
+    </div>
+
+<script>
+const chartOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { family: "'Noto Sans TC',sans-serif" }}}}
+};
+const colors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#06b6d4','#10b981','#f43f5e','#84cc16','#a78bfa','#fb7185'];
+
+// 場地排行 (橫向長條)
+new Chart(document.getElementById('classroomChart'), {
+    type: 'bar',
+    data: {
+        labels: ${JSON.stringify(classroomLabels)},
+        datasets: [{
+            data: ${JSON.stringify(classroomValues)},
+            backgroundColor: colors,
+        }]
+    },
+    options: { ...chartOpts, indexAxis: 'y', plugins: { legend: { display: false }}}
+});
+
+// 節次熱度
+new Chart(document.getElementById('periodChart'), {
+    type: 'bar',
+    data: {
+        labels: ${JSON.stringify(periodLabels)},
+        datasets: [{
+            data: ${JSON.stringify(periodValues)},
+            backgroundColor: '#8b5cf6',
+            borderRadius: 8,
+        }]
+    },
+    options: { ...chartOpts, plugins: { legend: { display: false }}}
+});
+
+// 週幾分布
+new Chart(document.getElementById('weekdayChart'), {
+    type: 'bar',
+    data: {
+        labels: ${JSON.stringify(weekdayLabels)},
+        datasets: [{
+            data: ${JSON.stringify(weekdayValues)},
+            backgroundColor: ${JSON.stringify(weekdayValues.map((_, i) => i === 0 || i === 6 ? '#ef4444' : '#6366f1'))},
+            borderRadius: 8,
+        }]
+    },
+    options: { ...chartOpts, plugins: { legend: { display: false }}}
+});
+
+// 提前天數
+new Chart(document.getElementById('leadTimeChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ${JSON.stringify(leadLabels)},
+        datasets: [{ data: ${JSON.stringify(leadValues)}, backgroundColor: colors }]
+    },
+    options: chartOpts
+});
+
+${Object.values(stats.ipadByGrade).some(v => v > 0) ? `
+// IPAD 各年級
+new Chart(document.getElementById('ipadChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ${JSON.stringify(ipadLabels)},
+        datasets: [{ data: ${JSON.stringify(ipadValues)}, backgroundColor: ['#6366f1','#8b5cf6','#ec4899','#f59e0b'] }]
+    },
+    options: chartOpts
+});
+` : ''}
+</script>
+</body>
+</html>`;
+}
+
+// ==========================================================================
+// Function #12: generateSemesterReport
+// 產出 AI 學期白皮書,儲存到 Firebase Storage,推 LINE 給管理員
+// ==========================================================================
+
+exports.generateSemesterReport = onRequest(
+    {
+        cors: true,
+        secrets: [LINE_ACCESS_TOKEN, GEMINI_API_KEY],
+        region: 'asia-east1',
+        timeoutSeconds: 300, // 5 分鐘 (Gemini call 可能慢)
+        memory: '512MiB',
+    },
+    async (req, res) => {
+        try {
+            // 取得參數 (可指定學期,或自動偵測當前學期)
+            const { startDate: customStart, endDate: customEnd } = req.body || {};
+            let semesterName, startDate, endDate;
+            if (customStart && customEnd) {
+                semesterName = `自訂期間 (${customStart} ~ ${customEnd})`;
+                startDate = customStart;
+                endDate = customEnd;
+            } else {
+                const sem = detectSemester();
+                semesterName = sem.name;
+                startDate = sem.startDate;
+                endDate = sem.endDate;
+            }
+
+            logger.info(`[Report] 開始產出 ${semesterName} (${startDate} ~ ${endDate})`);
+
+            // 1. 聚合統計
+            const stats = await aggregateSemesterStats(startDate, endDate);
+            logger.info(`[Report] 統計完成: ${stats.totalBookings} 筆預約`);
+
+            // 2. Gemini 撰寫文案
+            let narrative;
+            try {
+                narrative = await narrateStatsWithGemini(stats, semesterName, GEMINI_API_KEY.value());
+                logger.info('[Report] Gemini 文案生成成功');
+            } catch (e) {
+                logger.error('[Report] Gemini 失敗,使用預設文案', e);
+                narrative = {
+                    summary: `本學期共有 ${stats.totalBookings} 筆預約紀錄。`,
+                    hotspots: '見下方圖表分析。',
+                    anomalies: '取消率 ' + stats.cancellationRate + '%。',
+                    suggestions: '請參考圖表自行判斷。',
+                };
+            }
+
+            // 3. 渲染 HTML
+            const tw = new Date(Date.now() + 8 * 3600 * 1000);
+            const generatedAt = `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')} ${String(tw.getUTCHours()).padStart(2, '0')}:${String(tw.getUTCMinutes()).padStart(2, '0')}`;
+            const html = renderReportHTML(stats, narrative, semesterName, generatedAt);
+
+            // 4. 上傳到 Firebase Storage (公開讀取)
+            const fileName = `reports/${Date.now()}_${semesterName.replace(/\s+/g, '_')}.html`;
+            const bucket = admin.storage().bucket();
+            const file = bucket.file(fileName);
+            await file.save(html, {
+                metadata: {
+                    contentType: 'text/html; charset=utf-8',
+                    cacheControl: 'public, max-age=86400',
+                },
+            });
+            await file.makePublic();
+            // 注意：fileName 含中文字 (如「春季學期」) 必須 URL-encode 才能透過 https 存取
+            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName.split('/').map(encodeURIComponent).join('/')}`;
+
+            // 5. 寫入 Firestore (報告紀錄)
+            const reportDoc = await db.collection('semesterReports').add({
+                semesterName,
+                startDate,
+                endDate,
+                fileName,
+                publicUrl,
+                stats: {
+                    totalBookings: stats.totalBookings,
+                    totalActive: stats.totalActive,
+                    cancellationRate: stats.cancellationRate,
+                    topRoom: stats.classroomRanking[0]?.name || '無',
+                    topUser: stats.topUsersList[0]?.name || '無',
+                },
+                generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                generatedBy: req.body?.deviceId || 'system',
+            });
+
+            // 6. 推 LINE 給所有管理員
+            const adminIds = await getAdminLineUserIds();
+            if (adminIds.length > 0) {
+                const client = new line.messagingApi.MessagingApiClient({
+                    channelAccessToken: LINE_ACCESS_TOKEN.value(),
+                });
+                const flex = {
+                    type: 'flex',
+                    altText: `📄 ${semesterName} 學期報告已產出`,
+                    contents: {
+                        type: 'bubble',
+                        size: 'mega',
+                        header: {
+                            type: 'box', layout: 'vertical',
+                            backgroundColor: '#6d28d9', paddingAll: '15px',
+                            contents: [{
+                                type: 'text', text: '📊 AI 學期報告產出完成',
+                                color: '#FFFFFF', weight: 'bold', size: 'lg', align: 'center',
+                            }],
+                        },
+                        body: {
+                            type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '15px',
+                            contents: [
+                                { type: 'text', text: semesterName, weight: 'bold', size: 'md', color: '#4c1d95' },
+                                { type: 'separator', margin: 'md' },
+                                { type: 'box', layout: 'baseline', margin: 'md', contents: [
+                                    { type: 'text', text: '📅 期間', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: `${startDate} ~ ${endDate}`, size: 'sm', flex: 5, weight: 'bold' },
+                                ]},
+                                { type: 'box', layout: 'baseline', contents: [
+                                    { type: 'text', text: '📊 總筆數', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: `${stats.totalBookings} 筆 (取消率 ${stats.cancellationRate}%)`, size: 'sm', flex: 5, weight: 'bold' },
+                                ]},
+                                { type: 'box', layout: 'baseline', contents: [
+                                    { type: 'text', text: '🏆 熱門場地', size: 'xs', color: '#888', flex: 2 },
+                                    { type: 'text', text: stats.classroomRanking[0]?.name || '-', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                                ]},
+                            ],
+                        },
+                        footer: {
+                            type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '10px',
+                            contents: [{
+                                type: 'button', style: 'primary', color: '#6d28d9', height: 'sm',
+                                action: { type: 'uri', label: '📄 查看完整報告', uri: publicUrl },
+                            }],
+                        },
+                    },
+                };
+                await Promise.allSettled(
+                    adminIds.map(uid => client.pushMessage({ to: uid, messages: [flex] }))
+                );
+                logger.info(`[Report] ✅ 已推送給 ${adminIds.length} 位管理員`);
+            }
+
+            res.status(200).json({
+                status: 'ok',
+                reportId: reportDoc.id,
+                semesterName,
+                publicUrl,
+                stats: {
+                    totalBookings: stats.totalBookings,
+                    cancellationRate: stats.cancellationRate,
+                },
+            });
+        } catch (err) {
+            logger.error('[generateSemesterReport]', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ==========================================================================
+// Function #13: listSemesterReports
+// 取得歷史報告清單 (供前端顯示)
+// ==========================================================================
+
+exports.listSemesterReports = onRequest({ cors: true }, async (req, res) => {
+    try {
+        const snap = await db.collection('semesterReports')
+            .orderBy('generatedAt', 'desc')
+            .limit(20)
+            .get();
+        const reports = snap.docs.map(d => {
+            const data = d.data();
+            return {
+                id: d.id,
+                semesterName: data.semesterName,
+                startDate: data.startDate,
+                endDate: data.endDate,
+                publicUrl: data.publicUrl,
+                stats: data.stats,
+                generatedAt: data.generatedAt?.toMillis?.() || 0,
+            };
+        });
+        res.status(200).json({ reports });
+    } catch (err) {
+        logger.error('[listSemesterReports]', err);
+        res.status(500).json({ error: err.message });
+    }
+});

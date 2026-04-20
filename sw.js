@@ -1,6 +1,6 @@
-// Service Worker v2.47.5 - 月視圖 grid 不再被 nowrap 文字撐寬
-const CACHE_NAME = 'booking-system-v2.47.5';
-const APP_VERSION = 'v2.47.5';
+// Service Worker v2.48.0 - 🤖 AI 學期白皮書 (Gemini + HTML 報告 + Firebase Storage)
+const CACHE_NAME = 'booking-system-v2.48.0';
+const APP_VERSION = 'v2.48.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
