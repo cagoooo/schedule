@@ -1308,8 +1308,31 @@ exports.checkAdminAlertStatus = onRequest({ cors: true }, async (req, res) => {
 // ==========================================================================
 // v2.49.0: subscribeRoomWatch / checkRoomWatchStatus
 // 訂閱「特定教室」的所有預約異動 (不限預約者本人)
+// v2.49.1: 改為「僅管理員」可訂閱 — 透過 Firebase ID token 驗證
 // roomWatchers/{lineUserId} = { lineUserId, lineDisplayName, rooms: [...], deviceId, subscribedAt }
 // ==========================================================================
+
+/**
+ * 驗證 request 帶有合法管理員 Firebase ID token
+ * 通過: 回傳 decoded token (包含 uid)
+ * 失敗: 直接 res.status(401/403).json(...) 並回傳 null
+ */
+async function requireAdminAuth(req, res) {
+    const authHeader = req.headers.authorization || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!match) {
+        res.status(401).json({ error: '此功能僅限管理員 (缺少授權 token)' });
+        return null;
+    }
+    try {
+        const decoded = await admin.auth().verifyIdToken(match[1]);
+        return decoded;
+    } catch (err) {
+        logger.warn('[requireAdminAuth] verifyIdToken 失敗', err.message);
+        res.status(401).json({ error: '此功能僅限管理員 (token 無效或已過期)' });
+        return null;
+    }
+}
 
 exports.subscribeRoomWatch = onRequest(
     {
@@ -1321,6 +1344,10 @@ exports.subscribeRoomWatch = onRequest(
             res.status(405).json({ error: 'Method not allowed' });
             return;
         }
+
+        // v2.49.1: 僅管理員可訂閱
+        const adminClaims = await requireAdminAuth(req, res);
+        if (!adminClaims) return;
 
         try {
             const { deviceId, room, action } = req.body || {};
@@ -1410,6 +1437,10 @@ exports.subscribeRoomWatch = onRequest(
 );
 
 exports.checkRoomWatchStatus = onRequest({ cors: true }, async (req, res) => {
+    // v2.49.1: 僅管理員可查訂閱狀態
+    const adminClaims = await requireAdminAuth(req, res);
+    if (!adminClaims) return;
+
     try {
         const deviceId = req.query.deviceId || (req.body && req.body.deviceId);
         if (!deviceId) {

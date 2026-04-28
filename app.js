@@ -5037,8 +5037,14 @@ async function openLineBindModal() {
                 }
             }
 
-            // v2.49.0: 教室預約通知訂閱狀態
-            refreshRoomWatchStatus(deviceId);
+            // v2.49.1: 教室預約通知訂閱 — 僅管理員顯示
+            const roomWatchSection = document.getElementById('roomWatchSection');
+            if (roomWatchSection) {
+                roomWatchSection.style.display = isAdmin ? 'block' : 'none';
+                if (isAdmin) {
+                    refreshRoomWatchStatus(deviceId);
+                }
+            }
             return;
         }
     } catch (err) {
@@ -5119,6 +5125,13 @@ async function toggleAdminAlerts(action) {
 }
 
 // ===== v2.49.0: 教室預約通知訂閱 (roomWatchers) =====
+// v2.49.1: 僅管理員可用 — 所有 fetch 都帶 Firebase ID token
+
+async function getAdminIdToken() {
+    const user = firebase.auth().currentUser;
+    if (!user) throw new Error('未登入管理員');
+    return await user.getIdToken();
+}
 
 async function refreshRoomWatchStatus(deviceId) {
     const statusEl = document.getElementById('roomWatchStatus');
@@ -5128,7 +5141,10 @@ async function refreshRoomWatchStatus(deviceId) {
     if (statusEl) statusEl.textContent = '查詢中…';
 
     try {
-        const res = await fetch(`${LINE_FUNCTIONS_BASE}/checkRoomWatchStatus?deviceId=${encodeURIComponent(deviceId)}`);
+        const idToken = await getAdminIdToken();
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/checkRoomWatchStatus?deviceId=${encodeURIComponent(deviceId)}`, {
+            headers: { 'Authorization': `Bearer ${idToken}` },
+        });
         const data = await res.json();
         const subscribed = new Set(Array.isArray(data.rooms) ? data.rooms : []);
 
@@ -5165,9 +5181,13 @@ async function toggleRoomWatch(room, action) {
     buttons.forEach(b => { b.disabled = true; });
 
     try {
+        const idToken = await getAdminIdToken();
         const res = await fetch(`${LINE_FUNCTIONS_BASE}/subscribeRoomWatch`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+            },
             body: JSON.stringify({ deviceId, room, action }),
         });
         const data = await res.json();

@@ -85,6 +85,14 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // ===== v2.49.1: 教室預約通知訂閱者 (管理員專用) =====
+    match /roomWatchers/{lineUserId} {
+      // 只能由 Cloud Function 寫入 (透過 subscribeRoomWatch API)
+      allow write: if false;
+      // 僅管理員可讀取訂閱清單
+      allow read: if request.auth != null;
+    }
+
     // ===== v2.46.0 (Phase 3): 排程提醒去重表 =====
     match /sentReminders/{reminderId} {
       // 只能由 Cloud Function (scheduledReminder) 寫入

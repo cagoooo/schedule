@@ -1,6 +1,6 @@
-// Service Worker v2.49.0 - 🔔 教室預約通知訂閱 (roomWatchers fan-out)
-const CACHE_NAME = 'booking-system-v2.49.0';
-const APP_VERSION = 'v2.49.0';
+// Service Worker v2.49.1 - 🔒 教室預約通知改為管理員專用 (Firebase Auth 驗證)
+const CACHE_NAME = 'booking-system-v2.49.1';
+const APP_VERSION = 'v2.49.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

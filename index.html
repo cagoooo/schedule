@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.49.0</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.49.0">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.49.1</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.49.1">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.49.0';
+            const APP_VERSION = 'v2.49.1';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -973,7 +973,7 @@
                 </div>
 
                 <!-- 進階分析 Tab -->
-                <!-- v2.49.0: AI 學期報告 Tab -->
+                <!-- v2.49.1: AI 學期報告 Tab -->
                 <div id="tab-reports" class="tab-content" style="display:none;">
                     <div class="reports-container">
                         <div class="reports-intro">
@@ -1267,10 +1267,10 @@
                     <p>您的裝置已綁定到 LINE 帳號:<br><strong id="lineBindBoundName">—</strong></p>
                     <p class="line-bind-hint">未來預約成功、提醒、取消都會自動 LINE 通知您。</p>
 
-                    <!-- v2.49.0: 教室預約通知訂閱 (任何已綁定 LINE 的人都可訂閱) -->
-                    <div id="roomWatchSection" class="admin-alerts-section">
+                    <!-- v2.49.1: 教室預約通知訂閱 (v2.49.1 起僅限管理員) -->
+                    <div id="roomWatchSection" class="admin-alerts-section" style="display:none;">
                         <div class="admin-alerts-divider"></div>
-                        <h4>🔔 教室預約通知</h4>
+                        <h4>🔔 教室預約通知 <span style="font-size:0.7rem;font-weight:600;color:#1e40af;background:rgba(255,255,255,0.6);padding:2px 8px;border-radius:8px;vertical-align:middle;">管理員專用</span></h4>
                         <p class="line-bind-hint" style="margin-top: 0.4rem;">
                             訂閱後,只要有人預約或取消這間教室,你會立刻收到 LINE 通知 (即使預約者不是你)。
                         </p>
