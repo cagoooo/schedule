@@ -1,6 +1,6 @@
-// Service Worker v2.48.1 - 🐛 修正 Gemini 模型 + LINE 推播診斷透明化
-const CACHE_NAME = 'booking-system-v2.48.1';
-const APP_VERSION = 'v2.48.1';
+// Service Worker v2.49.0 - 🔔 教室預約通知訂閱 (roomWatchers fan-out)
+const CACHE_NAME = 'booking-system-v2.49.0';
+const APP_VERSION = 'v2.49.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

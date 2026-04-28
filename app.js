@@ -5036,6 +5036,9 @@ async function openLineBindModal() {
                     refreshAdminAlertStatus(deviceId);
                 }
             }
+
+            // v2.49.0: 教室預約通知訂閱狀態
+            refreshRoomWatchStatus(deviceId);
             return;
         }
     } catch (err) {
@@ -5112,6 +5115,76 @@ async function toggleAdminAlerts(action) {
         }
     } finally {
         [subBtn, unsubBtn].forEach(b => { if (b) b.disabled = false; });
+    }
+}
+
+// ===== v2.49.0: 教室預約通知訂閱 (roomWatchers) =====
+
+async function refreshRoomWatchStatus(deviceId) {
+    const statusEl = document.getElementById('roomWatchStatus');
+    const rows = document.querySelectorAll('#roomWatchSection .room-watch-row');
+    if (!rows.length) return;
+
+    if (statusEl) statusEl.textContent = '查詢中…';
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/checkRoomWatchStatus?deviceId=${encodeURIComponent(deviceId)}`);
+        const data = await res.json();
+        const subscribed = new Set(Array.isArray(data.rooms) ? data.rooms : []);
+
+        rows.forEach(row => {
+            const room = row.dataset.room;
+            const subBtn = row.querySelector('[data-action="subscribe"]');
+            const unsubBtn = row.querySelector('[data-action="unsubscribe"]');
+            const isOn = subscribed.has(room);
+            if (subBtn) subBtn.style.display = isOn ? 'none' : 'block';
+            if (unsubBtn) unsubBtn.style.display = isOn ? 'block' : 'none';
+        });
+
+        if (statusEl) {
+            if (subscribed.size > 0) {
+                statusEl.textContent = `✅ 訂閱中:${[...subscribed].join('、')}`;
+                statusEl.style.color = '#15803d';
+            } else {
+                statusEl.textContent = '⚠ 尚未訂閱任何教室';
+                statusEl.style.color = '#92400e';
+            }
+        }
+    } catch (err) {
+        console.warn('[roomWatch] 查詢失敗', err);
+        if (statusEl) {
+            statusEl.textContent = '查詢失敗';
+            statusEl.style.color = '#dc2626';
+        }
+    }
+}
+
+async function toggleRoomWatch(room, action) {
+    const deviceId = getDeviceId();
+    const buttons = document.querySelectorAll(`#roomWatchSection .btn-room-watch-toggle[data-room="${CSS.escape(room)}"]`);
+    buttons.forEach(b => { b.disabled = true; });
+
+    try {
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/subscribeRoomWatch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId, room, action }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '操作失敗');
+
+        showToast(
+            action === 'unsubscribe'
+                ? `🔕 已取消訂閱「${room}」`
+                : `🔔 已訂閱「${room}」!請查看 LINE 確認訊息`,
+            'success'
+        );
+        await refreshRoomWatchStatus(deviceId);
+    } catch (err) {
+        console.error('[roomWatch] toggle 失敗', err);
+        showToast('操作失敗:' + err.message, 'error');
+    } finally {
+        buttons.forEach(b => { b.disabled = false; });
     }
 }
 
@@ -5238,6 +5311,15 @@ document.addEventListener('DOMContentLoaded', () => {
         () => toggleAdminAlerts('subscribe'));
     document.getElementById('btnUnsubscribeAdminAlerts')?.addEventListener('click',
         () => toggleAdminAlerts('unsubscribe'));
+
+    // v2.49.0: 教室預約通知訂閱 (event delegation, 之後新增 row 也能用)
+    document.getElementById('roomWatchSection')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-room-watch-toggle');
+        if (!btn) return;
+        const room = btn.dataset.room;
+        const action = btn.dataset.action;
+        if (room && action) toggleRoomWatch(room, action);
+    });
 
     // v2.47.0: 意見回饋系統
     initFeedbackSystem();

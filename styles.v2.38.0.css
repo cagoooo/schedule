@@ -7290,6 +7290,58 @@ body {
 }
 
 /* ==========================================================================
+   v2.49.0: 教室預約通知訂閱 (roomWatchers)
+   ========================================================================== */
+#roomWatchSection {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 1px solid #3b82f6;
+}
+#roomWatchSection h4 {
+    color: #1e3a8a !important;
+}
+#roomWatchSection .line-bind-hint {
+    color: #1e40af !important;
+}
+.room-watch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+    padding: 0.55rem 0.7rem;
+    background: rgba(255, 255, 255, 0.65);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.room-watch-name {
+    flex: 1 1 100%;
+    font-weight: 700;
+    color: #1e3a8a;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+#roomWatchSection .btn-room-watch-toggle {
+    margin-top: 0;
+    flex: 1 1 auto;
+}
+#roomWatchSection .btn-admin-alerts-subscribe {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 3px 10px rgba(59, 130, 246, 0.35);
+}
+#roomWatchSection .btn-admin-alerts-subscribe:hover {
+    box-shadow: 0 5px 14px rgba(59, 130, 246, 0.5);
+}
+#roomWatchSection .btn-admin-alerts-unsubscribe {
+    color: #1d4ed8;
+    border-color: #3b82f6;
+}
+#roomWatchSection .btn-admin-alerts-unsubscribe:hover {
+    background: #dbeafe;
+}
+#roomWatchSection .admin-alerts-status {
+    color: #1e40af !important;
+}
+
+/* ==========================================================================
    v2.47.0: 意見回饋系統
    ========================================================================== */
 

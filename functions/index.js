@@ -597,6 +597,170 @@ async function pushFlexToUser(lineUserId, flexMessage, accessToken, contextLog) 
 }
 
 // ==========================================================================
+// v2.49.0: 房間觀察者 (roomWatchers) — 訂閱特定教室的所有預約異動
+// 目前僅開放給「電腦教室(一)C212」, 未來可由 UI 自訂 rooms 陣列
+// ==========================================================================
+
+/**
+ * 給「房間觀察者」用的 Flex Message — 強調是「有人預約了你關注的教室」
+ * @param {Object} booking
+ * @param {'created'|'cancelled'|'force_deleted'} eventType
+ */
+function createRoomWatcherFlexMessage(booking, eventType) {
+    const config = {
+        created: {
+            title: '📢 教室預約通知',
+            subtitle: '有人預約了你關注的教室',
+            color: '#3b82f6',
+        },
+        cancelled: {
+            title: '📢 教室取消通知',
+            subtitle: '有人取消了你關注的教室預約',
+            color: '#94a3b8',
+        },
+        force_deleted: {
+            title: '📢 教室預約被強制取消',
+            subtitle: '管理員強制刪除了一筆預約',
+            color: '#f59e0b',
+        },
+    }[eventType] || { title: '📢 教室異動通知', subtitle: '', color: '#6366f1' };
+
+    const periodsStr = formatPeriods(booking.periods);
+    const altText = `${config.title}: ${booking.room || '-'} ${booking.date}`;
+
+    return {
+        type: 'flex',
+        altText,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: config.color,
+                paddingAll: '15px',
+                contents: [
+                    {
+                        type: 'text', text: config.title,
+                        color: '#FFFFFF', weight: 'bold', size: 'lg', align: 'center',
+                    },
+                    {
+                        type: 'text', text: config.subtitle,
+                        color: '#FFFFFF', size: 'xs', align: 'center', margin: 'sm',
+                    },
+                ],
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '15px',
+                contents: [
+                    {
+                        type: 'box', layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '📍', size: 'sm', flex: 0 },
+                            { type: 'text', text: '場地', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.room || '-', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                    {
+                        type: 'box', layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '📅', size: 'sm', flex: 0 },
+                            { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    {
+                        type: 'box', layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '⏰', size: 'sm', flex: 0 },
+                            { type: 'text', text: '節次', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: periodsStr, size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                        ],
+                    },
+                    {
+                        type: 'box', layout: 'baseline',
+                        contents: [
+                            { type: 'text', text: '👤', size: 'sm', flex: 0 },
+                            { type: 'text', text: '預約者', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                            { type: 'text', text: booking.booker || '-', size: 'sm', flex: 5, weight: 'bold' },
+                        ],
+                    },
+                    { type: 'separator', margin: 'md' },
+                    {
+                        type: 'box', layout: 'vertical', margin: 'md',
+                        contents: [
+                            { type: 'text', text: '📝 預約理由', size: 'xs', color: '#888888' },
+                            { type: 'text', text: booking.reason || '無', size: 'sm', wrap: true, margin: 'xs' },
+                        ],
+                    },
+                ],
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                paddingAll: '10px',
+                contents: [{
+                    type: 'button',
+                    style: 'primary',
+                    color: config.color,
+                    height: 'sm',
+                    action: {
+                        type: 'uri',
+                        label: '🔗 開啟預約系統',
+                        uri: APP_URL,
+                    },
+                }],
+            },
+        },
+    };
+}
+
+/**
+ * 推播給訂閱該教室的所有觀察者 (roomWatchers collection)
+ * 自動排除「預約者本人」, 避免重複推播
+ * @param {Object} booking
+ * @param {'created'|'cancelled'|'force_deleted'} eventType
+ * @param {string} accessToken
+ * @param {string|null} bookerLineUserId — 預約者的 LINE userId (用於去重)
+ */
+async function notifyRoomWatchers(booking, eventType, accessToken, bookerLineUserId) {
+    const room = booking.room;
+    if (!room) return;
+
+    try {
+        const snap = await db.collection('roomWatchers')
+            .where('rooms', 'array-contains', room)
+            .get();
+
+        if (snap.empty) return;
+
+        const flex = createRoomWatcherFlexMessage(booking, eventType);
+
+        const tasks = [];
+        for (const doc of snap.docs) {
+            const watcher = doc.data();
+            if (!watcher.lineUserId) continue;
+            // 去重: 預約者本人會走 booker 通知, 不再推 watcher 版
+            if (bookerLineUserId && watcher.lineUserId === bookerLineUserId) continue;
+
+            tasks.push(pushFlexToUser(
+                watcher.lineUserId,
+                flex,
+                accessToken,
+                `[watcher] ${eventType} ${room} ${booking.date}`,
+            ));
+        }
+        await Promise.all(tasks);
+    } catch (err) {
+        logger.error('[notifyRoomWatchers] 失敗', err);
+    }
+}
+
+// ==========================================================================
 // Function #4: notifyOnBookingCreate
 // 監聽 bookings collection onCreate → 推「✅ 預約成功」
 // ==========================================================================
@@ -612,18 +776,28 @@ exports.notifyOnBookingCreate = onDocumentCreated(
         if (!booking) return;
 
         const bookingId = event.params.bookingId;
+        const accessToken = LINE_ACCESS_TOKEN.value();
         const lineUserId = await getBoundLineUserId(booking.deviceId);
-        if (!lineUserId) {
-            logger.info(`[notifyOnBookingCreate] 預約 ${bookingId} 未綁定 LINE,跳過`);
-            return;
+
+        // 1. 推給預約者本人 (若已綁定)
+        if (lineUserId) {
+            const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'created');
+            await pushFlexToUser(
+                lineUserId,
+                flex,
+                accessToken,
+                `預約建立 ${booking.room} ${booking.date}`
+            );
+        } else {
+            logger.info(`[notifyOnBookingCreate] 預約 ${bookingId} 未綁定 LINE,跳過 booker 推播`);
         }
 
-        const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'created');
-        await pushFlexToUser(
+        // 2. v2.49.0: 推給「房間觀察者」(訂閱該教室的人)
+        await notifyRoomWatchers(
+            { ...booking, id: bookingId },
+            'created',
+            accessToken,
             lineUserId,
-            flex,
-            LINE_ACCESS_TOKEN.value(),
-            `預約建立 ${booking.room} ${booking.date}`
         );
     }
 );
@@ -650,18 +824,28 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
         if (!wasActive || !isCancelled) return; // 不是「從有效變取消」,跳過
 
         const bookingId = event.params.bookingId;
+        const accessToken = LINE_ACCESS_TOKEN.value();
         const lineUserId = await getBoundLineUserId(before.deviceId || after.deviceId);
-        if (!lineUserId) {
-            logger.info(`[notifyOnBookingUpdate] ${bookingId} 取消但未綁定`);
-            return;
+
+        // 1. 推給預約者本人 (若已綁定)
+        if (lineUserId) {
+            const flex = createBookingFlexMessage({ ...before, id: bookingId }, 'cancelled');
+            await pushFlexToUser(
+                lineUserId,
+                flex,
+                accessToken,
+                `預約取消 ${before.room} ${before.date}`
+            );
+        } else {
+            logger.info(`[notifyOnBookingUpdate] ${bookingId} 取消但未綁定 booker`);
         }
 
-        const flex = createBookingFlexMessage({ ...before, id: bookingId }, 'cancelled');
-        await pushFlexToUser(
+        // 2. v2.49.0: 推給「房間觀察者」(訂閱該教室的人)
+        await notifyRoomWatchers(
+            { ...before, id: bookingId },
+            'cancelled',
+            accessToken,
             lineUserId,
-            flex,
-            LINE_ACCESS_TOKEN.value(),
-            `預約取消 ${before.room} ${before.date}`
         );
     }
 );
@@ -686,18 +870,28 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
         if (!booking.periods || booking.periods.length === 0) return;
 
         const bookingId = event.params.bookingId;
+        const accessToken = LINE_ACCESS_TOKEN.value();
         const lineUserId = await getBoundLineUserId(booking.deviceId);
-        if (!lineUserId) {
-            logger.info(`[notifyOnBookingDelete] ${bookingId} 強刪但未綁定`);
-            return;
+
+        // 1. 推給預約者本人 (若已綁定)
+        if (lineUserId) {
+            const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'force_deleted');
+            await pushFlexToUser(
+                lineUserId,
+                flex,
+                accessToken,
+                `預約強刪 ${booking.room} ${booking.date}`
+            );
+        } else {
+            logger.info(`[notifyOnBookingDelete] ${bookingId} 強刪但 booker 未綁定`);
         }
 
-        const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'force_deleted');
-        await pushFlexToUser(
+        // 2. v2.49.0: 推給「房間觀察者」(訂閱該教室的人)
+        await notifyRoomWatchers(
+            { ...booking, id: bookingId },
+            'force_deleted',
+            accessToken,
             lineUserId,
-            flex,
-            LINE_ACCESS_TOKEN.value(),
-            `預約強刪 ${booking.room} ${booking.date}`
         );
     }
 );
@@ -1107,6 +1301,137 @@ exports.checkAdminAlertStatus = onRequest({ cors: true }, async (req, res) => {
         });
     } catch (err) {
         logger.error('[checkAdminAlertStatus]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================================================
+// v2.49.0: subscribeRoomWatch / checkRoomWatchStatus
+// 訂閱「特定教室」的所有預約異動 (不限預約者本人)
+// roomWatchers/{lineUserId} = { lineUserId, lineDisplayName, rooms: [...], deviceId, subscribedAt }
+// ==========================================================================
+
+exports.subscribeRoomWatch = onRequest(
+    {
+        cors: true,
+        secrets: [LINE_ACCESS_TOKEN],
+    },
+    async (req, res) => {
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const { deviceId, room, action } = req.body || {};
+            if (!deviceId) {
+                res.status(400).json({ error: 'deviceId required' });
+                return;
+            }
+            if (!room || typeof room !== 'string') {
+                res.status(400).json({ error: 'room required' });
+                return;
+            }
+
+            // 從 lineBindings 找 lineUserId
+            const bindingDoc = await db.collection('lineBindings').doc(deviceId).get();
+            if (!bindingDoc.exists) {
+                res.status(404).json({ error: '此裝置尚未綁定 LINE,請先完成綁定' });
+                return;
+            }
+            const { lineUserId, lineDisplayName } = bindingDoc.data();
+
+            const watcherRef = db.collection('roomWatchers').doc(lineUserId);
+            const watcherDoc = await watcherRef.get();
+            const existing = watcherDoc.exists ? (watcherDoc.data().rooms || []) : [];
+            const set = new Set(existing);
+
+            if (action === 'unsubscribe') {
+                set.delete(room);
+                if (set.size === 0) {
+                    await watcherRef.delete();
+                } else {
+                    await watcherRef.set({
+                        lineUserId,
+                        lineDisplayName: lineDisplayName || '未知',
+                        deviceId,
+                        rooms: [...set],
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                }
+                logger.info(`[roomWatch] 取消訂閱 ${room} by ${lineDisplayName}`);
+                res.status(200).json({ status: 'unsubscribed', room, rooms: [...set] });
+                return;
+            }
+
+            // 預設 = subscribe
+            set.add(room);
+            await watcherRef.set({
+                lineUserId,
+                lineDisplayName: lineDisplayName || '未知',
+                deviceId,
+                rooms: [...set],
+                subscribedAt: watcherDoc.exists
+                    ? (watcherDoc.data().subscribedAt || admin.firestore.FieldValue.serverTimestamp())
+                    : admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+
+            // 推送確認訊息 (僅在首次訂閱該房間時推, 避免吵)
+            if (!existing.includes(room)) {
+                try {
+                    const client = new line.messagingApi.MessagingApiClient({
+                        channelAccessToken: LINE_ACCESS_TOKEN.value(),
+                    });
+                    await client.pushMessage({
+                        to: lineUserId,
+                        messages: [{
+                            type: 'text',
+                            text: `🔔 已訂閱「${room}」預約通知!\n\n` +
+                                  `往後只要有人預約或取消這間教室,你會立刻收到 LINE 通知。\n\n` +
+                                  `如要取消訂閱,可在系統內 Header → LINE → 取消訂閱。`,
+                        }],
+                    });
+                } catch (e) { /* silent */ }
+            }
+
+            logger.info(`[roomWatch] ✅ 訂閱 ${room} by ${lineDisplayName}`);
+            res.status(200).json({
+                status: 'subscribed',
+                room,
+                rooms: [...set],
+                lineDisplayName,
+            });
+        } catch (err) {
+            logger.error('[subscribeRoomWatch]', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+exports.checkRoomWatchStatus = onRequest({ cors: true }, async (req, res) => {
+    try {
+        const deviceId = req.query.deviceId || (req.body && req.body.deviceId);
+        if (!deviceId) {
+            res.status(400).json({ error: 'deviceId required' });
+            return;
+        }
+
+        const bindingDoc = await db.collection('lineBindings').doc(deviceId).get();
+        if (!bindingDoc.exists) {
+            res.status(200).json({ bound: false, rooms: [] });
+            return;
+        }
+
+        const { lineUserId } = bindingDoc.data();
+        const watcherDoc = await db.collection('roomWatchers').doc(lineUserId).get();
+        const rooms = watcherDoc.exists ? (watcherDoc.data().rooms || []) : [];
+        res.status(200).json({
+            bound: true,
+            rooms,
+        });
+    } catch (err) {
+        logger.error('[checkRoomWatchStatus]', err);
         res.status(500).json({ error: err.message });
     }
 });
