@@ -1326,10 +1326,14 @@ async function submitBooking() {
 
         const batch = db.batch();
         const createdRefs = []; // v2.40.0: 追蹤新建立 ID 供「撤銷」使用
+        // v2.49.2: 多筆批次/重複預約 → 加上 batchId,後端 LINE 通知會彙整成一則
+        const batchId = (datesToBook.length > 1)
+            ? `b_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+            : null;
         for (const dateStr of datesToBook) {
             const docRef = bookingsCollection.doc();
             createdRefs.push(docRef);
-            batch.set(docRef, {
+            const docData = {
                 date: dateStr,
                 room: room, // 儲存場地資訊
                 periods: selectedPeriods,
@@ -1337,7 +1341,9 @@ async function submitBooking() {
                 reason: reason,
                 deviceId: getDeviceId(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            if (batchId) docData.batchId = batchId;
+            batch.set(docRef, docData);
         }
         await batch.commit();
         recordBooking(); // 記錄本次預約用於 Rate Limiting

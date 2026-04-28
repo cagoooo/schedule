@@ -20,8 +20,8 @@ service cloud.firestore {
         return 
           // 必填欄位存在性
           data.keys().hasAll(['booker', 'date', 'periods', 'reason'])
-          // 欄位數量限制（防止惡意欄位注入）
-          && data.keys().size() <= 8
+          // 欄位數量限制（防止惡意欄位注入）— v2.49.2 新增 batchId 欄位 → 上限 9
+          && data.keys().size() <= 9
           // booker 驗證：字串、非空、長度限制
           && data.booker is string
           && data.booker.size() >= 1
@@ -41,7 +41,9 @@ service cloud.firestore {
           // createdAt 驗證（若存在）
           && (!('createdAt' in data.keys()) || data.createdAt == request.time)
           // deviceId 驗證（Rate Limiting 用）
-          && (!('deviceId' in data.keys()) || (data.deviceId is string && data.deviceId.size() <= 64));
+          && (!('deviceId' in data.keys()) || (data.deviceId is string && data.deviceId.size() <= 64))
+          // v2.49.2: batchId (用於批次/重複預約 LINE 通知彙整)
+          && (!('batchId' in data.keys()) || (data.batchId is string && data.batchId.size() <= 64));
       }
     }
 
@@ -91,6 +93,12 @@ service cloud.firestore {
       allow write: if false;
       // 僅管理員可讀取訂閱清單
       allow read: if request.auth != null;
+    }
+
+    // ===== v2.49.2: 批次預約通知去重鎖 (僅 Cloud Function 使用) =====
+    match /notificationLocks/{lockId} {
+      // 前端完全無法存取 — 純 Cloud Function 內部去重機制
+      allow read, write: if false;
     }
 
     // ===== v2.46.0 (Phase 3): 排程提醒去重表 =====

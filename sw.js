@@ -1,6 +1,6 @@
-// Service Worker v2.49.1 - 🔒 教室預約通知改為管理員專用 (Firebase Auth 驗證)
-const CACHE_NAME = 'booking-system-v2.49.1';
-const APP_VERSION = 'v2.49.1';
+// Service Worker v2.49.2 - 🎁 批次/重複預約 LINE 通知彙整成單一訊息
+const CACHE_NAME = 'booking-system-v2.49.2';
+const APP_VERSION = 'v2.49.2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

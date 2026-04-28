@@ -597,6 +597,229 @@ async function pushFlexToUser(lineUserId, flexMessage, accessToken, contextLog) 
 }
 
 // ==========================================================================
+// v2.49.2: 批次/重複預約 → 單一彙整通知
+// 前端在多筆預約 doc 上同時寫入 batchId,後端用 notificationLocks 去重
+// ==========================================================================
+
+/**
+ * 嘗試取得 batch 的「leader」鎖
+ * 第一個觸發 onCreate 的 trigger 取得鎖, 負責送彙整通知; 其他 trigger 直接 bail
+ * @param {string} batchId
+ * @returns {Promise<boolean>} true = 取得成功 (leader); false = 已有人在處理
+ */
+async function tryAcquireBatchLock(batchId) {
+    const lockRef = db.collection('notificationLocks').doc(batchId);
+    try {
+        await db.runTransaction(async (tx) => {
+            const snap = await tx.get(lockRef);
+            if (snap.exists) throw new Error('ALREADY_LOCKED');
+            tx.create(lockRef, {
+                acquiredAt: admin.firestore.FieldValue.serverTimestamp(),
+                kind: 'batch_create',
+            });
+        });
+        return true;
+    } catch (err) {
+        if (err.message === 'ALREADY_LOCKED') return false;
+        logger.warn('[batchLock] tx error', err.message);
+        return false;
+    }
+}
+
+/**
+ * 把 booking 陣列彙整成「日期清單字串」, 自動截斷過長
+ */
+function formatBatchDates(bookings) {
+    const dates = bookings.map(b => b.date).filter(Boolean).sort();
+    if (dates.length === 0) return '-';
+    if (dates.length <= 8) return dates.join('、');
+    return `${dates.slice(0, 6).join('、')}…等共 ${dates.length} 天`;
+}
+
+/**
+ * 建立「彙整批次預約」Flex Message (給預約者本人看)
+ */
+function createBatchBookingFlexMessage(bookings) {
+    const first = bookings[0];
+    const periodsStr = formatPeriods(first.periods);
+    const datesStr = formatBatchDates(bookings);
+    const headerColor = '#06c755';
+    const altText = `✅ 已預約 ${bookings.length} 個日期: ${first.room || '-'}`;
+
+    return {
+        type: 'flex',
+        altText,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box', layout: 'vertical', backgroundColor: headerColor, paddingAll: '15px',
+                contents: [
+                    { type: 'text', text: `✅ 預約成功 (共 ${bookings.length} 筆)`,
+                        color: '#FFFFFF', weight: 'bold', size: 'lg', align: 'center' },
+                    { type: 'text', text: '批次/重複預約', color: '#FFFFFF', size: 'xs', align: 'center', margin: 'sm' },
+                ],
+            },
+            body: {
+                type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '15px',
+                contents: [
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '📍', size: 'sm', flex: 0 },
+                        { type: 'text', text: '場地', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: first.room || '-', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                    ]},
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '⏰', size: 'sm', flex: 0 },
+                        { type: 'text', text: '節次', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: periodsStr, size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                    ]},
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '👤', size: 'sm', flex: 0 },
+                        { type: 'text', text: '預約者', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: first.booker || '-', size: 'sm', flex: 5, weight: 'bold' },
+                    ]},
+                    { type: 'separator', margin: 'md' },
+                    { type: 'box', layout: 'vertical', margin: 'md', contents: [
+                        { type: 'text', text: `📅 預約日期 (${bookings.length} 筆)`, size: 'xs', color: '#888888' },
+                        { type: 'text', text: datesStr, size: 'sm', wrap: true, margin: 'xs', weight: 'bold', color: '#0f172a' },
+                    ]},
+                    { type: 'box', layout: 'vertical', margin: 'md', contents: [
+                        { type: 'text', text: '📝 預約理由', size: 'xs', color: '#888888' },
+                        { type: 'text', text: first.reason || '無', size: 'sm', wrap: true, margin: 'xs' },
+                    ]},
+                    { type: 'text', text: '感謝您的預約!', size: 'xs', color: '#888888', margin: 'md' },
+                ],
+            },
+            footer: {
+                type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '10px',
+                contents: [{
+                    type: 'button', style: 'primary', color: headerColor, height: 'sm',
+                    action: { type: 'uri', label: '🔗 開啟預約系統', uri: APP_URL },
+                }],
+            },
+        },
+    };
+}
+
+/**
+ * 建立「彙整批次預約」Flex Message (給房間觀察者看)
+ */
+function createBatchRoomWatcherFlexMessage(bookings) {
+    const first = bookings[0];
+    const periodsStr = formatPeriods(first.periods);
+    const datesStr = formatBatchDates(bookings);
+    const headerColor = '#3b82f6';
+    const altText = `📢 ${first.room || '-'} 被預約 ${bookings.length} 個日期`;
+
+    return {
+        type: 'flex',
+        altText,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box', layout: 'vertical', backgroundColor: headerColor, paddingAll: '15px',
+                contents: [
+                    { type: 'text', text: `📢 教室預約通知 (共 ${bookings.length} 筆)`,
+                        color: '#FFFFFF', weight: 'bold', size: 'lg', align: 'center' },
+                    { type: 'text', text: '有人批次預約了你關注的教室', color: '#FFFFFF', size: 'xs', align: 'center', margin: 'sm' },
+                ],
+            },
+            body: {
+                type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '15px',
+                contents: [
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '📍', size: 'sm', flex: 0 },
+                        { type: 'text', text: '場地', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: first.room || '-', size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                    ]},
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '⏰', size: 'sm', flex: 0 },
+                        { type: 'text', text: '節次', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: periodsStr, size: 'sm', flex: 5, weight: 'bold', wrap: true },
+                    ]},
+                    { type: 'box', layout: 'baseline', contents: [
+                        { type: 'text', text: '👤', size: 'sm', flex: 0 },
+                        { type: 'text', text: '預約者', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
+                        { type: 'text', text: first.booker || '-', size: 'sm', flex: 5, weight: 'bold' },
+                    ]},
+                    { type: 'separator', margin: 'md' },
+                    { type: 'box', layout: 'vertical', margin: 'md', contents: [
+                        { type: 'text', text: `📅 預約日期 (${bookings.length} 筆)`, size: 'xs', color: '#888888' },
+                        { type: 'text', text: datesStr, size: 'sm', wrap: true, margin: 'xs', weight: 'bold', color: '#0f172a' },
+                    ]},
+                    { type: 'box', layout: 'vertical', margin: 'md', contents: [
+                        { type: 'text', text: '📝 預約理由', size: 'xs', color: '#888888' },
+                        { type: 'text', text: first.reason || '無', size: 'sm', wrap: true, margin: 'xs' },
+                    ]},
+                ],
+            },
+            footer: {
+                type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '10px',
+                contents: [{
+                    type: 'button', style: 'primary', color: headerColor, height: 'sm',
+                    action: { type: 'uri', label: '🔗 開啟預約系統', uri: APP_URL },
+                }],
+            },
+        },
+    };
+}
+
+/**
+ * leader 角色: 等所有 batch 兄弟 doc 落地, 撈出來, 送一則彙整通知
+ */
+async function sendBatchCreateNotifications(batchId, accessToken) {
+    // 短暫延遲, 確保 batch.commit 內所有 docs 都已可被 query 到
+    // (Firestore batch commit 是 atomic, 但 onCreate trigger 觸發時 index propagation 可能略有時差)
+    await new Promise(r => setTimeout(r, 2500));
+
+    const snap = await db.collection('bookings').where('batchId', '==', batchId).get();
+    if (snap.empty) {
+        logger.warn(`[batch] ${batchId} 找不到任何 bookings (可能已被 undo)`);
+        return;
+    }
+
+    const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    bookings.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const first = bookings[0];
+
+    // 1. 推給預約者本人
+    const lineUserId = await getBoundLineUserId(first.deviceId);
+    if (lineUserId) {
+        const flex = createBatchBookingFlexMessage(bookings);
+        await pushFlexToUser(lineUserId, flex, accessToken,
+            `批次預約建立 ${first.room} ×${bookings.length}`);
+    } else {
+        logger.info(`[batch] ${batchId} booker 未綁定 LINE`);
+    }
+
+    // 2. 推給該房間的觀察者 (去重避免和 booker 重複)
+    const room = first.room;
+    if (room) {
+        try {
+            const watcherSnap = await db.collection('roomWatchers')
+                .where('rooms', 'array-contains', room).get();
+            if (!watcherSnap.empty) {
+                const flex = createBatchRoomWatcherFlexMessage(bookings);
+                const tasks = [];
+                for (const doc of watcherSnap.docs) {
+                    const w = doc.data();
+                    if (!w.lineUserId) continue;
+                    if (lineUserId && w.lineUserId === lineUserId) continue;
+                    tasks.push(pushFlexToUser(w.lineUserId, flex, accessToken,
+                        `[watcher batch] ${room} ×${bookings.length}`));
+                }
+                await Promise.all(tasks);
+            }
+        } catch (err) {
+            logger.error('[batch watcher fan-out] 失敗', err);
+        }
+    }
+
+    logger.info(`[batch] ✅ ${batchId} 彙整通知完成 (${bookings.length} 筆)`);
+}
+
+// ==========================================================================
 // v2.49.0: 房間觀察者 (roomWatchers) — 訂閱特定教室的所有預約異動
 // 目前僅開放給「電腦教室(一)C212」, 未來可由 UI 自訂 rooms 陣列
 // ==========================================================================
@@ -777,6 +1000,23 @@ exports.notifyOnBookingCreate = onDocumentCreated(
 
         const bookingId = event.params.bookingId;
         const accessToken = LINE_ACCESS_TOKEN.value();
+
+        // v2.49.2: 批次/重複預約 → 走彙整通知路徑
+        if (booking.batchId) {
+            const isLeader = await tryAcquireBatchLock(booking.batchId);
+            if (!isLeader) {
+                logger.info(`[notifyOnBookingCreate] batch ${booking.batchId} 已由其他 trigger 處理, 跳過 ${bookingId}`);
+                return;
+            }
+            try {
+                await sendBatchCreateNotifications(booking.batchId, accessToken);
+            } catch (err) {
+                logger.error('[notifyOnBookingCreate] batch 通知失敗', err);
+            }
+            return;
+        }
+
+        // 單筆預約: 既有邏輯
         const lineUserId = await getBoundLineUserId(booking.deviceId);
 
         // 1. 推給預約者本人 (若已綁定)
