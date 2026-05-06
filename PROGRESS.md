@@ -4,7 +4,26 @@
 
 ---
 
-## 📅 當前版本：v2.50.0 (2026-05-06) - 🌿 Pine 深松綠主題 (Claude Design 設計稿全面套用)
+## 📅 當前版本：v2.50.1 (2026-05-06) - 🐛 修正預約詳情卡片標題在 Pine 底上不可見
+
+### 🎯 修補內容
+v2.50.0 上線後發現的 contrast bug：「預約詳情」modal 標題（`.delete-modal-header h3`）的早期規則 (`color: var(--text-primary)`) 沒被 v2.50.0 polish 覆蓋到，深色文字落在 Pine 綠 gradient header 上幾乎不可見。
+
+### 📦 改動 (CSS-only, 不動 HTML/JS)
+- **標題色**：強制 `color: #fff` + Plus Jakarta Sans + 1px text-shadow（提升綠底辨識度）
+- **Header icon**：縮小為 36px + 加上半透明白底圓圈，更精緻
+- **預約資訊主體**：改用 grid 對齊 (label 70px + value 1fr)；label 用 muted gray、value 用 primary；節次與預約者特別 bold + Pine 深色強調
+- **資訊欄之間**：加細虛線分隔，最後一行不畫線
+- **底部按鈕區**：12px 圓角、收柔陰影；hover 改 subtle translateY(-1px) 不再 scale
+- **「取消預約」/「登入後取消」按鈕**：保留 coral red 但收柔光暈（`#E76A6A → #B45049`）
+- **手機 (≤480px)**：字級略縮，grid 改 60px label
+
+### 🔧 PWA Cache
+SW cache 名稱升 v2.50.1，使用者重整時自動觸發更新 banner。
+
+---
+
+## 📅 v2.50.0 (2026-05-06) - 🌿 Pine 深松綠主題 (Claude Design 設計稿全面套用)
 
 ### 🎯 核心目的
 依照 Claude Design 互動原型的設計稿（Pine 深松綠 + 12px 圓角 + Compact 密度），把舊版紫色玻璃擬態主題全面換成清爽的校園自然風，同時補強月視圖、手機版、儀表板的版面與調色細節。

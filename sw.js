@@ -1,6 +1,6 @@
-// Service Worker v2.50.0 - 🌿 Pine 深松綠主題：版面與調色全面優化 (Claude Design 設計稿)
-const CACHE_NAME = 'booking-system-v2.50.0';
-const APP_VERSION = 'v2.50.0';
+// Service Worker v2.50.1 - 🐛 修正預約詳情 modal 標題在 Pine 底上看不見 + 卡片精緻化
+const CACHE_NAME = 'booking-system-v2.50.1';
+const APP_VERSION = 'v2.50.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

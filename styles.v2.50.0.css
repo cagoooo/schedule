@@ -8756,3 +8756,152 @@ body {
         display: none !important;
     }
 }
+
+
+/* ==========================================================================
+   v2.50.0 — 預約詳情 Modal Polish
+   修正: 標題在 Pine 底上不可見 + 卡片整體精緻度
+   ========================================================================== */
+
+/* --- 標題: 強制白字 (覆蓋早期規則 .delete-modal-header h3 → text-primary) --- */
+.delete-modal-header {
+    color: #fff !important;
+    padding: 1.5rem 1.25rem 1.25rem !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.delete-modal-header h3 {
+    color: #fff !important;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18) !important;
+    font-family: var(--font-display);
+    margin: 0 !important;
+}
+/* Header icon 收柔 */
+.delete-modal-header svg {
+    width: 36px !important;
+    height: 36px !important;
+    stroke-width: 2 !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15)) !important;
+    margin-bottom: 0 !important;
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.12);
+    padding: 7px;
+    border-radius: 50%;
+    box-sizing: content-box;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+/* 收掉舊的 radial glow ::after - 太誇張 */
+.delete-modal-header::after {
+    opacity: 0.25 !important;
+}
+
+/* --- 預約詳情主體: 改用 grid 對齊欄位 --- */
+.delete-booking-info {
+    padding: 1.25rem 1.5rem !important;
+    background: var(--bg-alt) !important;
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.delete-booking-info .info-item {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--border-color);
+}
+.delete-booking-info .info-item:last-child {
+    border-bottom: none;
+}
+
+.delete-booking-info .info-item strong {
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
+    width: auto !important;
+    margin-right: 0 !important;
+    letter-spacing: 0.02em;
+}
+.delete-booking-info .info-item span {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    word-break: break-word;
+}
+
+/* --- 主預約者姓名特別強調 (節次 + 預約者 用 primary-dark) --- */
+.delete-booking-info .info-item:nth-child(2) span,    /* 節次 */
+.delete-booking-info .info-item:nth-child(3) span {   /* 預約者 */
+    color: var(--primary-darker);
+    font-weight: 700;
+}
+
+/* --- Footer 按鈕區: 收緊 + 統一圓角 --- */
+.delete-modal-actions {
+    padding: 0.875rem 1.25rem !important;
+    background: var(--card-bg) !important;
+    border-top: 1px solid var(--border-color) !important;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    gap: 0.625rem !important;
+}
+.btn-delete-cancel,
+.btn-delete-confirm {
+    border-radius: var(--radius-md) !important;
+    padding: 0.7rem 1rem !important;
+    min-height: 42px !important;
+    font-size: 0.95rem !important;
+    transition: transform 0.1s, box-shadow 0.15s, filter 0.15s !important;
+}
+.btn-delete-cancel {
+    background: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}
+.btn-delete-cancel:hover {
+    background: var(--surface-2) !important;
+    border-color: var(--text-secondary) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* 「登入後取消 / 取消預約」按鈕保留 coral red (danger) 但收柔光暈 */
+.btn-delete-confirm {
+    background: linear-gradient(135deg, #E76A6A 0%, #B45049 100%) !important;
+    box-shadow: 0 2px 8px -2px rgba(180, 80, 73, 0.45) !important;
+}
+.btn-delete-confirm:hover {
+    box-shadow: 0 4px 12px -2px rgba(180, 80, 73, 0.55) !important;
+    filter: brightness(1.05) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* --- Modal 容器: 圓角 + 影子柔化 --- */
+.delete-modal {
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-lg) !important;
+    overflow: hidden;
+    max-width: 380px;
+    width: calc(100vw - 2rem);
+}
+
+/* --- 手機: 字級略縮, footer 直排 --- */
+@media (max-width: 480px) {
+    .delete-modal-header {
+        padding: 1.25rem 1rem 1rem !important;
+    }
+    .delete-modal-header h3 {
+        font-size: 1.1rem !important;
+    }
+    .delete-booking-info {
+        padding: 1rem 1.125rem !important;
+        font-size: 0.9rem !important;
+    }
+    .delete-booking-info .info-item {
+        grid-template-columns: 60px 1fr;
+    }
+}
