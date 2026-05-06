@@ -8905,3 +8905,166 @@ body {
         grid-template-columns: 60px 1fr;
     }
 }
+
+
+/* ==========================================================================
+   v2.50.3 — 二輪 modal 巡檢: 補殘留紫色 + 統計/歷史/PWA banner Pine 化
+   ========================================================================== */
+
+/* --- 1. 歷史記錄按鈕 .btn-history: 半綠半紫 → Pine 實心 --- */
+/*    (前段已有 polish 但 specifity 不夠, 加 !important 確保覆蓋) */
+.btn-history {
+    background: var(--primary-color) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: 0 2px 8px -2px rgba(31, 77, 63, 0.45) !important;
+}
+.btn-history:hover {
+    background: var(--primary-dark) !important;
+    box-shadow: 0 4px 12px -2px rgba(31, 77, 63, 0.55) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* --- 2. 歷史記錄 modal header: 半 Pine 半紫 → 純 Pine 漸層 --- */
+.history-modal-header {
+    background: var(--primary-gradient) !important;
+    color: #fff !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 1.25rem 1.5rem !important;
+}
+.history-modal-header h3 {
+    color: #fff !important;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* --- 3. PWA 更新 banner: 紫→Pine→粉 三色漸層 → 純 Pine + 副色點綴 --- */
+.pwa-update-banner {
+    background: var(--primary-gradient) !important;
+    box-shadow: 0 12px 40px rgba(20, 40, 30, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+}
+
+/* --- 4. 統計分析直方圖紫色 → Pine 漸層 --- */
+.histogram-bar {
+    background: linear-gradient(180deg, #4F9D6E 0%, #1F4D3F 100%) !important;
+}
+
+/* --- 5. 取消率 bar 保留紅色但收柔 --- */
+.analytics-bar-fill.cancel-fill {
+    background: linear-gradient(90deg, #E76A6A 0%, #B45049 100%) !important;
+}
+
+/* --- 6. 歷史批次切換按鈕 .btn-history-batch-toggle: 紫 → Pine --- */
+.btn-history-batch-toggle:hover {
+    border-color: var(--primary-color) !important;
+    color: var(--primary-dark) !important;
+}
+.btn-history-batch-toggle.active {
+    background: var(--primary-gradient) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+}
+.btn-history-batch-toggle {
+    border-color: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* --- 7. 批次選中的歷史項目: lavender+pink 漸層 → Pine soft --- */
+.history-item.batch-selected {
+    background: linear-gradient(135deg, var(--accent-softer) 0%, var(--accent-soft) 100%) !important;
+    border-left: 4px solid var(--primary-color) !important;
+}
+.history-batch-checkbox {
+    accent-color: var(--primary-color) !important;
+}
+
+/* --- 8. 統計 modal header: gradient text → 純 Pine 深色 (與其他 modal 一致) --- */
+.stats-modal-header {
+    background: var(--primary-gradient) !important;
+    color: #fff !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 1.25rem 1.5rem !important;
+    border-bottom: none !important;
+}
+.stats-modal-header h3 {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #fff !important;
+    color: #fff !important;
+    font-family: var(--font-display);
+    font-weight: 700 !important;
+    font-size: 1.25rem !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* --- 9. 統計 modal close 按鈕: 紅色 → 半透明白 (適配 Pine header) --- */
+.btn-stats-close {
+    background: rgba(255, 255, 255, 0.18) !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    color: #fff !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+}
+.btn-stats-close:hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+    transform: rotate(90deg) !important;
+}
+
+/* --- 10. 公告 modal header: 暖橘漸層保留 (語意: 注意/通知), 但收柔 --- */
+.announcement-modal-header {
+    background: linear-gradient(135deg, #C97B3F 0%, #A0612D 100%) !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.announcement-modal-header h3 {
+    color: #fff !important;
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* --- 11. 設定 modal header: 已是 Pine, 補白字 + 圓角 --- */
+.settings-modal-header {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.settings-modal-header h3 {
+    color: #fff !important;
+    font-family: var(--font-display);
+    font-weight: 700;
+}
+
+/* --- 12. 搜尋 modal header: 已是 Pine, 補圓角 --- */
+.search-modal-header {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.search-modal-header h3 {
+    color: #fff !important;
+    font-family: var(--font-display);
+    font-weight: 700;
+}
+
+/* --- 13. 各 modal close 按鈕統一 (X 鈕在綠 header 上) --- */
+.history-modal-close,
+.search-modal-close,
+.settings-modal-close,
+.announcement-modal-close {
+    background: rgba(255, 255, 255, 0.18) !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    color: #fff !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    transition: all 0.2s !important;
+}
+.history-modal-close:hover,
+.search-modal-close:hover,
+.settings-modal-close:hover,
+.announcement-modal-close:hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+    transform: rotate(90deg) !important;
+}

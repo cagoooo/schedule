@@ -4,7 +4,35 @@
 
 ---
 
-## 📅 當前版本：v2.50.2 (2026-05-06) - 🚨 hotfix: 修正 v2.50.1 css href 404 導致全站無樣式
+## 📅 當前版本：v2.50.3 (2026-05-06) - ✨ 二輪 modal 巡檢: 歷史/統計/PWA banner 殘留紫色全面 Pine 化
+
+### 🎯 修補內容
+v2.50.0 主題大改版時用 sed 替換做了大規模換色，但仍有約 6 處非預設色碼漏網（不在替換清單裡的紫色 `#7c3aed`、`#6366f1`、淡紫 `#ede9fe` 等）。本輪靜態掃描全 8907 行 css，把可見部分一次補完。
+
+### 📦 修補項目 (CSS-only, ~150 行)
+
+| 元素 | Before | After |
+| :--- | :--- | :--- |
+| **歷史記錄 modal header** | `linear-gradient(#3D7B65 → #7c3aed)` 半 Pine 半紫 | 純 Pine 漸層 + 白標題 + 1px text-shadow |
+| **歷史記錄主按鈕 .btn-history** | 同上半綠半紫 | Pine 實心 + 12px 圓角 |
+| **PWA 更新 banner** | `linear-gradient(#6366f1 → #3D7B65 → #ec4899)` 紫→Pine→粉三色 | 純 Pine 漸層 + 綠系陰影 |
+| **統計分析直方圖** | 紫漸層 `#818cf8 → #6366f1` | Pine 漸層 `#4F9D6E → #1F4D3F` |
+| **取消率 bar** | 鮮紅 `#f87171 → #dc2626` | 收柔 coral `#E76A6A → #B45049` |
+| **歷史批次切換** | 紫 `#6366f1` border/bg | Pine border/gradient |
+| **批次選中歷史項** | lavender → pink 漸層 + 紫 border | Pine softer → soft + Pine border |
+| **批次 checkbox accent** | 紫 `#6366f1` | Pine `#1F4D3F` |
+| **統計 modal header** | 半透明白底 + Pine gradient text | 純 Pine 漸層 bg + 白字（與其他 modal 一致）|
+| **統計 close 鈕** | 紅 `#ef4444` | 半透明白圓圈 + 90° 旋轉 hover |
+| **公告 modal header** | 暖橘 `#f59e0b → #d97706` | 收柔 `#C97B3F → #A0612D`（保留語意顏色）|
+| **設定 / 搜尋 modal header** | 已 Pine 但缺圓角/字體 | 補 20px 圓角 + Plus Jakarta Sans 白字 |
+| **各 modal close X 鈕** | 不一致 | 統一 32×32 半透明白圓圈 + 90° 旋轉 hover |
+
+### 🛠 防範改進
+從 v2.50.1 css href 事故學到的，此版本先在本機跑 smoke test（`curl -I styles.v2.50.0.css` 回 200）才 push，避免再破版。
+
+---
+
+## 📅 v2.50.2 (2026-05-06) - 🚨 hotfix: 修正 v2.50.1 css href 404 導致全站無樣式
 
 ### 🚨 緊急修補
 v2.50.1 因為使用了 `replace_all: true` 把 index.html 內所有 `v2.50.0` 字串都換成 `v2.50.1`，包括 `<link rel="stylesheet" href="styles.v2.50.0.css">` 也被改成 `styles.v2.50.1.css`，但實際 css 檔名仍是 `styles.v2.50.0.css` → 線上 404 → 全站無樣式渲染。
