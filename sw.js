@@ -1,6 +1,6 @@
-// Service Worker v2.50.3 - ✨ 二輪 modal 巡檢: 歷史/統計/PWA banner/批次工具殘留紫色全面 Pine 化
-const CACHE_NAME = 'booking-system-v2.50.3';
-const APP_VERSION = 'v2.50.3';
+// Service Worker v2.50.4 - 🔒 安全性: admin defense-in-depth + 可見 admin badge + logout 按鈕
+const CACHE_NAME = 'booking-system-v2.50.4';
+const APP_VERSION = 'v2.50.4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

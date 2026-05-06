@@ -303,22 +303,57 @@ function updateAuthUI() {
     const btn = document.getElementById('btnAdminLogin');
     const text = document.getElementById('adminLoginText');
 
+    // v2.50.4: 確保 admin badge / logout 按鈕節點存在 (一次性建立)
+    let badge = document.getElementById('adminStatusBadge');
+    let logoutBtn = document.getElementById('btnAdminLogout');
+    if (!badge) {
+        const headerAdmin = document.getElementById('headerAdmin');
+        if (headerAdmin) {
+            badge = document.createElement('span');
+            badge.id = 'adminStatusBadge';
+            badge.className = 'admin-status-badge';
+            badge.style.display = 'none';
+            badge.title = '目前以管理員身份登入,點此可登出';
+            headerAdmin.insertBefore(badge, btn);
+
+            logoutBtn = document.createElement('button');
+            logoutBtn.id = 'btnAdminLogout';
+            logoutBtn.className = 'btn-admin-logout';
+            logoutBtn.title = '登出管理員';
+            logoutBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+            logoutBtn.style.display = 'none';
+            logoutBtn.addEventListener('click', doAdminLogout);
+            headerAdmin.insertBefore(logoutBtn, btn);
+        }
+    }
+
     if (currentUser) {
         btn.classList.add('logged-in');
         text.textContent = '已登入';
         document.getElementById('btnOpenSettings').style.display = 'flex';
         document.getElementById('btnOpenDashboard').style.display = 'flex';
-        // v2.41.0 (M.1): 顯示場地公告管理按鈕
         const annBtn = document.getElementById('btnOpenAnnouncements');
         if (annBtn) annBtn.style.display = 'flex';
+
+        // v2.50.4: 顯示明顯的 admin 徽章 + logout 按鈕
+        if (badge) {
+            const email = currentUser.email || '管理員';
+            const shortEmail = email.length > 18 ? email.slice(0, 16) + '…' : email;
+            badge.innerHTML = `🔓 <span class="admin-badge-email">${shortEmail}</span>`;
+            badge.style.display = 'inline-flex';
+        }
+        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
     } else {
         btn.classList.remove('logged-in');
         text.textContent = '管理員';
         document.getElementById('btnOpenSettings').style.display = 'none';
         document.getElementById('btnOpenDashboard').style.display = 'none';
-        // v2.41.0 (M.1): 隱藏場地公告管理按鈕
         const annBtn = document.getElementById('btnOpenAnnouncements');
         if (annBtn) annBtn.style.display = 'none';
+
+        // v2.50.4: 隱藏 admin 徽章 + logout
+        if (badge) badge.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
     }
 }
 
@@ -338,6 +373,38 @@ function openAuthModal() {
  */
 function closeAuthModal() {
     document.getElementById('authModalOverlay').classList.remove('active');
+}
+
+/**
+ * v2.50.4: Admin 守門員 — defense in depth
+ * 所有 admin-only 函式進入點都要呼叫。即使 admin 按鈕被 DOM 操作硬撐顯示,
+ * 此 guard 會在程式邏輯層擋下並引導登入。
+ *
+ * @param {string} actionName 操作名稱 (顯示在 toast)
+ * @returns {boolean} true = 可進行, false = 已擋下 (呼叫端應 return)
+ */
+function requireAdmin(actionName = '此操作') {
+    if (!firebase.auth().currentUser) {
+        console.warn(`[Security] ${actionName} 拒絕: 未登入管理員`);
+        showToast(`請先登入管理員才能${actionName}`, 'error');
+        setTimeout(() => openAuthModal(), 600);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * v2.50.4: 管理員登出
+ */
+async function doAdminLogout() {
+    if (!confirm('確定要登出管理員身份嗎？')) return;
+    try {
+        await auth.signOut();
+        showToast('已登出', 'success');
+    } catch (e) {
+        console.error('登出失敗:', e);
+        showToast('登出失敗: ' + e.message, 'error');
+    }
 }
 
 /**
@@ -1850,6 +1917,7 @@ function initEventListeners() {
  * 開啟儀表板
  */
 function openDashboard() {
+    if (!requireAdmin('開啟視覺化數據中心')) return;
     document.getElementById('dashboardModalOverlay').classList.add('active');
     loadDashboardData();
 }
@@ -3421,6 +3489,7 @@ function removeBatchDate(date) {
  * 開啟不開放時段設定彈窗
  */
 async function openSettingsModal() {
+    if (!requireAdmin('管理不開放時段')) return;
     const room = getSelectedRoom();
     document.getElementById('settingsRoomName').textContent = room;
     showToast('正在載入設定...', 'info');
@@ -3476,6 +3545,7 @@ async function loadRoomSettings(room) {
  * 儲存場地設定
  */
 async function saveRoomSettings() {
+    if (!requireAdmin('儲存不開放時段設定')) return;
     const room = getSelectedRoom();
     const checks = document.querySelectorAll('.unavailable-check:checked');
     const newSlots = Array.from(checks).map(cb => cb.dataset.slot);
@@ -4045,6 +4115,11 @@ async function loadAuditLogs() {
     const list = document.getElementById('auditLogList');
     if (!list) return;
 
+    if (!requireAdmin('查詢系統日誌')) {
+        list.innerHTML = '<div class="error-text">⚠️ 請先登入管理員</div>';
+        return;
+    }
+
     list.innerHTML = '<div class="loading-spinner"></div>';
 
     // v2.43.0: 讀取篩選條件
@@ -4172,6 +4247,7 @@ async function loadAuditLogs() {
  * 匯出系統日誌 (Audit Logs) 至 CSV
  */
 async function exportLogsToCSV() {
+    if (!requireAdmin('匯出系統日誌')) return;
     try {
         const confirmExport = confirm('確定要匯出「系統操作日誌」嗎？\n(包含刪除、登入、匯出紀錄)');
         if (!confirmExport) return;
@@ -4534,6 +4610,7 @@ function isRoomLockedByAnnouncement(room, dateStr) {
  * 顯示公告管理彈窗
  */
 async function openAnnouncementManager() {
+    if (!requireAdmin('管理場地公告')) return;
     const overlay = document.getElementById('announcementModalOverlay');
     if (!overlay) return;
     overlay.classList.add('active');
@@ -4677,6 +4754,7 @@ async function submitAnnouncementForm(e) {
 }
 
 async function deleteAnnouncement(id) {
+    if (!requireAdmin('刪除公告')) return;
     if (!confirm('確定要刪除這則公告嗎？此動作無法復原。')) return;
     try {
         // v2.43.0: 刪除前先撈內容供稽核

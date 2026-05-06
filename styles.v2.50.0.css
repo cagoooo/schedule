@@ -9068,3 +9068,76 @@ body {
     background: rgba(255, 255, 255, 0.28) !important;
     transform: rotate(90deg) !important;
 }
+
+
+/* ==========================================================================
+   v2.50.4 — Admin 身分視覺化: badge + logout 按鈕
+   讓使用者一眼看到目前是不是管理員身份, 並能明確登出
+   ========================================================================== */
+
+.admin-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    height: 36px;
+    background: linear-gradient(135deg, #4F9D6E 0%, #1F4D3F 100%);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    box-shadow: 0 2px 6px -1px rgba(31, 77, 63, 0.4);
+    letter-spacing: 0.02em;
+    user-select: none;
+    flex: none;
+    box-sizing: border-box;
+}
+.admin-status-badge .admin-badge-email {
+    font-weight: 500;
+    opacity: 0.95;
+    font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+    font-size: 0.74rem;
+}
+
+.btn-admin-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: #FDF2F1;
+    border: 1px solid #E8C7C5;
+    color: #B45049;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+    flex: none;
+    box-sizing: border-box;
+}
+.btn-admin-logout:hover {
+    background: #B45049;
+    color: #fff;
+    border-color: #B45049;
+    transform: rotate(-8deg);
+}
+.btn-admin-logout svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* 手機 (≤640px): admin badge 收成只剩 🔓 icon, email 字隱藏避免擠爆 header */
+@media (max-width: 640px) {
+    .admin-status-badge {
+        padding: 0 0.5rem;
+        height: 36px;
+        width: auto;
+    }
+    .admin-status-badge .admin-badge-email {
+        display: none;
+    }
+    .btn-admin-logout {
+        width: 32px;
+        height: 32px;
+    }
+}

@@ -4,7 +4,57 @@
 
 ---
 
-## 📅 當前版本：v2.50.3 (2026-05-06) - ✨ 二輪 modal 巡檢: 歷史/統計/PWA banner 殘留紫色全面 Pine 化
+## 📅 當前版本：v2.50.4 (2026-05-06) - 🔒 安全性: admin defense-in-depth + 可見身份徽章
+
+### 🚨 修補的 bug
+v2.49.x 之前就存在的設計缺陷:
+1. **Admin-only 功能對訪客部分可達** — `不開放時段` / `視覺化數據中心` / `場地公告管理` 三個 modal 的 opener 函式進入點完全沒驗證 `firebase.auth().currentUser`,只靠 button `display:none` 隱藏。任何 DOM 操作或 stale Firebase Auth session 都能繞過。
+2. **Admin 登入狀態 UI 不明顯** — 只有「管理員」按鈕文字從 "管理員" 變 "已登入",使用者很容易以為自己沒登入但其實 Firebase Auth session 還在 (該 SDK 預設長期保留 IndexedDB session,跨裝置/分頁/重啟瀏覽器都黏著)。
+
+### 📦 修補項目
+
+#### 1. 前端 defense-in-depth (新增 `requireAdmin()` helper)
+所有 admin-only 函式進入點呼叫 `requireAdmin('操作名稱')`,未登入時:
+- 顯示 toast 提示「請先登入管理員才能 X」
+- 0.6 秒後自動彈出登入彈窗
+- 函式提早 return,不再繼續執行
+
+涵蓋的 8 個 admin 函式:
+- `openDashboard` (視覺化數據中心)
+- `openSettingsModal` (不開放時段管理)
+- `openAnnouncementManager` (場地公告管理)
+- `saveRoomSettings` (儲存不開放時段)
+- `deleteAnnouncement` (刪除公告)
+- `loadAuditLogs` (查詢系統日誌)
+- `exportLogsToCSV` (匯出日誌)
+- `submitAnnouncementForm` (送公告表單) — 已有檢查,維持
+
+#### 2. Admin 身分視覺化
+登入時 header 新增:
+- 🔓 **Pine 漸層 badge** 顯示「🔓 {email}」(手機僅顯示鎖頭 icon)
+- **登出按鈕** (coral 紅圓 + ↗ icon),點擊有 confirm 對話框 → `auth.signOut()`
+
+→ 使用者一眼就能看到自己是不是處於 admin 狀態,不再會「以為沒登入」。
+
+#### 3. 新增 `doAdminLogout()` 函式
+正式呼叫 `auth.signOut()` 清掉 Firebase Auth session,不只是 UI 文字切換。
+
+### 🔧 之後可繼續強化 (未做)
+- Firestore rules 從 `request.auth != null` 改成 custom claims `request.auth.token.admin == true`
+- 或維護 `admins` collection 並用 `exists(/admins/$(uid))` 檢查
+- 自動登出 (例如閒置 60 分鐘)
+
+目前因 Firebase 專案沒開 anonymous auth + 沒公開註冊管道,`auth != null` 實際等價於「是 admin」,但 defense-in-depth 仍比單一防線安全。
+
+### 🛠 Smoke test 流程
+1. 個別 Edit 改版本字串 (絕不再 replace_all)
+2. 本機 server 跑起來,curl 6 個 HTTP 資源全部 200
+3. 確認 sw.js asset 清單裡的所有檔案都實體存在
+4. 才 push
+
+---
+
+## 📅 v2.50.3 (2026-05-06) - ✨ 二輪 modal 巡檢: 歷史/統計/PWA banner 殘留紫色全面 Pine 化
 
 ### 🎯 修補內容
 v2.50.0 主題大改版時用 sed 替換做了大規模換色，但仍有約 6 處非預設色碼漏網（不在替換清單裡的紫色 `#7c3aed`、`#6366f1`、淡紫 `#ede9fe` 等）。本輪靜態掃描全 8907 行 css，把可見部分一次補完。
