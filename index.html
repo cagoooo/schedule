@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.50.4</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.50.4">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.50.5</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.50.5">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.50.4';
+            const APP_VERSION = 'v2.50.5';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -533,25 +533,14 @@
     <div class="stats-modal-overlay" id="statsModalOverlay">
         <div class="stats-modal">
             <div class="stats-modal-header">
-                <h3 id="statsModalTitle"
-                    style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; color: var(--text-primary); -webkit-text-fill-color: initial; background: none;">
+                <h3 id="statsModalTitle">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="20" x2="18" y2="10" />
                         <line x1="12" y1="20" x2="12" y2="4" />
                         <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
-                    <span id="statsRoomNameDisplay" style="
-                        background: var(--primary-gradient);
-                        color: white;
-                        padding: 4px 14px;
-                        border-radius: 50px;
-                        font-size: 1rem;
-                        font-weight: 700;
-                        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
-                        letter-spacing: 0.5px;
-                    "></span>
-                    <span
-                        style="background: var(--primary-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; font-size: 1.4rem;">預約統計</span>
+                    <span id="statsRoomNameDisplay" class="stats-room-pill"></span>
+                    <span class="stats-title-text">預約統計</span>
                 </h3>
                 <button class="btn-stats-close" id="btnStatsClose">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1394,8 +1383,8 @@
         </div>
     </div>
 
-    <!-- v2.50.4: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
-    <div class="design-stamp" aria-hidden="true">v2.50.4 · Pine · Compact</div>
+    <!-- v2.50.5: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
+    <div class="design-stamp" aria-hidden="true">v2.50.5 · Pine · Compact</div>
 </body>
 
 </html>

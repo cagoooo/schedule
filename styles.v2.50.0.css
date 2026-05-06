@@ -9141,3 +9141,68 @@ body {
         height: 32px;
     }
 }
+
+
+/* ==========================================================================
+   v2.50.5 — 統計 modal 標題改用 CSS class (取代壞掉的 inline gradient text)
+   問題: 「預約統計」原本用 -webkit-text-fill-color: transparent + Pine
+   gradient 當背景的 gradient text 技巧, 在白底 header 上很美, 但 v2.50.3
+   把 header 改 Pine 後 → Pine 字在 Pine 底完全融合 = 隱形。
+   ========================================================================== */
+
+/* --- statsModalTitle h3 容器: 接管原本 inline 的 flex 設定 --- */
+#statsModalTitle {
+    display: flex !important;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0;
+    color: #fff;
+    font-family: var(--font-display);
+}
+#statsModalTitle svg {
+    color: #fff;
+    flex: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+/* --- 場地名稱 pill (例如「禮堂」): 半透明白底 + 白字, 在 Pine header 上才看得到 --- */
+.stats-room-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 14px;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--primary-darker);
+    border-radius: 50px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.15);
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+}
+
+/* --- 「預約統計」主標題: 純白, 不再用 gradient text 技巧 --- */
+.stats-title-text {
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    font-family: var(--font-display);
+}
+
+/* --- 手機 ≤640px: 字級略縮 --- */
+@media (max-width: 640px) {
+    .stats-title-text {
+        font-size: 1.1rem;
+    }
+    .stats-room-pill {
+        font-size: 0.85rem;
+        padding: 3px 10px;
+    }
+    #statsModalTitle svg {
+        width: 20px;
+        height: 20px;
+    }
+}

@@ -1,6 +1,6 @@
-// Service Worker v2.50.4 - 🔒 安全性: admin defense-in-depth + 可見 admin badge + logout 按鈕
-const CACHE_NAME = 'booking-system-v2.50.4';
-const APP_VERSION = 'v2.50.4';
+// Service Worker v2.50.5 - 🐛 修正統計 modal 標題 inline gradient text 在 Pine header 上隱形
+const CACHE_NAME = 'booking-system-v2.50.5';
+const APP_VERSION = 'v2.50.5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -4,7 +4,27 @@
 
 ---
 
-## 📅 當前版本：v2.50.4 (2026-05-06) - 🔒 安全性: admin defense-in-depth + 可見身份徽章
+## 📅 當前版本：v2.50.5 (2026-05-06) - 🐛 修正統計 modal 標題在 Pine header 上隱形
+
+### 🚨 修補的 bug
+v2.50.3 把 `.stats-modal-header` 背景從半透明白底改成 Pine 漸層後，發現「預約統計」標題完全看不見。原因是 [index.html](index.html) 該標題用了 `<span style="background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">` 的 **gradient text 技巧**：
+- 原本設計給「白底 header」用，文字會顯示漂亮的 Pine 綠漸層
+- v2.50.3 header 改 Pine 後 → Pine 綠字落在 Pine 綠背景 → 完全融合 = 隱形
+- 而且 inline style 優先級高過 v2.50.3 的 `.stats-modal-header h3 { color: #fff !important }` 外部 CSS 覆蓋（雖然 !important 應該贏，但 inline 在更深的 child span 上）
+
+### 📦 修補項目
+1. **HTML**：移除 `#statsModalTitle` h3 的 inline `style="..."` + 兩個子 span 的 inline gradient style
+2. **CSS**：用新 class 接管所有樣式
+   - `.stats-room-pill` (場地名稱徽章): 半透明白底 + Pine 深字 (在 Pine header 上才看得見)
+   - `.stats-title-text` (主標題「預約統計」): 純白 800 + 1px 陰影 + Plus Jakarta Sans
+   - `#statsModalTitle` (h3 容器): flex 排版 + 白色 svg icon
+
+### 🛠 教訓
+**Inline style 是設計反模式**，特別是當主題色會變動時。所有樣式應集中在 CSS class，這樣主題重構（如 v2.50.0 Pine 化）才不會留下這種隱形 bug。
+
+---
+
+## 📅 v2.50.4 (2026-05-06) - 🔒 安全性: admin defense-in-depth + 可見身份徽章
 
 ### 🚨 修補的 bug
 v2.49.x 之前就存在的設計缺陷:
