@@ -1,6 +1,6 @@
-// Service Worker v2.50.1 - 🐛 修正預約詳情 modal 標題在 Pine 底上看不見 + 卡片精緻化
-const CACHE_NAME = 'booking-system-v2.50.1';
-const APP_VERSION = 'v2.50.1';
+// Service Worker v2.50.2 - 🚨 hotfix: v2.50.1 誤把 css href 改成不存在的檔名導致全站無樣式
+const CACHE_NAME = 'booking-system-v2.50.2';
+const APP_VERSION = 'v2.50.2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

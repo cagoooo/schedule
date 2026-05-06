@@ -4,7 +4,23 @@
 
 ---
 
-## 📅 當前版本：v2.50.1 (2026-05-06) - 🐛 修正預約詳情卡片標題在 Pine 底上不可見
+## 📅 當前版本：v2.50.2 (2026-05-06) - 🚨 hotfix: 修正 v2.50.1 css href 404 導致全站無樣式
+
+### 🚨 緊急修補
+v2.50.1 因為使用了 `replace_all: true` 把 index.html 內所有 `v2.50.0` 字串都換成 `v2.50.1`，包括 `<link rel="stylesheet" href="styles.v2.50.0.css">` 也被改成 `styles.v2.50.1.css`，但實際 css 檔名仍是 `styles.v2.50.0.css` → 線上 404 → 全站無樣式渲染。
+
+### 📦 修補內容 (1 行 css href 修回 + 版本 bump 觸發 SW 更新)
+- `index.html` line 13: `styles.v2.50.1.css` → `styles.v2.50.0.css`
+- `index.html`: APP_VERSION / title / meta / design-stamp 全升 v2.50.2
+- `sw.js`: CACHE_NAME / APP_VERSION 升 v2.50.2，asset 清單仍指向 `styles.v2.50.0.css`（正確）
+- v2.50.1 留下的內容（預約詳情 modal polish）完全保留 — 只是 css 引用路徑修對
+
+### 🎓 學到的事
+**避免對檔名版本字串做 `replace_all`**：版本號可以全文替換（APP_VERSION / title / meta），但 **檔名引用** 要單獨確認 — 因為 css 檔的命名節奏跟 app 版本不同步（v2.36/37/38 才換 css 檔，patch 版不換）。
+
+---
+
+## 📅 v2.50.1 (2026-05-06) - 🐛 修正預約詳情卡片標題在 Pine 底上不可見
 
 ### 🎯 修補內容
 v2.50.0 上線後發現的 contrast bug：「預約詳情」modal 標題（`.delete-modal-header h3`）的早期規則 (`color: var(--text-primary)`) 沒被 v2.50.0 polish 覆蓋到，深色文字落在 Pine 綠 gradient header 上幾乎不可見。
