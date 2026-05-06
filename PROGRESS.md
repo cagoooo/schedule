@@ -4,7 +4,95 @@
 
 ---
 
-## 📅 當前版本：v2.48.0 (2026-04-20) - 🤖 AI 學期白皮書 (Gemini + HTML 報告 + Storage)
+## 📅 當前版本：v2.50.0 (2026-05-06) - 🌿 Pine 深松綠主題 (Claude Design 設計稿全面套用)
+
+### 🎯 核心目的
+依照 Claude Design 互動原型的設計稿（Pine 深松綠 + 12px 圓角 + Compact 密度），把舊版紫色玻璃擬態主題全面換成清爽的校園自然風，同時補強月視圖、手機版、儀表板的版面與調色細節。
+
+### 🎨 設計來源
+| 項目 | 內容 |
+| :--- | :--- |
+| **設計工具** | Claude Design (claude.ai/design) |
+| **設計檔 hash** | `c0FcGPIWYENpqGDreQvbBA` (主原型), `GDpFqGsm4GbV2FbA09BwJg` (月視圖), `0o11CbyzItvzCNjFQZsluQ` (手機版), `J0LnaNyYlcE2vKM1CDp-Bg` (總覽) |
+| **設計風格** | Pine 深松綠 `#1F4D3F` + 暖米底 `#F2F1E8` + 12px 圓角 + Compact 密度 |
+| **顯示字體** | Plus Jakarta Sans（英數字）+ Noto Sans TC（中文）|
+
+### 🌈 主題 token 替換 (Pine palette)
+
+| Token | Before (v2.49.x 紫色) | After (v2.50.0 Pine) |
+| :--- | :--- | :--- |
+| `--primary-color` | `#667eea` | `#1F4D3F` |
+| `--primary-dark` | `#5a67d8` | `#163A2F` |
+| `--primary-darker` | `#4c51bf` | `#0B2820` |
+| `--secondary-color` | `#a78bfa` | `#7AAD96` |
+| `--bg-color` | `#f8faff` 淡藍紫 | `#F2F1E8` 暖米 |
+| `--border-color` | `#e2e8f0` | `#E1DECF` |
+| `--text-primary` | `#1a202c` | `#162622` |
+| `--shadow-*` | `rgba(102,126,234,*)` 藍紫陰影 | `rgba(20,40,30,*)` 綠系暖灰 |
+| `--radius-sm/md/lg` | `10/16/24px` | `6/12/20px` (compact) |
+| `--accent-soft/softer` | — | `#DCE9E2 / #EFF5F1` (新增) |
+
+### 📦 新增/修改檔案
+
+| 檔案 | 動作 | 說明 |
+| :--- | :--- | :--- |
+| `styles.v2.50.0.css` | **新增** (~8600 行) | 由 v2.38.0 複製並全面 Pine 化；尾段 ~900 行為 polish overrides |
+| `index.html` | 修改 | 標題/version/stylesheet/theme-color 全換到 v2.50.0；新增 design-stamp 元素；引入 Plus Jakarta Sans web font |
+| `sw.js` | 修改 | `CACHE_NAME` / `APP_VERSION` → v2.50.0；asset 清單改用新 css |
+| `manifest.json` | 修改 | `theme_color` `#667eea` → `#1F4D3F`；`background_color` `#f8faff` → `#F2F1E8` |
+| `app.js` | 修改 | 月視圖 cell 加 hash hue 注入 (`--bk-hue`) + Pine 綠 count badge |
+
+### ✨ 主要視覺優化
+
+#### Header
+- 從紫色漸層 + headerGlow 動畫 + 跳動發光標題 → 白底 + 細邊線 + 平靜 brand mark
+- 標題字級 1.05rem → **1.35rem**（desktop），副標 0.78rem → **0.9rem**
+- Logo 方塊 44px → **48px** + 12px 圓角 + Pine 漸層
+- LINE 綁定按鈕保留 LINE 官方綠 `#06C755`
+- 5 階 RWD 斷點：≥1280 / 1024-1279 / 768-1023 / 640-767 / ≤640 / ≤380px
+- 手機端強制單列、隱藏次要 admin icon、按鈕收成圓形 icon-only
+
+#### 行事曆 / 月視圖
+- weekday header 紫色漸層 → 暖米
+- 今日日期數字包入 **Pine 實心圓圈**（white-on-pine）
+- 預約 chip 改用**姓名 hash hue**（`oklch()` 三階：底色 / 邊線 / 文字）
+- cell head 加 Pine 綠**總數 badge**
+- 衝突熱度 (heat-light/medium/busy/full) 色階改 Pine palette
+- 週末欄位字色從警示紅 `#f56565` 改暖橘 `#C97B3F`
+
+#### Modal / 控制面板 / 按鈕群
+- 控制面板從玻璃感 → 純白卡片 + 12px 邊線
+- 主要按鈕（查詢/匯出/統計/歷史）統一 Pine 實心
+- Modal overlay 改 Pine 半透明 `rgba(16,49,39,0.55)` + 6px blur
+- 視圖切換 active 態用 Pine 實心 + 白字
+
+#### 視覺化數據中心 (Dashboard)
+- audit 篩選列邊框 `#cbd5e1` 淡藍 → Pine 系，focus 顯示 Pine 光環
+- **「查詢」按鈕** (`btnRefreshLogs`) 之前完全沒 CSS → 補 Pine 實心
+- **「匯出系統日誌」按鈕** 之前也沒樣式 → 白底 Pine 字
+- 「📊 載入後顯示統計」banner 紫粉漸層 → Pine soft
+- raw JSON 預覽 深藍底 → 深綠底
+- header 在窄寬時補 1024/1280px progressive 斷點，標題與 tabs 不再擠成直排
+
+#### 設計系統識別
+- 桌面右下浮動 design-stamp 膠囊「v2.50.0 · Pine · Compact」
+- 手機 (≤768px) 自動隱藏避免擋功能
+
+### 🐛 修補的調色漏網
+
+- `.btn-stats` Material 紫 `#9c27b0` → Pine
+- `.btn-history` 半綠半紫 `#7c3aed` → Pine
+- `.audit-stat-chip` `#6d28d9` 紫字 → Pine
+- `.meta-expand-btn` 紫色 → Pine
+- `.month-calendar-header` 淡紫漸層 → 暖米
+- `.month-day:hover` 青綠 → Pine soft
+
+### 🔧 PWA Cache 注意事項
+v2.50.0 SW cache 名稱改成 `booking-system-v2.50.0`，舊版使用者重整時會自動觸發版本更新 banner（v2.41.1 機制），點「立即更新」即可載入新主題。
+
+---
+
+## 📅 v2.48.0 (2026-04-20) - 🤖 AI 學期白皮書 (Gemini + HTML 報告 + Storage)
 
 ### 🎯 核心目的
 每學期結束自動產出一份「校長/主任也看得懂」的使用報告 — Gemini 撰寫文案 + Chart.js 圖表 + 一鍵 LINE 分享。

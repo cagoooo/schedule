@@ -1,16 +1,16 @@
-// Service Worker v2.49.2 - 🎁 批次/重複預約 LINE 通知彙整成單一訊息
-const CACHE_NAME = 'booking-system-v2.49.2';
-const APP_VERSION = 'v2.49.2';
+// Service Worker v2.50.0 - 🌿 Pine 深松綠主題：版面與調色全面優化 (Claude Design 設計稿)
+const CACHE_NAME = 'booking-system-v2.50.0';
+const APP_VERSION = 'v2.50.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './styles.css',
-    './styles.v2.38.0.css',
+    './styles.v2.50.0.css',
     './app.js',
     './config.js',
     './favicon.png',
     './manifest.json',
-    'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap',
+    'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap',
 ];
 
 // ===== Install: 預快取核心資源 =====

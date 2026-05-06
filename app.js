@@ -858,14 +858,21 @@ function renderMonthCalendar() {
         dayEl.classList.add(`heat-${heatLevel}`);
         dayEl.dataset.bookedCount = `${bookedSlots}/${totalPeriods}`;
 
+        // v2.50.0: 依預約者姓名 hash 分配色相 (Pine 設計原型 --bk-hue)
+        function hueFromName(name) {
+            let h = 0;
+            for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+            return h % 360;
+        }
+
         let bookingsHtml = '';
         if (displayItems.length > 0) {
             bookingsHtml = `<div class="month-day-bookings">`;
-            // 最多顯示 3 筆，超過顯示更多
             const maxDisplay = 3;
             displayItems.slice(0, maxDisplay).forEach(item => {
+                const hue = hueFromName(item.booker);
                 bookingsHtml += `
-                    <div class="month-booking-item" title="${item.fullPeriodName} - ${item.booker}">
+                    <div class="month-booking-item" style="--bk-hue:${hue}" title="${item.fullPeriodName} - ${item.booker}">
                         <span class="mb-period">${item.periodName}</span>
                         <span class="mb-booker">${item.booker}</span>
                     </div>
@@ -882,9 +889,15 @@ function renderMonthCalendar() {
             bookingsHtml += `</div>`;
         }
 
+        // v2.50.0: 月格 head 加 Pine 綠 count pill (參考 mv-cell-badge 設計)
+        const countBadge = bookedSlots > 0
+            ? `<span class="month-day-count">${bookedSlots}</span>`
+            : '';
+
         dayEl.innerHTML = `
             <div class="month-day-header">
                 <span class="month-day-date">${currentDate.getDate()}</span>
+                ${countBadge}
             </div>
             ${bookingsHtml}
         `;

@@ -1,8 +1,16 @@
-# 禮堂&專科教室&IPAD平板車預約系統 v2.48.0
+# 禮堂&專科教室&IPAD平板車預約系統 v2.50.0
 
 學校禮堂、專科教室及IPAD平板車線上預約借用系統，支援查詢與查詢借用時段。
 
 ## 功能特色
+
+### 🌿 Pine 深松綠主題大改版 (v2.50.0)
+- **Claude Design 設計稿全面套用** - Pine 深松綠 `#1F4D3F` + 暖米底 `#F2F1E8` + 12px 圓角 + Compact 密度
+- **顯示字體升級** - 引入 Plus Jakarta Sans (英數字) + Noto Sans TC (中文) 雙字體系統
+- **Header 重塑** - 從紫色玻璃漸層 + headerGlow 動畫改為白底 + 細邊線 + 平靜 brand mark；標題字級放大到 1.35rem
+- **5 階 RWD 斷點** - ≥1280 / 1024 / 768 / 640 / 380px progressive 收斂，手機端強制單列、icon-only
+- **月視圖精緻化** - 今日日期 Pine 實心圓圈、預約 chip 依姓名 hash 自動分色 (`oklch --bk-hue`)、cell head 加 Pine 綠總數 badge
+- **儀表板配色全面對齊** - audit 篩選邊框、查詢按鈕、stat banner、raw JSON 預覽全部 Pine 化
 
 ### 🎨 預約詳情 UI 大翻新 (v2.36.0)
 - **Glassmorphism Design** - 引入毛玻璃特效與鮮豔漸層，提升視覺質感與操作聚焦度

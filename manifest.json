@@ -3,8 +3,8 @@
     "short_name": "預約系統",
     "start_url": "./index.html",
     "display": "standalone",
-    "background_color": "#f8faff",
-    "theme_color": "#667eea",
+    "background_color": "#F2F1E8",
+    "theme_color": "#1F4D3F",
     "description": "禮堂&專科教室&IPAD平板車預約系統",
     "icons": [
         {
