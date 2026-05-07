@@ -9166,19 +9166,36 @@ body {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
 }
 
-/* --- 場地名稱 pill (例如「禮堂」): 半透明白底 + 白字, 在 Pine header 上才看得到 --- */
-.stats-room-pill {
+/* --- 場地名稱 pill (例如「禮堂」): 純白實底 + Pine 深字 + 邊光環, 強對比凸顯於 Pine header ---
+   注意 specificity: 用 #statsModalTitle .stats-room-pill (1,0,1,0) 才能贏過
+   父層 #statsModalTitle { color: #fff } (1,0,0,0); 否則文字會被 inherit 成白色 → 白底白字隱形。
+*/
+#statsModalTitle .stats-room-pill {
     display: inline-flex;
     align-items: center;
-    padding: 4px 14px;
-    background: rgba(255, 255, 255, 0.95);
+    padding: 5px 16px;
+    background: #FFFFFF;
     color: var(--primary-darker);
+    -webkit-text-fill-color: var(--primary-darker);
     border-radius: 50px;
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 700;
-    box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    letter-spacing: 0.5px;
     line-height: 1.4;
+    letter-spacing: 0.02em;
+    /* 雙層光環: 細白外環 + 柔深陰影 */
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.35),
+        0 3px 8px -2px rgba(0, 0, 0, 0.25);
+    position: relative;
+}
+.stats-room-pill::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    margin-right: 6px;
+    box-shadow: 0 0 0 2px rgba(31, 77, 63, 0.18);
 }
 
 /* --- 「預約統計」主標題: 純白, 不再用 gradient text 技巧 --- */

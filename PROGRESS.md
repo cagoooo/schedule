@@ -4,7 +4,35 @@
 
 ---
 
-## 📅 當前版本：v2.50.5 (2026-05-06) - 🐛 修正統計 modal 標題在 Pine header 上隱形
+## 📅 當前版本：v2.50.6 (2026-05-07) - 🎨 統計 modal 場地 pill 改為純白 + 雙層光環
+
+### 🎯 修補
+v2.50.5 把「預約統計」主標題修白後，旁邊的場地名稱 pill（例如「禮堂」）對比度仍不夠 — 原本用 `rgba(255, 255, 255, 0.95)` 半透明白底 + Pine 深字，在強烈 Pine 漸層 header 上看起來灰濛濛、文字被吞掉。
+
+### 📦 修補項目
+重新設計 `.stats-room-pill`：
+- 背景: `rgba(0.95)` → **`#FFFFFF` 純白實底**（最大對比）
+- 字級: 0.95rem → **1rem**（提升可讀性）
+- padding: 4px 14px → **5px 16px**（pill 更舒展）
+- 影子: 單層柔陰影 → **雙層光環**
+  - 外層: `0 0 0 2px rgba(255, 255, 255, 0.35)` 細白光環凸顯邊界
+  - 內層: `0 3px 8px -2px rgba(0, 0, 0, 0.25)` 深陰影增加浮起感
+- **新增 ::before Pine 綠小點** (6×6 + 半透明邊框)，作為視覺指示符
+
+### 🛠 設計檢討
+這提醒我，**深色主題上的小型徽章/pill 不要用半透明白底**。半透明會讓底色透出來「混入」徽章，視覺上對比就消失了。深底背景上的徽章應該：
+- 純白實底（不打折扣的對比）
+- 或反過來用主色實底 + 白字（dark-on-dark 反例則需反向）
+- 加雙層光環（外白內深）強化邊界
+
+### 🐛 中途也踩到的 specificity bug
+第一次寫 `.stats-room-pill { color: var(--primary-darker) }` 時忘了 `#statsModalTitle { color: #fff }` 是 ID selector 優先級 (1,0,0,0) > class (0,0,1,0) → **父層白字 inherit 蓋過 pill 的深字** → 白底白字完全看不見。修法是把 selector 改成 `#statsModalTitle .stats-room-pill` (1,0,1,0) 才贏。
+
+**通用規則**：當父容器設了強制 color（特別是 ID selector），子元素若要不同色，selector 也要爬到同等或更高 specificity（補上父 ID selector 即可），或直接用 `!important`。
+
+---
+
+## 📅 v2.50.5 (2026-05-06) - 🐛 修正統計 modal 標題在 Pine header 上隱形
 
 ### 🚨 修補的 bug
 v2.50.3 把 `.stats-modal-header` 背景從半透明白底改成 Pine 漸層後，發現「預約統計」標題完全看不見。原因是 [index.html](index.html) 該標題用了 `<span style="background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">` 的 **gradient text 技巧**：

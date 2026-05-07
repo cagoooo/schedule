@@ -1,6 +1,6 @@
-// Service Worker v2.50.5 - 🐛 修正統計 modal 標題 inline gradient text 在 Pine header 上隱形
-const CACHE_NAME = 'booking-system-v2.50.5';
-const APP_VERSION = 'v2.50.5';
+// Service Worker v2.50.6 - 🎨 統計 modal 場地 pill 改為純白 + 雙層光環,在 Pine header 上強對比
+const CACHE_NAME = 'booking-system-v2.50.6';
+const APP_VERSION = 'v2.50.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
