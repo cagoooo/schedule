@@ -152,6 +152,35 @@
             }
         })();
     </script>
+<script>
+  // ─────────────────────────────────────────────────────────────
+  // Akai 排行榜流量歸因 beacon (cagoooo/Akai · toolId 46 禮堂預約)
+  // 進站時送一次像素 beacon 給 Akai Cloud Function 累計 totalClicks
+  // 同分頁 sessionStorage 去重；reload 不重複計數
+  // 完全異步、零阻塞、失敗不影響主流程
+  // ─────────────────────────────────────────────────────────────
+  (function () {
+    try {
+      var TOOL_ID = 46;
+      var SENT_KEY = 'akai_beacon_' + TOOL_ID + '_sent';
+      if (sessionStorage.getItem(SENT_KEY)) return;
+      var SID_KEY = 'akai_beacon_sid';
+      var sid = sessionStorage.getItem(SID_KEY);
+      if (!sid) {
+        sid = 'schedule-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem(SID_KEY, sid);
+      }
+      var device = window.innerWidth < 768 ? 'mobile' : (window.innerWidth < 1024 ? 'tablet' : 'desktop');
+      var url = 'https://asia-east1-akai-e693f.cloudfunctions.net/beaconToolClick'
+        + '?toolId=' + TOOL_ID
+        + '&referrer=' + encodeURIComponent(document.referrer || '')
+        + '&device=' + device
+        + '&sessionId=' + encodeURIComponent(sid);
+      new Image().src = url;
+      sessionStorage.setItem(SENT_KEY, '1');
+    } catch (e) {}
+  })();
+</script>
 </head>
 
 <body>
