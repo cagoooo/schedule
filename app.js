@@ -520,6 +520,7 @@ async function loadBookingsFromFirebase() {
         // v2.42.0: 透過 statsTrackedGet 收集快取命中率
         const snapshot = await statsTrackedGet(
             bookingsCollection
+                .where('room', '==', room)
                 .where('date', '>=', queryStart)
                 .where('date', '<=', queryEnd)
         );
@@ -528,9 +529,7 @@ async function loadBookingsFromFirebase() {
         snapshot.forEach(doc => {
             const data = doc.data();
             const bookingRoom = data.room || '禮堂'; // 正規化場地
-            if (bookingRoom === room) {
-                bookings.push({ ...data, id: doc.id, room: bookingRoom });
-            }
+            bookings.push({ ...data, id: doc.id, room: bookingRoom });
         });
 
         // v2.42.0: 若是快取資料, 提示使用者 (debug 用, 不打擾)
@@ -581,6 +580,7 @@ async function loadMonthBookings() {
         // v2.42.0: 透過 statsTrackedGet 收集快取命中率
         const snapshot = await statsTrackedGet(
             bookingsCollection
+                .where('room', '==', room)
                 .where('date', '>=', queryStart)
                 .where('date', '<=', queryEnd)
         );
@@ -589,9 +589,7 @@ async function loadMonthBookings() {
         snapshot.forEach(doc => {
             const data = doc.data();
             const bookingRoom = data.room || '禮堂'; // 正規化場地
-            if (bookingRoom === room) {
-                monthBookings.push({ ...data, id: doc.id, room: bookingRoom });
-            }
+            monthBookings.push({ ...data, id: doc.id, room: bookingRoom });
         });
 
         if (snapshot.metadata?.fromCache) {
@@ -2633,27 +2631,23 @@ async function loadStatsData() {
     try {
         showToast('正在載入統計資料...', 'info');
 
-        // 查詢所有預約資料
-        const snapshot = await bookingsCollection.get();
-
-        if (snapshot.empty) {
-            showToast('沒有預約資料', 'warning');
-            return;
-        }
-
         const room = getSelectedRoom();
 
         // 更新統計彈窗標題顯示場地名稱
         const displayEl = document.getElementById('statsRoomNameDisplay');
         if (displayEl) displayEl.textContent = room;
 
+        // 僅查詢當前選擇場地的資料
+        const snapshot = await bookingsCollection.where('room', '==', room).get();
+
+        if (snapshot.empty) {
+            showToast('該場地沒有預約資料', 'warning');
+            return;
+        }
+
         const allBookings = [];
         snapshot.forEach(doc => {
-            const data = doc.data();
-            // 僅統計當前選擇場地的資料
-            if ((data.room || '禮堂') === room) {
-                allBookings.push({ id: doc.id, ...data });
-            }
+            allBookings.push({ id: doc.id, ...doc.data() });
         });
 
         // 統計節次使用率

@@ -1,6 +1,6 @@
-// Service Worker v2.50.6 - 🎨 統計 modal 場地 pill 改為純白 + 雙層光環,在 Pine header 上強對比
-const CACHE_NAME = 'booking-system-v2.50.6';
-const APP_VERSION = 'v2.50.6';
+// Service Worker v2.50.7 - 🚀 優化週月視圖與統計查詢載入速度，新增標題點擊回首頁
+const CACHE_NAME = 'booking-system-v2.50.7';
+const APP_VERSION = 'v2.50.7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

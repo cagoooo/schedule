@@ -1,4 +1,4 @@
-﻿/* ===== 通用工具類別 ===== */
+/* ===== 通用工具類別 ===== */
 .hidden {
     display: none !important;
 }
@@ -150,7 +150,6 @@ body {
     background: rgba(255, 255, 255, 0.3);
     transform: translateX(-2px);
 }
-
 .header-title {
     display: flex;
     align-items: center;
@@ -167,8 +166,9 @@ body {
     z-index: 1;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     animation: titlePulseGlow 4s infinite alternate ease-in-out;
+    cursor: pointer;
+    user-select: none;
 }
-
 @keyframes titlePulseGlow {
     0% {
         transform: translateX(-50%) scale(1);

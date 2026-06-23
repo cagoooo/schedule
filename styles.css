@@ -1,4 +1,4 @@
-﻿/* ===== 通用工具類別 ===== */
+/* ===== 通用工具類別 ===== */
 .hidden {
     display: none !important;
 }
@@ -141,6 +141,8 @@ body {
     z-index: 1;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     animation: titlePulseGlow 4s infinite alternate ease-in-out;
+    cursor: pointer;
+    user-select: none;
 }
 
 @keyframes titlePulseGlow {
