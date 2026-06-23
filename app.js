@@ -21,6 +21,12 @@ const announcementsCollection = db.collection('roomAnnouncements');
 let firestoreCacheReady = false;
 let firestoreCacheError = null;
 
+// v2.50.8: 前端記憶體快取，儲存已加載的預約資料以實現「秒切換」
+// 格式： { "room:queryStart:queryEnd": { bookings: [...], timestamp: Date.now() } }
+let bookingsCache = {};
+let monthBookingsCache = {};
+const CACHE_TTL = 3 * 60 * 1000; // 快取有效時間 3 分鐘
+
 (function initFirestorePersistence() {
     db.enablePersistence({ synchronizeTabs: true })
         .then(() => {
@@ -498,25 +504,47 @@ function renderSkeleton() {
 /**
  * 從 Firestore 載入預約資料
  */
-async function loadBookingsFromFirebase() {
+async function loadBookingsFromFirebase(forceRefresh = false) {
     if (isLoading) return;
+
+    if (forceRefresh) {
+        bookingsCache = {};
+    }
+
+    let queryStart, queryEnd;
+
+    if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
+        queryStart = formatDate(rangeStartDate);
+        queryEnd = formatDate(rangeEndDate);
+    } else {
+        queryStart = formatDate(currentWeekStart);
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(currentWeekStart.getDate() + 6);
+        queryEnd = formatDate(weekEnd);
+    }
+
+    const room = getSelectedRoom();
+    const cacheKey = `${room}:${queryStart}:${queryEnd}`;
+
+    // 1. 檢查記憶體快取 (Memory Cache) 是否命中
+    if (bookingsCache[cacheKey] && (Date.now() - bookingsCache[cacheKey].timestamp < CACHE_TTL)) {
+        console.log(`[Memory Cache HIT] ${cacheKey} (${bookingsCache[cacheKey].bookings.length} bookings)`);
+        bookings = bookingsCache[cacheKey].bookings;
+
+        // 載入場地不開放設定
+        await loadRoomSettings(room);
+        renderCalendar();
+
+        // 默默預加載其他教室
+        triggerRoomPrefetch(queryStart, queryEnd);
+        return;
+    }
+
+    // 2. 快取未命中，顯示 Skeleton 並發起 Firestore 查詢
     isLoading = true;
     renderSkeleton();
 
     try {
-        let queryStart, queryEnd;
-
-        if (displayMode === 'range' && rangeStartDate && rangeEndDate) {
-            queryStart = formatDate(rangeStartDate);
-            queryEnd = formatDate(rangeEndDate);
-        } else {
-            queryStart = formatDate(currentWeekStart);
-            const weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(currentWeekStart.getDate() + 6);
-            queryEnd = formatDate(weekEnd);
-        }
-
-        const room = getSelectedRoom();
         // v2.42.0: 透過 statsTrackedGet 收集快取命中率
         const snapshot = await statsTrackedGet(
             bookingsCollection
@@ -532,6 +560,12 @@ async function loadBookingsFromFirebase() {
             bookings.push({ ...data, id: doc.id, room: bookingRoom });
         });
 
+        // 寫入記憶體快取
+        bookingsCache[cacheKey] = {
+            bookings: bookings,
+            timestamp: Date.now()
+        };
+
         // v2.42.0: 若是快取資料, 提示使用者 (debug 用, 不打擾)
         if (snapshot.metadata?.fromCache) {
             console.log(`[Cache HIT] ${queryStart} ~ ${queryEnd} loaded from IndexedDB (${bookings.length} bookings)`);
@@ -541,12 +575,71 @@ async function loadBookingsFromFirebase() {
         await loadRoomSettings(room);
 
         renderCalendar();
+
+        // 默默預加載其他教室
+        triggerRoomPrefetch(queryStart, queryEnd);
     } catch (error) {
         console.error('載入預約資料失敗:', error);
         showToast('載入資料失敗，請重新整理頁面', 'error');
     } finally {
         isLoading = false;
     }
+}
+
+// v2.50.8: 低優先級背景預加載其他教室當週/當前範圍的預約資料
+let prefetchTimeoutId = null;
+function triggerRoomPrefetch(queryStart, queryEnd) {
+    if (prefetchTimeoutId) clearTimeout(prefetchTimeoutId);
+
+    // 延遲 2.5 秒執行，避開使用者初次進入時的網路高載期，低優先級靜默載入
+    prefetchTimeoutId = setTimeout(async () => {
+        const roomSelect = document.getElementById('roomSelect');
+        if (!roomSelect) return;
+
+        const allRooms = Array.from(roomSelect.options).map(opt => opt.value);
+        const currentRoom = getSelectedRoom();
+        
+        console.log('[PWA Prefetch] Starting background prefetch for other rooms...');
+        
+        for (const roomName of allRooms) {
+            if (roomName === currentRoom) continue;
+
+            const cacheKey = `${roomName}:${queryStart}:${queryEnd}`;
+            // 若快取已存在且未過期，不再重複預載
+            if (bookingsCache[cacheKey] && (Date.now() - bookingsCache[cacheKey].timestamp < CACHE_TTL)) {
+                continue;
+            }
+
+            try {
+                // 發起 Firestore 查詢，透過 SDK IndexedDB 或是 Server
+                const snapshot = await statsTrackedGet(
+                    bookingsCollection
+                        .where('room', '==', roomName)
+                        .where('date', '>=', queryStart)
+                        .where('date', '<=', queryEnd)
+                );
+
+                const roomBookings = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const bookingRoom = data.room || '禮堂';
+                    roomBookings.push({ ...data, id: doc.id, room: bookingRoom });
+                });
+
+                bookingsCache[cacheKey] = {
+                    bookings: roomBookings,
+                    timestamp: Date.now()
+                };
+                console.log(`[PWA Prefetch] Prefetched ${roomName} successfully (${roomBookings.length} bookings)`);
+
+                // 每次預載完一間教室，稍微延遲 200ms 以分散連線負擔
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+                console.warn(`[PWA Prefetch] Failed to prefetch ${roomName}:`, err);
+            }
+        }
+        console.log('[PWA Prefetch] Background prefetch completed.');
+    }, 2500);
 }
 
 /**
@@ -564,8 +657,11 @@ function getSelectedRoom() {
 /**
  * 載入整月預約資料
  */
-async function loadMonthBookings() {
-    renderSkeleton();
+async function loadMonthBookings(forceRefresh = false) {
+    if (forceRefresh) {
+        monthBookingsCache = {};
+    }
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
 
@@ -575,6 +671,21 @@ async function loadMonthBookings() {
     const queryStart = formatDate(firstDay);
     const queryEnd = formatDate(lastDay);
     const room = getSelectedRoom();
+    const cacheKey = `${room}:${queryStart}:${queryEnd}`;
+
+    // 1. 檢查記憶體快取 (Memory Cache) 是否命中
+    if (monthBookingsCache[cacheKey] && (Date.now() - monthBookingsCache[cacheKey].timestamp < CACHE_TTL)) {
+        console.log(`[Memory Cache HIT] Month ${cacheKey} (${monthBookingsCache[cacheKey].bookings.length} bookings)`);
+        monthBookings = monthBookingsCache[cacheKey].bookings;
+
+        // 載入場地不開放設定
+        await loadRoomSettings(room);
+        renderMonthCalendar();
+        return;
+    }
+
+    // 2. 快取未命中，顯示 Skeleton 並發起 Firestore 查詢
+    renderSkeleton();
 
     try {
         // v2.42.0: 透過 statsTrackedGet 收集快取命中率
@@ -591,6 +702,12 @@ async function loadMonthBookings() {
             const bookingRoom = data.room || '禮堂'; // 正規化場地
             monthBookings.push({ ...data, id: doc.id, room: bookingRoom });
         });
+
+        // 寫入記憶體快取
+        monthBookingsCache[cacheKey] = {
+            bookings: monthBookings,
+            timestamp: Date.now()
+        };
 
         if (snapshot.metadata?.fromCache) {
             console.log(`[Cache HIT] Month ${queryStart}~${queryEnd} from IndexedDB`);
@@ -1331,6 +1448,11 @@ async function submitBooking() {
     }
 
     const room = document.getElementById('modalRoomSelect').value;
+    if (!room) {
+        showToast('請選擇預約場地', 'warning');
+        highlightInvalidField('modalRoomSelect');
+        return;
+    }
 
     // 整合預約日期：主日期 + 批次日期
     let datesToBook = [selectedDate];
@@ -1447,7 +1569,7 @@ async function submitBooking() {
             updateSelectedDatesDisplay();
         }
 
-        await loadBookingsFromFirebase();
+        await loadBookingsFromFirebase(true);
         closeBookingModal();
 
         const msg = datesToBook.length > 1
@@ -1592,7 +1714,7 @@ async function executeDeleteBooking() {
             });
         }
 
-        await loadBookingsFromFirebase();
+        await loadBookingsFromFirebase(true);
         closeDeleteModal();
         showToast('已取消預約', 'success');
 
@@ -1636,7 +1758,7 @@ async function undoRecentBookings(bookingIds) {
         const batch = db.batch();
         bookingIds.forEach(id => batch.delete(bookingsCollection.doc(id)));
         await batch.commit();
-        await loadBookingsFromFirebase();
+        await loadBookingsFromFirebase(true);
         showToast(`已撤銷 ${bookingIds.length} 筆預約`, 'info');
 
         // v2.43.0 (1.8): 稽核日誌 - 撤銷
@@ -2637,8 +2759,16 @@ async function loadStatsData() {
         const displayEl = document.getElementById('statsRoomNameDisplay');
         if (displayEl) displayEl.textContent = room;
 
-        // 僅查詢當前選擇場地的資料
-        const snapshot = await bookingsCollection.where('room', '==', room).get();
+        const today = new Date();
+        const statsStartDate = new Date();
+        statsStartDate.setDate(today.getDate() - 365);
+        const statsStartDateStr = formatDate(statsStartDate);
+
+        // 僅查詢當前選擇場地且最近一年內的資料
+        const snapshot = await bookingsCollection
+            .where('room', '==', room)
+            .where('date', '>=', statsStartDateStr)
+            .get();
 
         if (snapshot.empty) {
             showToast('該場地沒有預約資料', 'warning');
@@ -2658,7 +2788,6 @@ async function loadStatsData() {
         const bookerStats = {};
 
         // 統計本月趨勢
-        const today = new Date();
         const currentMonthStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}`;
         const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
         const trendStats = {};
@@ -5030,7 +5159,7 @@ async function executeBatchCancel() {
             await batch.commit();
         }
 
-        await loadBookingsFromFirebase();
+        await loadBookingsFromFirebase(true);
         await loadHistoryData();
         toggleBatchSelectMode(); // 結束批次模式
         showToast(`✅ 已批次取消 ${successCount} 筆預約`, 'success');

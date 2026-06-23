@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.50.6</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.50.8</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.50.6">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.50.7';
+            const APP_VERSION = 'v2.50.8';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -27,6 +27,9 @@
                 navigator.serviceWorker.register('./sw.js')
                     .then(function (registration) {
                         console.log(`[PWA] SW registered, app version: ${APP_VERSION}`);
+
+                        // v2.50.8: 初始化手動更新與強刷功能
+                        initForceCheckUpdate(registration);
 
                         // (A) 若已有 waiting 的新版 SW (例如剛重整) → 立即顯示通知
                         if (registration.waiting && navigator.serviceWorker.controller) {
@@ -148,6 +151,66 @@
                 banner.querySelector('.btn-pwa-update-later').addEventListener('click', function () {
                     banner.classList.remove('show');
                     setTimeout(function () { banner.remove(); }, 400);
+                });
+            }
+
+            // v2.50.8: 手動檢查更新與強制清空快取
+            let updateClickCount = 0;
+            let updateClickTimeout = null;
+
+            function initForceCheckUpdate(registration) {
+                const btn = document.getElementById('btnForceCheckUpdate');
+                if (!btn) return;
+
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation(); // 阻止冒泡
+                    updateClickCount++;
+
+                    // 如果連點 5 次
+                    if (updateClickCount >= 5) {
+                        clearTimeout(updateClickTimeout);
+                        updateClickCount = 0;
+                        if (confirm('⚠️ 確定要強制清除瀏覽器快取並重新整理嗎？\n這將完全重設 Service Worker 與本地快取。')) {
+                            showToast('正在強制清除快取並重載...', 'info');
+                            if ('caches' in window) {
+                                caches.keys().then(function (names) {
+                                    return Promise.all(names.map(function (name) {
+                                        return caches.delete(name);
+                                    }));
+                                }).then(function () {
+                                    window.location.reload(true);
+                                }).catch(function () {
+                                    window.location.reload(true);
+                                });
+                            } else {
+                                window.location.reload(true);
+                            }
+                        }
+                        return;
+                    }
+
+                    // 重設連點計數
+                    clearTimeout(updateClickTimeout);
+                    updateClickTimeout = setTimeout(function () {
+                        updateClickCount = 0;
+                    }, 2000);
+
+                    // 執行一般的檢查更新
+                    showToast('正在檢查更新...', 'info');
+                    registration.update()
+                        .then(function () {
+                            // registration.update() 本身如果發現新版會觸發 updatefound 事件
+                            // 如果沒發現新版，我們等 1.5 秒提示「目前已是最新版本」以增強回饋
+                            setTimeout(function () {
+                                if (!registration.installing && !registration.waiting) {
+                                    showToast('目前已是最新版本', 'success');
+                                }
+                            }, 1500);
+                        })
+                        .catch(function (err) {
+                            console.warn('[PWA] Manual update check failed:', err);
+                            showToast('檢查更新失敗，請稍後再試', 'error');
+                        });
                 });
             }
         })();
@@ -1412,8 +1475,11 @@
         </div>
     </div>
 
-    <!-- v2.50.6: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
-    <div class="design-stamp" aria-hidden="true">v2.50.6 · Pine · Compact</div>
+    <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
+    <div class="design-stamp" id="designStamp">
+        v2.50.8 · Pine · Compact
+        <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
+    </div>
 </body>
 
 </html>

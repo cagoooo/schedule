@@ -1,6 +1,6 @@
-// Service Worker v2.50.7 - 🚀 優化週月視圖與統計查詢載入速度，新增標題點擊回首頁
-const CACHE_NAME = 'booking-system-v2.50.7';
-const APP_VERSION = 'v2.50.7';
+// Service Worker v2.50.8 - ⚡ 引入預快取實現場地秒切換，新增PWA手動更新與強刷重載
+const CACHE_NAME = 'booking-system-v2.50.8';
+const APP_VERSION = 'v2.50.8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
