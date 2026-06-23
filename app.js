@@ -4089,43 +4089,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let deferredPrompt;
 
+// 檢查是否應該顯示安裝提示
+function shouldShowInstallPrompt() {
+    // 1. 檢查是否已安裝
+    if (localStorage.getItem('pwaInstalled') === 'true') {
+        return false;
+    }
+    
+    // 2. 檢查是否在 30 天內點擊過「稍後再說」
+    const dismissedTime = localStorage.getItem('pwaInstallDismissedTime');
+    if (dismissedTime) {
+        const DISMISS_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 天
+        if (Date.now() - parseInt(dismissedTime, 10) < DISMISS_DURATION) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
     // 防止 Chrome 67 及更早版本自動顯示安裝提示
     e.preventDefault();
     // 儲存事件以便稍後觸發
     deferredPrompt = e;
-    // 更新 UI 通知使用者可以安裝 (檢查是否已 dismissed)
-    if (!sessionStorage.getItem('pwaDismissed')) {
-        showInstallPromotion();
+    
+    // 檢查是否應該顯示安裝提示
+    if (shouldShowInstallPrompt()) {
+        // 延遲 6 秒後再顯示，避免使用者一進入頁面就跳出提示，改善使用體驗
+        setTimeout(showInstallPromotion, 6000);
     }
 });
 
 function showInstallPromotion() {
+    // 再次確認，防範在延遲的 6 秒內狀態發生改變或 prompt 消失
+    if (!shouldShowInstallPrompt() || !deferredPrompt) return;
+
     const prompt = document.getElementById('pwa-install-prompt');
     const btnInstall = document.getElementById('btnPwaInstall');
     const btnDismiss = document.getElementById('btnPwaDismiss');
 
     if (prompt) {
+        // 移除 hidden 並確保 dismissed 類別不存在
         prompt.classList.remove('hidden');
+        prompt.classList.remove('dismissed');
 
-        // 安裝按鈕
-        btnInstall.addEventListener('click', async () => {
+        // 安裝按鈕 (使用 onclick 覆寫，避免重複綁定 listener)
+        btnInstall.onclick = async () => {
             prompt.classList.add('hidden');
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response to the install prompt: ${outcome}`);
-            deferredPrompt = null;
-        });
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                if (outcome === 'accepted') {
+                    localStorage.setItem('pwaInstalled', 'true');
+                }
+                deferredPrompt = null;
+            }
+        };
 
-        // 稍後再說按鈕
-        btnDismiss.addEventListener('click', () => {
+        // 稍後再說按鈕 (使用 onclick 覆寫，避免重複綁定 listener)
+        btnDismiss.onclick = () => {
             prompt.classList.add('dismissed');
-            // 存入 SessionStorage，本次會話不再顯示
-            sessionStorage.setItem('pwaDismissed', 'true');
+            // 存入 localStorage，30 天內不再顯示
+            localStorage.setItem('pwaInstallDismissedTime', Date.now().toString());
             setTimeout(() => {
                 prompt.classList.add('hidden');
+                prompt.classList.remove('dismissed');
             }, 600); // 等待動畫結束
-        });
+        };
     }
 }
 
@@ -4134,6 +4166,8 @@ window.addEventListener('appinstalled', () => {
     if (prompt) {
         prompt.classList.add('hidden');
     }
+    // 記住已安裝狀態
+    localStorage.setItem('pwaInstalled', 'true');
     // 清除 deferredPrompt
     deferredPrompt = null;
     console.log('PWA was installed');
