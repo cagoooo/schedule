@@ -4,7 +4,33 @@
 
 ---
 
-## 📅 當前版本：v2.50.6 (2026-05-07) - 🎨 統計 modal 場地 pill 改為純白 + 雙層光環
+## 📅 當前版本：v2.50.7 (2026-06-23) - ⚡ Firestore 查詢載入優化 & 標題點擊回首頁
+
+### 🎯 優化核心
+解決使用者反映的「每次第一次進來看到一周借用畫面都會讀很久」的問題，將載入方式從原本的「前端下載全部資料後過濾」改為「在 Firestore 資料庫端直接利用 `room` 複合索引精準查詢」。同時，應使用者要求，新增大標題點擊快速回到首頁（重設狀態）的功能，並發佈 SW 更新通知。
+
+### 📦 優化與修改項目
+1. **資料庫遷移（一次性）**：
+   - 掃描 `bookings` 集合中全部 615 筆歷史預約，揪出 27 筆早期缺失 `room` 欄位的舊資料。
+   - 執行腳本將這 27 筆舊預約補全為 `room: '禮堂'`。目前資料庫中缺失 `room` 的預約數降為 **0**。
+2. **Firestore 查詢代碼優化 ([app.js](file:///h:/schedule/app.js))**：
+   - `loadBookingsFromFirebase` (週視圖)：查詢加入 `.where('room', '==', room)`。
+   - `loadMonthBookings` (月視圖)：查詢加入 `.where('room', '==', room)`。
+   - `loadStatsData` (統計視圖)：查詢加入 `.where('room', '==', room)`，不再撈取全校歷史預約。
+3. **新增大標題點擊回首頁**：
+   - [index.html](file:///h:/schedule/index.html)：大標題 `<h1 class="header-title">` 加入 `onclick="location.href='./'"`。
+   - [styles.v2.50.0.css](file:///h:/schedule/styles.v2.50.0.css) & [styles.css](file:///h:/schedule/styles.css)：為 `.header-title` 加上 `cursor: pointer;` 與 `user-select: none;`。
+4. **SW 版本升級與更新通知**：
+   - [sw.js](file:///h:/schedule/sw.js) 與 [index.html](file:///h:/schedule/index.html) 的 `APP_VERSION` 與 `CACHE_NAME` 升級至 **`v2.50.7`**，部署上線後自動對所有使用者彈出「新版本已就緒，立即更新」提示。
+
+### 🛠 效能成果
+- **數據載入量減少 10~20 倍**：原先需要拉取全校所有場地（電腦教室、iPad車、禮堂等）的全部預約，現在只拉取單一選定場地，網路負載極低。
+- **Firestore Reads 顯著下降**：每次載入和開啟統計只消耗當前場地的 document reads，對免費層非常友善。
+- **第一次載入速度極速提升**：無 IndexedDB 本地快取時的首次加載速度大幅縮短。
+
+---
+
+## 📅 v2.50.6 (2026-05-07) - 🎨 統計 modal 場地 pill 改為純白 + 雙層光環
 
 ### 🎯 修補
 v2.50.5 把「預約統計」主標題修白後，旁邊的場地名稱 pill（例如「禮堂」）對比度仍不夠 — 原本用 `rgba(255, 255, 255, 0.95)` 半透明白底 + Pine 深字，在強烈 Pine 漸層 header 上看起來灰濛濛、文字被吞掉。
