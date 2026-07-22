@@ -1469,17 +1469,33 @@ exports.sentryWebhook = onRequest(
 
         try {
             const body = req.body || {};
-            const ev = body.event || {};
+            // 支援兩種來源格式:
+            //  (1) legacy webhook: 欄位直接在 body / body.event
+            //  (2) Internal Integration: body.action + body.data.issue (issue webhook)
+            //      或 body.data.event (event_alert webhook)
+            const action = body.action || null;
+            const issue = (body.data && body.data.issue) || null;
+            const ev = (body.data && body.data.event) || body.event || {};
 
-            // Sentry legacy webhook 欄位 (盡量容錯抓取)
-            const level = (body.level || ev.level || 'error').toUpperCase();
-            const project = body.project_name || body.project || ev.project || 'schedule';
-            const environment = ev.environment || 'unknown';
-            const title = ev.title || body.message || ev.metadata?.value || ev.metadata?.type || '未知錯誤';
-            const culprit = body.culprit || ev.culprit || '';
-            const issueUrl = body.url || ev.web_url || ev.url || 'https://smes.sentry.io/issues/';
+            // Internal Integration 的 issue webhook 會在 created/resolved/assigned/ignored... 都觸發,
+            // 只在「新建 issue」時通知,忽略其他狀態變更
+            if (issue && action && action !== 'created') {
+                logger.info('[sentryWebhook] 略過非 created 的 issue 事件', { action });
+                return res.status(200).json({ ok: true, skipped: 'action:' + action });
+            }
+
+            const src = issue || ev; // 統一資料來源
+            const level = String(src.level || body.level || 'error').toUpperCase();
+            const project = (issue && issue.project && (issue.project.slug || issue.project.name))
+                || body.project_name || body.project || ev.project || 'schedule';
+            const environment = ev.environment || src.environment || 'unknown';
+            const title = src.title || body.message || (ev.metadata && ev.metadata.value)
+                || (src.metadata && (src.metadata.value || src.metadata.type)) || '未知錯誤';
+            const culprit = src.culprit || body.culprit || ev.culprit || '';
+            const issueUrl = (issue && issue.permalink) || body.url || ev.web_url || ev.url
+                || 'https://smes.sentry.io/issues/';
             // 去重用的 issue id (欄位在不同版本可能不同)
-            const issueId = String(body.id || ev.issue_id || ev.groupID || ev.event_id || title);
+            const issueId = String((issue && issue.id) || body.id || ev.issue_id || ev.groupID || ev.event_id || title);
 
             // 只在 production 環境推播 (本機 development 的錯誤不吵管理員)
             if (environment === 'development') {
