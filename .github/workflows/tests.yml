@@ -21,8 +21,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      # 用 npm install 而非 npm ci:
+      # Windows 產生的 lockfile 會缺 linux 平台 optional 套件的傳遞依賴 (npm 已知跨平台 bug),
+      # npm ci 嚴格比對必炸; 測試用 workflow 不需嚴格 reproducibility
       - name: Install deps 📦
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run unit tests 🧪
         run: npm test
