@@ -4,7 +4,42 @@
 
 ---
 
-## 📅 當前版本：v2.51.1 (2026-07-22) - 🛡 F.3 Sentry 前端錯誤監控上線 (P0-3)
+## 📅 當前版本：v2.52.0 (2026-07-22) - 🔧 修 SW 更新無限迴圈 + 🗄 L.5 資料庫健康卡 + 🧹 T.1 新學期小掃除
+
+### 🎯 本版重點
+使用者回報「SW 更新橫幅一直跳、按了『立即更新』還是一直出現」——這是線上 bug，本版優先修復；同時完成第二輪 P0 的 T.1（新學期小掃除）與 L.5（資料庫健康卡）。
+
+### 🐛 修復：SW 更新橫幅無限迴圈（最高優先）
+**症狀**：更新橫幅反覆彈出，點「立即更新」後重整又出現，陷入迴圈。
+
+**根因（三個疊加）**：
+1. **致命 — 盲目 3 秒 `reload()` 保險絲**：舊版點更新後若 `controllerchange` 沒在 3 秒內觸發（skipWaiting 慢、或多分頁擋住接管），會在**舊 SW 還在控制時**強制 reload → 重整後新 SW 仍卡 waiting → 又跳 banner → 再按 → 又 3 秒 reload → 緊密無限迴圈。
+2. **缺 `updateViaCache:'none'`**：瀏覽器可能拿 HTTP 快取的舊 sw.js，`update()` 反覆誤判。
+3. **雙 reload 來源競爭**：`controllerchange` 與 `SW_ACTIVATED` 訊息都會 reload，互相打架。
+
+**修法（[index.html](file:///h:/schedule/index.html) PWA 更新區塊）**：
+- ✅ `register('./sw.js', { updateViaCache: 'none' })` — 每次從網路抓 sw.js，繞過 HTTP 快取。
+- ✅ **移除盲目 3 秒 reload**，改為 8 秒**智慧保險絲**：先判斷 SW 是否真的換手（waiting 已消失才 reload；還在則再送一次 SKIP_WAITING），絕不在舊 SW 還控制時 reload。
+- ✅ **`sessionStorage` 一次性「剛更新」記號**：點「立即更新」→ 設記號 → 重整後該次不跳初始 banner，**徹底打斷 click→reload→banner 迴圈**（下次真有新版仍正常提示）。
+- ✅ **點擊當下才重查 `swReg.waiting`**（不用可能過期的 worker 參考，skill favicon-pwa-starter 規則 G）。
+- ✅ `SW_ACTIVATED` 訊息降為只記 log，reload 統一由 `controllerchange` 一個來源負責（含 isReloading guard）。
+
+**本機 http server 實測驗證**：① 首次更新 banner 跳一次 ✓ ② 點「立即更新」→ 換手 reload → banner **不再出現** ✓ ③ 之後再模擬部署 → banner 正常再跳 ✓。
+
+### 🗄 新增：L.5 資料庫健康卡 (P0-3)
+- 儀表板「總覽」頁底新增「資料庫健康」卡：**預約總筆數 / 本學期筆數 / 本學年筆數(年增量) / 最舊紀錄日期**。
+- 註：現行 Firebase compat SDK (10.7.1) **不支援 `count()` 聚合查詢**（實測 `.count is not a function`），為避免升級核心 SDK 的風險，改用「**單次全表讀取 + client 端計算**」：一次 `.get()` 就把四個指標一起算出（admin-only、~660 筆，成本可接受），並加 5 分鐘快取。
+- 卡片下方連結至 [DATA_RETENTION.md](file:///h:/schedule/DATA_RETENTION.md) 資料保留政策。
+- 實測：總 660 / 本學期(114學年下學期) 642 / 本學年 642 / 最舊 2026/02/04 ✓。
+
+### 🧹 新增：T.1 新學期小掃除 (P0-1)
+- 移除 [index.html](file:///h:/schedule/index.html) 寫死的「（可預約範圍為 2025/08/01 ~ 2026/01/31）」舊學期死碼（該元素執行時本就被清空，屬殘留死碼）；`dateHint` 元素保留供 app.js 動態使用。
+- 清除 meta description 殘留的 `v2.50.6` 舊版號。
+- 場地清單與不開放時段：經確認 115 學年**維持現狀不調整**。
+
+---
+
+## 📅 v2.51.1 (2026-07-22) - 🛡 F.3 Sentry 前端錯誤監控上線 (P0-3)
 
 ### 🎯 優化核心
 接入 Sentry 前端錯誤監控 — roadmap 放了三個月的長期第一名（F.3）。從此老師端發生的 JS 錯誤會自動上報到 Sentry 後台，不再依賴老師口頭回報「怪怪的」。開學人流高峰前的最後一道保險。

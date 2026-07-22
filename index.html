@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.51.1</title>
-    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.50.6">
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.52.0</title>
+    <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.51.1',
+                release: 'v2.52.0',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,21 +38,36 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.51.1';
+            const APP_VERSION = 'v2.52.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
+            const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
+            let swReg = null; // v2.52.0: 保存 registration，點擊當下才重查 waiting
 
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('./sw.js')
+                // v2.52.0: updateViaCache:'none' → 每次都從網路抓 sw.js，繞過瀏覽器 HTTP 快取，
+                // 避免 update() 拿到舊 sw.js 反覆誤判 (skill trap #14)
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
                     .then(function (registration) {
                         console.log(`[PWA] SW registered, app version: ${APP_VERSION}`);
+                        swReg = registration;
 
                         // v2.50.8: 初始化手動更新與強刷功能
                         initForceCheckUpdate(registration);
 
+                        // v2.52.0: 若這次載入是「剛按過立即更新」→ 消掉記號，本次不跳初始 banner，
+                        // 徹底打斷 click → reload → banner → click 的緊密迴圈
+                        // (注意：僅抑制「本次載入的初始 banner」，後面的 updatefound/定期檢查照常註冊)
+                        let suppressInitialBanner = false;
+                        if (sessionStorage.getItem(JUST_UPDATED_KEY)) {
+                            sessionStorage.removeItem(JUST_UPDATED_KEY);
+                            suppressInitialBanner = true;
+                            console.log('[PWA] Just updated — initial banner suppressed for this load');
+                        }
+
                         // (A) 若已有 waiting 的新版 SW (例如剛重整) → 立即顯示通知
-                        if (registration.waiting && navigator.serviceWorker.controller) {
-                            showUpdateBanner(registration.waiting);
+                        if (!suppressInitialBanner && registration.waiting && navigator.serviceWorker.controller) {
+                            showUpdateBanner();
                         }
 
                         // (B) 監聽 updatefound: 新版 SW 開始安裝
@@ -65,7 +80,7 @@
                                 if (newWorker.state === 'installed') {
                                     if (navigator.serviceWorker.controller) {
                                         // 有 controller 表示「有舊版被替換」→ 顯示更新通知
-                                        showUpdateBanner(newWorker);
+                                        showUpdateBanner();
                                     } else {
                                         // 第一次安裝 (沒有舊版)
                                         console.log('[PWA] First install, no banner needed');
@@ -97,12 +112,13 @@
                     triggerReload('controllerchange');
                 });
 
-                // (F) v2.41.6: 備援方案 - SW 主動推 SW_ACTIVATED 訊息
-                // 即使 controllerchange 不觸發 (例如多分頁/瀏覽器策略), 仍能 reload
+                // (F) v2.52.0: SW_ACTIVATED 只記 log，不再觸發 reload
+                // 過去這裡與 controllerchange「雙來源」都會 reload，兩者競爭是迴圈成因之一；
+                // 現在統一由 controllerchange 一個來源負責 reload (含 isReloading guard)，
+                // 換手若真沒觸發 controllerchange，則由 showUpdateBanner 的智慧 fallback 收尾。
                 navigator.serviceWorker.addEventListener('message', function (event) {
                     if (event.data && event.data.type === 'SW_ACTIVATED') {
-                        console.log('[PWA] Received SW_ACTIVATED message, reloading...');
-                        triggerReload('SW_ACTIVATED message');
+                        console.log('[PWA] SW_ACTIVATED received:', event.data.version);
                     }
                 });
             });
@@ -119,9 +135,10 @@
 
             /**
              * 顯示版本更新通知 banner (右下方滑入)
-             * @param {ServiceWorker} newWorker
+             * v2.52.0: 不再接收 worker 參數 — 一律在「點擊當下」重查 swReg.waiting，
+             *          避免多次部署後 worker 參考過期 (skill favicon-pwa-starter 規則 G)
              */
-            function showUpdateBanner(newWorker) {
+            function showUpdateBanner() {
                 // 避免重複建立
                 if (document.getElementById('pwaUpdateBanner')) return;
 
@@ -153,17 +170,40 @@
                     banner.classList.add('updating');
                     banner.querySelector('.pwa-update-title').textContent = '更新中…';
                     banner.querySelector('.pwa-update-desc').textContent = '頁面即將自動重新載入';
-                    // 通知 SW 立即接管 → controllerchange / SW_ACTIVATED 會觸發 reload
-                    newWorker.postMessage('SKIP_WAITING');
 
-                    // v2.41.6: 保險絲 - 若 3 秒內無事件觸發 reload, 強制 reload
-                    // (避免某些瀏覽器/多分頁情境下事件不觸發, 使用者卡在「更新中」)
+                    // v2.52.0: 標記「這次是主動更新」→ 重整後抑制初始 banner，打斷迴圈
+                    try { sessionStorage.setItem(JUST_UPDATED_KEY, APP_VERSION); } catch (e) { /* 隱私模式可能失敗 */ }
+
+                    // v2.52.0: 點擊當下才重查 waiting worker（不用可能過期的參考）
+                    const waiting = swReg && swReg.waiting;
+                    if (waiting) {
+                        // 通知該 waiting SW 立即接管 → clients.claim() 觸發 controllerchange → reload
+                        waiting.postMessage('SKIP_WAITING');
+                    } else {
+                        // 沒有 waiting（可能已被其他分頁 skip，或狀態已變）→ 直接重整拿最新版
+                        console.log('[PWA] No waiting worker at click, reloading directly');
+                        triggerReload('no-waiting-at-click');
+                        return;
+                    }
+
+                    // v2.52.0: 智慧保險絲（取代舊的「盲目 3 秒 reload」迴圈元兇）
+                    // 8 秒後若仍沒 reload，先判斷 SW 是否已真的換手，避免在舊 SW 還在控制時就 reload：
+                    //   - waiting 已消失 = 換手成功但 controllerchange 沒觸發 → 補 reload
+                    //   - waiting 還在 = 再送一次 SKIP_WAITING，最後才 reload
                     setTimeout(function () {
-                        if (!isReloading) {
-                            console.warn('[PWA] No event fired within 3s, force reloading...');
-                            triggerReload('3s timeout fallback');
+                        if (isReloading) return;
+                        if (swReg && !swReg.waiting) {
+                            triggerReload('fallback: waiting cleared');
+                        } else if (swReg && swReg.waiting) {
+                            console.warn('[PWA] Still waiting after 8s, retry SKIP_WAITING');
+                            swReg.waiting.postMessage('SKIP_WAITING');
+                            setTimeout(function () {
+                                if (!isReloading) triggerReload('fallback: last resort');
+                            }, 3000);
+                        } else {
+                            triggerReload('fallback: no registration');
                         }
-                    }, 3000);
+                    }, 8000);
                 });
 
                 // 「稍後」按鈕 (淡出但 30 分鐘後會自動再出現)
@@ -396,7 +436,8 @@
                     </button>
                 </div>
             </div>
-            <p class="date-hint" id="dateHint">（可預約範圍為 2025/08/01 ~ 2026/01/31）</p>
+            <!-- v2.52.0 (T.1): 移除寫死的舊學期範圍文字，元素保留供 app.js 動態使用 -->
+            <p class="date-hint" id="dateHint"></p>
             <!-- 進階搜尋區塊 -->
             <div class="search-panel">
                 <div class="search-input-wrapper">
@@ -1084,6 +1125,30 @@
                             <div class="bar-chart" id="dashTrendChart"></div>
                         </div>
                     </div>
+
+                    <!-- v2.52.0 (L.5): 資料庫健康卡 -->
+                    <div class="dashboard-section">
+                        <h4 class="section-title">🗄 資料庫健康</h4>
+                        <div class="data-health-grid" id="dataHealthGrid">
+                            <div class="data-health-item">
+                                <span class="dh-value" id="dhTotalBookings">--</span>
+                                <span class="dh-label">預約總筆數</span>
+                            </div>
+                            <div class="data-health-item">
+                                <span class="dh-value" id="dhSemesterBookings">--</span>
+                                <span class="dh-label" id="dhSemesterLabel">本學期筆數</span>
+                            </div>
+                            <div class="data-health-item">
+                                <span class="dh-value" id="dhSchoolYearBookings">--</span>
+                                <span class="dh-label">本學年筆數(年增量)</span>
+                            </div>
+                            <div class="data-health-item">
+                                <span class="dh-value" id="dhOldestDate">--</span>
+                                <span class="dh-label">最舊紀錄日期</span>
+                            </div>
+                        </div>
+                        <p class="data-health-note" id="dataHealthNote">依 <a href="https://github.com/cagoooo/schedule/blob/main/DATA_RETENTION.md" target="_blank" rel="noopener">資料保留政策</a>：保留 3 學年，每年 7 月底執行學期封存匯出。</p>
+                    </div>
                 </div> <!-- End tab-overview -->
 
                 <div id="tab-audit" class="tab-content" style="display:none;">
@@ -1552,7 +1617,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.51.1 · Pine · Compact
+        v2.52.0 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>

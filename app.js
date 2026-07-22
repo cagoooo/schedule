@@ -2122,12 +2122,69 @@ async function loadDashboardData() {
         document.getElementById('dashUpdateTime').textContent =
             `最後更新：${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
+        // 7. v2.52.0 (L.5): 資料庫健康卡 (非同步載入，不阻塞主要儀表板)
+        loadDataHealth();
+
     } catch (error) {
         console.error('載入儀表板失敗:', error);
         showToast('載入失敗', 'error');
     } finally {
         refreshBtn.disabled = false;
         refreshBtn.textContent = '重新整理';
+    }
+}
+
+// v2.52.0 (L.5): 資料健康卡快取 (5 分鐘)，避免同一次開儀表板重複全表讀取
+let _dataHealthCache = null;
+let _dataHealthCacheTime = 0;
+
+/**
+ * v2.52.0 (L.5): 載入資料庫健康卡
+ * 註：目前 Firebase compat SDK (10.7.1) 不支援 count() 聚合查詢，
+ *     故改用「單次全表讀取 + client 端計算」— 對 admin-only、資料量小 (~數百筆) 完全足夠，
+ *     且是無 count() 情況下最省的做法 (只讀一次，四個指標一起算出)。
+ */
+async function loadDataHealth() {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+    try {
+        const semester = getSemesterRange(0);
+        const schoolYear = getSchoolYearRange();
+
+        // 學期標籤
+        const labelEl = document.getElementById('dhSemesterLabel');
+        if (labelEl) labelEl.textContent = `${semester.label}筆數`;
+
+        // 5 分鐘快取
+        let stats;
+        if (_dataHealthCache && (Date.now() - _dataHealthCacheTime) < 5 * 60 * 1000) {
+            stats = _dataHealthCache;
+        } else {
+            const snap = await bookingsCollection.get();
+            let total = 0, semCount = 0, yearCount = 0, oldest = null;
+            snap.forEach(doc => {
+                total++;
+                const date = doc.data().date;
+                if (!date) return;
+                if (date >= semester.start && date <= semester.end) semCount++;
+                if (date >= schoolYear.start && date <= schoolYear.end) yearCount++;
+                if (oldest === null || date < oldest) oldest = date;
+            });
+            stats = { total, semCount, yearCount, oldest };
+            _dataHealthCache = stats;
+            _dataHealthCacheTime = Date.now();
+        }
+
+        setVal('dhTotalBookings', stats.total.toLocaleString());
+        setVal('dhSemesterBookings', stats.semCount.toLocaleString());
+        setVal('dhSchoolYearBookings', stats.yearCount.toLocaleString());
+        setVal('dhOldestDate', stats.oldest || '無資料');
+    } catch (error) {
+        console.warn('[DataHealth] 載入失敗:', error);
+        const grid = document.getElementById('dataHealthGrid');
+        if (grid) grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">資料健康統計暫時無法載入</p>';
     }
 }
 
