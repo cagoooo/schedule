@@ -109,6 +109,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ===== v2.53.0 (P1-5): 通知偏好 (on/off 布林, 非敏感) =====
+    match /notifPrefs/{deviceId} {
+      // 前端讀取自己的偏好以顯示勾選狀態 (內容僅 on/off, 無敏感資訊)
+      allow read: if true;
+      // 寫入強制 deviceId == 文件 key
+      allow create, update: if request.resource.data.deviceId == deviceId
+        && request.resource.data.deviceId is string
+        && request.resource.data.keys().size() <= 5;
+      allow delete: if true;
+    }
+
     // ===== v2.53.0 (P1-1): Web Push 訂閱 =====
     match /webPushSubscriptions/{deviceId} {
       // 僅 Cloud Function 讀取 (發送推播); 前端不可讀他人訂閱

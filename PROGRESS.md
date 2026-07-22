@@ -4,7 +4,25 @@
 
 ---
 
-## 📅 當前版本：v2.53.0 (2026-07-22) - 📢 P1-1 Web Push 瀏覽器通知
+## 📅 當前版本：v2.53.1 (2026-07-22) - 🎛 P1-5 通知偏好設定中心
+
+### 🎯 優化核心
+老師可自選要收到哪些通知，**同時作用於 LINE 與瀏覽器通知**兩個管道。預設全開，不影響既有使用者行為。
+
+### 📦 實作內容
+1. **偏好項目**：「預約成功確認」(onCreate)、「取消／被異動通知」(onCancel)，放在「我的預約」彈窗內。
+2. **儲存**：`notifPrefs/{deviceId}`（[app.js](file:///h:/schedule/app.js) `loadNotifPrefs`/`saveNotifPrefs`）；勾選變更即存，預設未設定 = 開。
+3. **後端閘控**（[functions/index.js](file:///h:/schedule/functions/index.js)）：新增 `getNotifPrefs(deviceId)`（預設全開）；`notifyOnBookingCreate` 依 `onCreate`、`notifyOnBookingUpdate`/`notifyOnBookingDelete` 依 `onCancel`，**同時閘控 LINE booker 推播與 Web Push**（房間觀察者/管理員告警不受影響）。
+4. **Firestore rules**：`notifPrefs` 內容僅 on/off 布林（非敏感）允許讀取；寫入強制 `deviceId == 文件 key`。
+
+### ✅ 驗證（本機 http server + 真實 Firestore，完整可驗）
+- 預設無設定 → 兩項皆勾（全開）。
+- 取消勾「建立確認」→ Firestore 正確存 `onCreate:false, onCancel:true`。
+- 重新載入 → 正確反映已存狀態（onCreate 維持未勾）。
+
+---
+
+## 📅 v2.53.0 (2026-07-22) - 📢 P1-1 Web Push 瀏覽器通知
 
 ### 🎯 優化核心
 補足**沒綁 LINE** 的老師的通知管道：開啟瀏覽器通知後，預約成功/被取消/被管理員強刪時，直接推播到該裝置的瀏覽器，不必綁 LINE。

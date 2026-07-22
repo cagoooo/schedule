@@ -1,6 +1,6 @@
-// Service Worker v2.53.0 - 📢 P1-1 Web Push 瀏覽器通知 (push/notificationclick handler)
-const CACHE_NAME = 'booking-system-v2.53.0';
-const APP_VERSION = 'v2.53.0';
+// Service Worker v2.53.1 - 🎛 P1-5 通知偏好設定中心 (閘控 LINE 與 Web Push)
+const CACHE_NAME = 'booking-system-v2.53.1';
+const APP_VERSION = 'v2.53.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

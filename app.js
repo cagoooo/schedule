@@ -3690,6 +3690,49 @@ function openMyBookingsModal() {
     document.getElementById('myBookingsModalOverlay').classList.add('active');
     loadMyBookings();
     refreshWebPushStatus();
+    loadNotifPrefs();
+}
+
+// ===== v2.53.0 (P1-5): 通知偏好 =====
+
+/**
+ * 載入本裝置的通知偏好 (預設全開)
+ */
+async function loadNotifPrefs() {
+    const cbCreate = document.getElementById('prefOnCreate');
+    const cbCancel = document.getElementById('prefOnCancel');
+    if (!cbCreate || !cbCancel) return;
+    try {
+        const doc = await db.collection('notifPrefs').doc(getDeviceId()).get();
+        const d = doc.exists ? (doc.data() || {}) : {};
+        cbCreate.checked = d.onCreate !== false;
+        cbCancel.checked = d.onCancel !== false;
+    } catch (e) {
+        cbCreate.checked = true;
+        cbCancel.checked = true;
+    }
+}
+
+/**
+ * 儲存通知偏好 (勾選變更時)
+ */
+async function saveNotifPrefs() {
+    const cbCreate = document.getElementById('prefOnCreate');
+    const cbCancel = document.getElementById('prefOnCancel');
+    if (!cbCreate || !cbCancel) return;
+    const deviceId = getDeviceId();
+    try {
+        await db.collection('notifPrefs').doc(deviceId).set({
+            deviceId,
+            onCreate: cbCreate.checked,
+            onCancel: cbCancel.checked,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        showToast('已更新通知偏好', 'success');
+    } catch (e) {
+        console.error('[NotifPrefs] 儲存失敗:', e);
+        showToast('偏好儲存失敗', 'error');
+    }
 }
 
 // ===== v2.53.0 (P1-1): Web Push 瀏覽器通知 =====
@@ -3989,6 +4032,11 @@ function initHistoryEventListeners() {
     // v2.53.0 (P1-1): 瀏覽器通知開關
     const webPushBtn = document.getElementById('webPushToggle');
     if (webPushBtn) webPushBtn.addEventListener('click', toggleWebPush);
+    // v2.53.0 (P1-5): 通知偏好勾選
+    const prefC = document.getElementById('prefOnCreate');
+    const prefX = document.getElementById('prefOnCancel');
+    if (prefC) prefC.addEventListener('change', saveNotifPrefs);
+    if (prefX) prefX.addEventListener('change', saveNotifPrefs);
     const btnMyClose = document.getElementById('btnMyBookingsClose');
     if (btnMyClose) btnMyClose.addEventListener('click', closeMyBookingsModal);
     const myOverlay = document.getElementById('myBookingsModalOverlay');

@@ -52,6 +52,26 @@ const VAPID_PUBLIC_KEY = 'BKj5fZ1qLjaZ7bu9u9F9ywyrqAGXHuwApi_rxEXcJfXIckUCB8rJXo
 const VAPID_SUBJECT = 'mailto:ipad@mail2.smes.tyc.edu.tw';
 
 /**
+ * v2.53.0 (P1-5): 讀取裝置的通知偏好 (預設全開, 保留既有行為)
+ * @returns {{onCreate:boolean, onCancel:boolean}}
+ */
+async function getNotifPrefs(deviceId) {
+    const fallback = { onCreate: true, onCancel: true };
+    if (!deviceId) return fallback;
+    try {
+        const doc = await db.collection('notifPrefs').doc(deviceId).get();
+        if (!doc.exists) return fallback;
+        const d = doc.data() || {};
+        return {
+            onCreate: d.onCreate !== false, // 未設定 = 開
+            onCancel: d.onCancel !== false,
+        };
+    } catch (e) {
+        return fallback;
+    }
+}
+
+/**
  * v2.53.0 (P1-1): 推送 Web Push 給指定裝置 (若該裝置有訂閱)
  * 訂閱失效 (404/410) 時自動刪除
  */
@@ -1049,9 +1069,11 @@ exports.notifyOnBookingCreate = onDocumentCreated(
 
         // 單筆預約: 既有邏輯
         const lineUserId = await getBoundLineUserId(booking.deviceId);
+        // v2.53.0 (P1-5): 讀取通知偏好 (預約者本人的建立確認)
+        const prefs = await getNotifPrefs(booking.deviceId);
 
-        // 1. 推給預約者本人 (若已綁定)
-        if (lineUserId) {
+        // 1. 推給預約者本人 (若已綁定 且 未關閉「建立確認」)
+        if (lineUserId && prefs.onCreate) {
             const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'created');
             await pushFlexToUser(
                 lineUserId,
@@ -1059,7 +1081,7 @@ exports.notifyOnBookingCreate = onDocumentCreated(
                 accessToken,
                 `預約建立 ${booking.room} ${booking.date}`
             );
-        } else {
+        } else if (!lineUserId) {
             logger.info(`[notifyOnBookingCreate] 預約 ${bookingId} 未綁定 LINE,跳過 booker 推播`);
         }
 
@@ -1072,11 +1094,13 @@ exports.notifyOnBookingCreate = onDocumentCreated(
         );
 
         // 3. v2.53.0 (P1-1): Web Push 給預約者本人的裝置 (若有訂閱, 補足未綁 LINE 者)
-        await sendWebPushToDevice(booking.deviceId, {
-            title: '✅ 預約成功',
-            body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
-            url: 'https://cagoooo.github.io/schedule/',
-        }, VAPID_PRIVATE_KEY.value());
+        if (prefs.onCreate) {
+            await sendWebPushToDevice(booking.deviceId, {
+                title: '✅ 預約成功',
+                body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+                url: 'https://cagoooo.github.io/schedule/',
+            }, VAPID_PRIVATE_KEY.value());
+        }
     }
 );
 
@@ -1103,10 +1127,13 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
 
         const bookingId = event.params.bookingId;
         const accessToken = LINE_ACCESS_TOKEN.value();
-        const lineUserId = await getBoundLineUserId(before.deviceId || after.deviceId);
+        const bookerDeviceId = before.deviceId || after.deviceId;
+        const lineUserId = await getBoundLineUserId(bookerDeviceId);
+        // v2.53.0 (P1-5): 通知偏好 (取消/異動)
+        const prefs = await getNotifPrefs(bookerDeviceId);
 
-        // 1. 推給預約者本人 (若已綁定)
-        if (lineUserId) {
+        // 1. 推給預約者本人 (若已綁定 且 未關閉「取消/異動」)
+        if (lineUserId && prefs.onCancel) {
             const flex = createBookingFlexMessage({ ...before, id: bookingId }, 'cancelled');
             await pushFlexToUser(
                 lineUserId,
@@ -1114,7 +1141,7 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
                 accessToken,
                 `預約取消 ${before.room} ${before.date}`
             );
-        } else {
+        } else if (!lineUserId) {
             logger.info(`[notifyOnBookingUpdate] ${bookingId} 取消但未綁定 booker`);
         }
 
@@ -1127,11 +1154,13 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
         );
 
         // 3. v2.53.0 (P1-1): Web Push 給預約者裝置 (取消最有價值 — 人不在畫面前也會知道)
-        await sendWebPushToDevice(before.deviceId || after.deviceId, {
-            title: '❌ 預約已取消',
-            body: `${before.room}｜${before.date}｜${formatPeriods(before.periods)}`,
-            url: 'https://cagoooo.github.io/schedule/',
-        }, VAPID_PRIVATE_KEY.value());
+        if (prefs.onCancel) {
+            await sendWebPushToDevice(bookerDeviceId, {
+                title: '❌ 預約已取消',
+                body: `${before.room}｜${before.date}｜${formatPeriods(before.periods)}`,
+                url: 'https://cagoooo.github.io/schedule/',
+            }, VAPID_PRIVATE_KEY.value());
+        }
     }
 );
 
@@ -1157,9 +1186,11 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
         const bookingId = event.params.bookingId;
         const accessToken = LINE_ACCESS_TOKEN.value();
         const lineUserId = await getBoundLineUserId(booking.deviceId);
+        // v2.53.0 (P1-5): 通知偏好 (取消/異動)
+        const prefs = await getNotifPrefs(booking.deviceId);
 
-        // 1. 推給預約者本人 (若已綁定)
-        if (lineUserId) {
+        // 1. 推給預約者本人 (若已綁定 且 未關閉「取消/異動」)
+        if (lineUserId && prefs.onCancel) {
             const flex = createBookingFlexMessage({ ...booking, id: bookingId }, 'force_deleted');
             await pushFlexToUser(
                 lineUserId,
@@ -1167,7 +1198,7 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
                 accessToken,
                 `預約強刪 ${booking.room} ${booking.date}`
             );
-        } else {
+        } else if (!lineUserId) {
             logger.info(`[notifyOnBookingDelete] ${bookingId} 強刪但 booker 未綁定`);
         }
 
@@ -1180,11 +1211,13 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
         );
 
         // 3. v2.53.0 (P1-1): Web Push 給預約者裝置
-        await sendWebPushToDevice(booking.deviceId, {
-            title: '⚠️ 預約已被管理員取消',
-            body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
-            url: 'https://cagoooo.github.io/schedule/',
-        }, VAPID_PRIVATE_KEY.value());
+        if (prefs.onCancel) {
+            await sendWebPushToDevice(booking.deviceId, {
+                title: '⚠️ 預約已被管理員取消',
+                body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+                url: 'https://cagoooo.github.io/schedule/',
+            }, VAPID_PRIVATE_KEY.value());
+        }
     }
 );
 
