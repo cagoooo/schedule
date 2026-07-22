@@ -15,7 +15,7 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
-const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
@@ -1217,6 +1217,64 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
                 body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
                 url: 'https://cagoooo.github.io/schedule/',
             }, VAPID_PRIVATE_KEY.value());
+        }
+    }
+);
+
+// ==========================================================================
+// Function #6.5 (v2.54.0 / P1-3): trackBookingChanges — 預約編輯歷史 Edit Trail
+// 後端自動記錄每筆 bookings 文件的欄位級變更 (前端繞不過、不可偽造)
+// created / updated (含 before→after diff) / deleted 皆寫入 editTrail
+// ==========================================================================
+
+exports.trackBookingChanges = onDocumentWritten(
+    { document: 'bookings/{bookingId}', region: 'asia-east1' },
+    async (event) => {
+        const before = event.data?.before?.exists ? event.data.before.data() : null;
+        const after = event.data?.after?.exists ? event.data.after.data() : null;
+        const bookingId = event.params.bookingId;
+
+        let changeType;
+        const changes = {};
+
+        if (!before && after) {
+            changeType = 'created';
+        } else if (before && !after) {
+            changeType = 'deleted';
+        } else if (before && after) {
+            changeType = 'updated';
+            // 欄位級 diff (只追蹤有意義的欄位)
+            const FIELDS = ['date', 'room', 'periods', 'booker', 'reason'];
+            for (const f of FIELDS) {
+                const b = JSON.stringify(before[f] === undefined ? null : before[f]);
+                const a = JSON.stringify(after[f] === undefined ? null : after[f]);
+                if (b !== a) {
+                    changes[f] = {
+                        before: before[f] === undefined ? null : before[f],
+                        after: after[f] === undefined ? null : after[f],
+                    };
+                }
+            }
+            // 無實質欄位變更 (例如僅系統欄位) → 不記
+            if (Object.keys(changes).length === 0) return;
+        } else {
+            return;
+        }
+
+        const snap = after || before;
+        try {
+            await db.collection('editTrail').add({
+                bookingId,
+                changeType,
+                changes,
+                room: snap.room || '',
+                date: snap.date || '',
+                booker: snap.booker || '',
+                deviceId: snap.deviceId || null,
+                changedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (e) {
+            logger.error('[editTrail] 寫入失敗', e);
         }
     }
 );

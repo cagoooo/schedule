@@ -5093,3 +5093,177 @@ body {
     color: var(--text-muted, #94998F);
     margin-left: auto;
 }
+
+
+/* ===== v2.54.0 (P1-3): 預約異動履歷 Edit Trail ===== */
+.edittrail-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+}
+
+.edittrail-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted, #94998F);
+    margin: 0;
+}
+
+.edittrail-filter {
+    padding: 8px 12px;
+    border: 1.5px solid var(--border-color, #E1DECF);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    max-width: 340px;
+    background: var(--card-bg, #fff);
+    color: var(--text-primary, #162622);
+}
+
+.edittrail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+.edittrail-item {
+    background: var(--card-bg, #fff);
+    border: 1.5px solid var(--border-color, #E1DECF);
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+}
+
+.edittrail-item.et-created { border-left-color: #4caf50; }
+.edittrail-item.et-updated { border-left-color: #ff9800; }
+.edittrail-item.et-deleted { border-left-color: #f44336; }
+
+.et-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.et-type {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary-dark, #163A2F);
+    flex-shrink: 0;
+}
+
+.et-summary {
+    font-size: 0.85rem;
+    color: var(--text-primary, #162622);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.et-time {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted, #94998F);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.et-change {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+}
+
+.et-field {
+    background: var(--primary-soft, #eaf3ef);
+    color: var(--primary-dark, #163A2F);
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 1px 8px;
+    flex-shrink: 0;
+}
+
+.et-before {
+    color: var(--text-muted, #94998F);
+    text-decoration: line-through;
+}
+
+.et-arrow { color: var(--text-muted, #94998F); }
+
+.et-after {
+    color: var(--primary-dark, #163A2F);
+    font-weight: 700;
+}
+
+.edittrail-empty {
+    text-align: center;
+    color: var(--text-muted, #94998F);
+    padding: 1.5rem;
+    font-size: 0.9rem;
+}
+
+
+/* ===== v2.54.0 (P1-7): 成就徽章 ===== */
+.mybookings-achievements {
+    margin-bottom: 1.1rem;
+}
+
+.achievements-title {
+    font-size: 0.98rem;
+    color: var(--primary-dark, #163A2F);
+    margin: 0 0 0.5rem;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+}
+
+.achievement {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    background: var(--card-bg, #fff);
+    border: 1.5px solid var(--border-color, #E1DECF);
+    border-radius: 12px;
+    padding: 0.6rem 0.3rem;
+    text-align: center;
+    transition: transform 0.15s ease;
+}
+
+.achievement.unlocked {
+    border-color: var(--primary-color, #1F4D3F);
+    background: var(--primary-soft, #eaf3ef);
+}
+
+.achievement.unlocked:hover { transform: translateY(-2px); }
+
+.achievement.locked {
+    opacity: 0.55;
+    filter: grayscale(0.9);
+}
+
+.ach-icon { font-size: 1.5rem; line-height: 1; }
+
+.ach-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary-dark, #163A2F);
+}
+
+.ach-progress {
+    font-size: 0.7rem;
+    color: var(--text-muted, #94998F);
+    font-variant-numeric: tabular-nums;
+}
+
+.achievement.unlocked .ach-progress {
+    color: var(--primary-color, #1F4D3F);
+    font-weight: 700;
+}

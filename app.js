@@ -2083,6 +2083,8 @@ async function loadDashboardData() {
 
             if (tab.dataset.tab === 'audit') {
                 loadAuditLogs();
+            } else if (tab.dataset.tab === 'edittrail') {
+                loadEditTrail(); // v2.54.0 (P1-3)
             } else if (tab.dataset.tab === 'analytics') {
                 loadAdvancedAnalytics();
             }
@@ -3693,6 +3695,67 @@ function openMyBookingsModal() {
     loadNotifPrefs();
 }
 
+// ===== v2.54.0 (P1-7): 預約成就徽章 =====
+
+/**
+ * 依本裝置預約資料計算成就
+ * @returns {Array<{icon,name,desc,unlocked,progress}>}
+ */
+function computeAchievements(bookings) {
+    const total = bookings.length;
+    const rooms = new Set(bookings.map(b => b.room).filter(Boolean));
+    const morningCount = bookings.filter(b => (b.periods || []).includes('morning')).length;
+
+    // 連續週數: 取每筆預約所在週的週一為 key, 算最長連續串
+    const weekKeys = new Set();
+    bookings.forEach(b => {
+        if (!b.date) return;
+        const d = new Date(b.date.replace(/\//g, '-') + 'T00:00:00');
+        if (isNaN(d)) return;
+        const day = (d.getDay() + 6) % 7; // 週一=0
+        d.setDate(d.getDate() - day);
+        weekKeys.add(d.getTime());
+    });
+    const weeks = [...weekKeys].sort((a, b) => a - b);
+    let maxStreak = 0, cur = 0, prev = null;
+    const WEEK_MS = 7 * 24 * 3600 * 1000;
+    for (const w of weeks) {
+        cur = (prev !== null && w - prev === WEEK_MS) ? cur + 1 : 1;
+        maxStreak = Math.max(maxStreak, cur);
+        prev = w;
+    }
+
+    return [
+        { icon: '🌱', name: '初次預約', desc: '完成第 1 筆預約', unlocked: total >= 1, progress: `${Math.min(total, 1)}/1` },
+        { icon: '⭐', name: '熟門熟路', desc: '累積 10 筆預約', unlocked: total >= 10, progress: `${Math.min(total, 10)}/10` },
+        { icon: '🏅', name: '場地常客', desc: '累積 30 筆預約', unlocked: total >= 30, progress: `${Math.min(total, 30)}/30` },
+        { icon: '💯', name: '百約老師', desc: '累積 100 筆預約', unlocked: total >= 100, progress: `${Math.min(total, 100)}/100` },
+        { icon: '🗺️', name: '探索者', desc: '使用過 3 種場地', unlocked: rooms.size >= 3, progress: `${Math.min(rooms.size, 3)}/3` },
+        { icon: '🌈', name: '全場制霸', desc: '使用過 6 種場地', unlocked: rooms.size >= 6, progress: `${Math.min(rooms.size, 6)}/6` },
+        { icon: '🔥', name: '週週報到', desc: '連續 4 週都有預約', unlocked: maxStreak >= 4, progress: `${Math.min(maxStreak, 4)}/4 週` },
+        { icon: '🐓', name: '晨型老師', desc: '晨間時段預約 5 次', unlocked: morningCount >= 5, progress: `${Math.min(morningCount, 5)}/5` },
+    ];
+}
+
+/**
+ * 渲染成就徽章到「我的預約」
+ */
+function renderAchievements(bookings) {
+    const wrap = document.getElementById('myAchievements');
+    const grid = document.getElementById('achievementsGrid');
+    if (!wrap || !grid) return;
+    const list = computeAchievements(bookings);
+    const unlockedCount = list.filter(a => a.unlocked).length;
+    wrap.style.display = '';
+    wrap.querySelector('.achievements-title').textContent = `🏆 我的成就（${unlockedCount}/${list.length}）`;
+    grid.innerHTML = list.map(a => `
+        <div class="achievement ${a.unlocked ? 'unlocked' : 'locked'}" title="${a.desc}${a.unlocked ? '' : `（進度 ${a.progress}）`}">
+            <span class="ach-icon">${a.icon}</span>
+            <span class="ach-name">${a.name}</span>
+            <span class="ach-progress">${a.unlocked ? '✓ 達成' : a.progress}</span>
+        </div>`).join('');
+}
+
 // ===== v2.53.0 (P1-5): 通知偏好 =====
 
 /**
@@ -3866,6 +3929,8 @@ async function loadMyBookings() {
 
         if (bookings.length === 0) {
             summary.innerHTML = '';
+            const achEmpty = document.getElementById('myAchievements');
+            if (achEmpty) achEmpty.style.display = 'none'; // v2.54.0 (P1-7)
             content.innerHTML = `
                 <div class="mybookings-empty">
                     <div class="mybookings-empty-icon">🗓️</div>
@@ -3874,6 +3939,9 @@ async function loadMyBookings() {
                 </div>`;
             return;
         }
+
+        // v2.54.0 (P1-7): 成就徽章
+        renderAchievements(bookings);
 
         const todayStr = formatDate(new Date());
         const todayList = [];
@@ -4846,6 +4914,104 @@ function formatAuditDetails(log) {
             } catch { return ''; }
     }
 }
+
+// ===== v2.54.0 (P1-3): 預約異動履歷 (Edit Trail) =====
+
+let _editTrailData = []; // 快取供前端篩選
+
+/**
+ * 載入異動履歷 (最近 100 筆, 後端 Cloud Function 自動記錄)
+ */
+async function loadEditTrail() {
+    const listEl = document.getElementById('editTrailList');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="loading-spinner"></div>';
+    try {
+        const snap = await db.collection('editTrail')
+            .orderBy('changedAt', 'desc')
+            .limit(100)
+            .get();
+        _editTrailData = [];
+        snap.forEach(doc => _editTrailData.push({ id: doc.id, ...doc.data() }));
+        renderEditTrail();
+    } catch (e) {
+        console.error('[EditTrail] 載入失敗:', e);
+        listEl.innerHTML = '<p class="edittrail-empty">載入失敗（需管理員登入）</p>';
+    }
+}
+
+const EDIT_TRAIL_FIELD_NAMES = {
+    date: '日期', room: '場地', periods: '節次', booker: '預約人', reason: '事由',
+};
+
+function formatTrailValue(field, val) {
+    if (val === null || val === undefined || val === '') return '（空）';
+    if (field === 'periods' && Array.isArray(val)) {
+        if (val.length === 0) return '（全部取消）';
+        return val.map(p => PERIODS.find(x => x.id === p)?.name || p).join('、');
+    }
+    return String(val);
+}
+
+/**
+ * 渲染異動履歷 (支援關鍵字篩選)
+ */
+function renderEditTrail() {
+    const listEl = document.getElementById('editTrailList');
+    if (!listEl) return;
+    const keyword = (document.getElementById('editTrailFilter')?.value || '').trim().toLowerCase();
+
+    let items = _editTrailData;
+    if (keyword) {
+        items = items.filter(t =>
+            (t.room || '').toLowerCase().includes(keyword) ||
+            (t.booker || '').toLowerCase().includes(keyword) ||
+            (t.date || '').includes(keyword));
+    }
+
+    if (items.length === 0) {
+        listEl.innerHTML = '<p class="edittrail-empty">沒有符合的異動紀錄</p>';
+        return;
+    }
+
+    const TYPE_META = {
+        created: { icon: '🆕', label: '建立', cls: 'et-created' },
+        updated: { icon: '✏️', label: '變更', cls: 'et-updated' },
+        deleted: { icon: '🗑', label: '刪除', cls: 'et-deleted' },
+    };
+
+    listEl.innerHTML = items.map(t => {
+        const meta = TYPE_META[t.changeType] || { icon: '❓', label: t.changeType, cls: '' };
+        const time = t.changedAt?.toDate
+            ? t.changedAt.toDate().toLocaleString('zh-TW', { hour12: false })
+            : '—';
+        // updated: 欄位級 before → after
+        let changesHTML = '';
+        if (t.changeType === 'updated' && t.changes) {
+            changesHTML = Object.entries(t.changes).map(([field, c]) => `
+                <div class="et-change">
+                    <span class="et-field">${EDIT_TRAIL_FIELD_NAMES[field] || field}</span>
+                    <span class="et-before">${formatTrailValue(field, c.before)}</span>
+                    <span class="et-arrow">→</span>
+                    <span class="et-after">${formatTrailValue(field, c.after)}</span>
+                </div>`).join('');
+        }
+        return `
+            <div class="edittrail-item ${meta.cls}">
+                <div class="et-head">
+                    <span class="et-type">${meta.icon} ${meta.label}</span>
+                    <span class="et-summary">${t.room || ''}｜${t.date || ''}｜${t.booker || ''}</span>
+                    <span class="et-time">${time}</span>
+                </div>
+                ${changesHTML}
+            </div>`;
+    }).join('');
+}
+
+// v2.54.0 (P1-3): 異動履歷篩選框 (event delegation)
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'editTrailFilter') renderEditTrail();
+});
 
 async function loadAuditLogs() {
     const list = document.getElementById('auditLogList');

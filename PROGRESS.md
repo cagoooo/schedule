@@ -4,7 +4,27 @@
 
 ---
 
-## 📅 當前版本：v2.53.1 (2026-07-22) - 🎛 P1-5 通知偏好設定中心
+## 📅 當前版本：v2.54.0 (2026-07-22) - 📜 P1-3 預約異動履歷 + 🏆 P1-7 成就徽章
+
+### 📜 P1-3 預約異動履歷 (Edit Trail)
+每筆預約的建立／欄位變更／刪除，由**後端 Cloud Function 自動記錄**（前端繞不過、不可竄改）— 比既有前端寫入的 audit_logs 更可信。
+
+1. **Cloud Function `trackBookingChanges`**（[functions/index.js](file:///h:/schedule/functions/index.js)）：`onDocumentWritten(bookings)` 一支處理三種類型 — `created` / `updated`（date/room/periods/booker/reason **欄位級 before→after diff**，無實質變更不記）/ `deleted`，寫入 `editTrail` collection。
+2. **管理後台 UI**：視覺化數據中心新增「**📜 異動履歷**」tab — 最近 100 筆、類型色條（🆕綠/✏️橙/🗑紅）、變更欄位以「欄位名＋刪除線舊值→粗體新值」呈現、支援場地/預約人/日期即時篩選。
+3. **Firestore rules**：`editTrail` 僅管理員可讀、只有 Cloud Function 可寫。
+
+**端到端驗證**（真實 Firestore + REST API 讀回確認）：建立→改節次→取消→刪除，editTrail 精確記錄 `created`、`updated(periods diff)`×2、`deleted` 四筆 ✓。
+
+### 🏆 P1-7 預約成就徽章
+「我的預約」新增成就區，8 枚徽章提升黏著度（純 client 端計算，零後端成本）：
+🌱初次預約(1筆)、⭐熟門熟路(10筆)、🏅場地常客(30筆)、💯百約老師(100筆)、🗺️探索者(3種場地)、🌈全場制霸(6種場地)、🔥週週報到(連續4週)、🐓晨型老師(晨間5次)。
+已解鎖亮色、未解鎖灰階＋進度（如 12/30）；標題顯示達成數（n/8）。
+
+**驗證**：合成資料單元測試（門檻/連續週演算法全對）＋ 真實 deviceId UI 測試（9 筆單場地 → 正確僅解鎖「初次預約」1/8）✓。
+
+---
+
+## 📅 v2.53.1 (2026-07-22) - 🎛 P1-5 通知偏好設定中心
 
 ### 🎯 優化核心
 老師可自選要收到哪些通知，**同時作用於 LINE 與瀏覽器通知**兩個管道。預設全開，不影響既有使用者行為。

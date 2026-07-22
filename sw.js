@@ -1,6 +1,6 @@
-// Service Worker v2.53.1 - 🎛 P1-5 通知偏好設定中心 (閘控 LINE 與 Web Push)
-const CACHE_NAME = 'booking-system-v2.53.1';
-const APP_VERSION = 'v2.53.1';
+// Service Worker v2.54.0 - 📜 P1-3 預約異動履歷 + 🏆 P1-7 成就徽章
+const CACHE_NAME = 'booking-system-v2.54.0';
+const APP_VERSION = 'v2.54.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

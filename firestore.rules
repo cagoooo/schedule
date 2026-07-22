@@ -109,6 +109,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ===== v2.54.0 (P1-3): 預約編輯歷史 (僅 Cloud Function 寫入) =====
+    match /editTrail/{trailId} {
+      // 僅管理員可讀 (含 deviceId 等資訊)
+      allow read: if request.auth != null;
+      // 只能由 Cloud Function trackBookingChanges 寫入
+      allow write: if false;
+    }
+
     // ===== v2.53.0 (P1-5): 通知偏好 (on/off 布林, 非敏感) =====
     match /notifPrefs/{deviceId} {
       // 前端讀取自己的偏好以顯示勾選狀態 (內容僅 on/off, 無敏感資訊)
