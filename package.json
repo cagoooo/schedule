@@ -1,0 +1,15 @@
+{
+  "name": "schedule-tests",
+  "private": true,
+  "description": "禮堂&專科教室&IPAD平板車預約系統 — 自動化測試 (F.1 / P1-4)",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.10"
+  }
+}

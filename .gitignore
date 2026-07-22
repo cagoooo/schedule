@@ -18,3 +18,7 @@ functions/.env.local
 
 # Claude Code local settings
 .claude/
+
+# v2.55.x (P1-4): 測試產物
+test-results/
+playwright-report/

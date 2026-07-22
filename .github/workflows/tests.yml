@@ -1,0 +1,28 @@
+# v2.55.x (P1-4 / F.1): 單元測試 CI
+# 每次 push / PR 自動跑 vitest 單元測試 (35+ 測試: 學期換算/成就演算法/日期工具/VAPID解碼)
+# E2E (Playwright) 需要本機 config.js (Firebase 設定, 不在 repo) → 僅本機執行: npm run test:e2e
+name: Unit Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 📥
+        uses: actions/checkout@v4
+
+      - name: Setup Node ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps 📦
+        run: npm ci
+
+      - name: Run unit tests 🧪
+        run: npm test

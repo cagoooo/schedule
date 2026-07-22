@@ -4,6 +4,29 @@
 
 ---
 
+## 🧪 2026-07-23 P1-4 (F.1) 自動化測試建置（dev-only，無版本 bump）
+
+### 🎯 目標
+防止 v2.41.x「一天 9 個 hotfix」的回歸災難重演。P1 清單最後一項，**P1 全數完成**。
+
+### 📦 建置內容
+1. **Vitest 單元測試（35 個測試, 4 檔, ~1 秒跑完）**：
+   - 核心技巧：app.js 是無模組全域 script，[tests/unit/app-loader.mjs](file:///h:/schedule/tests/unit/app-loader.mjs) 用 `new Function` 沙箱 + chainable firebase mock 載入原始碼、撈出純函式。
+   - `semester.test.mjs`：台灣學制學期換算 — **8/1 與 2/1 邊界**、offset 回推、全學年（全系統日期敏感度最高的邏輯）。
+   - `achievements.test.mjs`：徽章門檻臨界值（9/10 vs 10/10）+ 連續週 streak（斷週、同週多筆、週日歸屬）。
+   - `dates.test.mjs`：formatDate/parseDate/getMonday（補零、互逆、週日→前週一）。
+   - `webpush-edittrail.test.mjs`：VAPID base64url 解碼（65 bytes/0x04）、履歷值格式化。
+2. **Playwright E2E 煙霧測試（6 個測試, chromium, ~25 秒）**：頁面載入/週曆渲染、我的預約（含通知開關+偏好+徽章區）、匯出區間彈窗（chips 切換+警語+自訂區間）、統計（預設本學期+摘要載入）、歷史（學期快速鍵載入）。**唯讀**操作真實 Firestore，不寫資料。
+   - 踩雷紀錄：SW 首次安裝 `clients.claim()` 觸發一次性 reload 會打斷測試彈窗 → E2E 統一擋掉 sw.js 註冊（SW 更新流程已於 v2.52.0 專項驗證）。
+3. **CI**：新增 [.github/workflows/tests.yml](file:///h:/schedule/.github/workflows/tests.yml) — 每次 push/PR 自動跑單元測試（獨立於部署 workflow，不影響現有部署）。E2E 因需本機 config.js 定位為本機執行。
+4. 新增根目錄 `package.json`（vitest/jsdom/@playwright/test devDeps）、`vitest.config.mjs`、`playwright.config.mjs`、[tests/README.md](file:///h:/schedule/tests/README.md)。
+
+### ✅ 結果
+- 單元測試 **35/35 通過**；E2E **6/6 通過**（本機實跑）。
+- 未動任何 runtime 程式碼 → 不需版本 bump。
+
+---
+
 ## 📅 當前版本：v2.55.0 (2026-07-22) - 🤖 P1-2(修正版) AI 替代方案推薦全面改良
 
 ### 🎯 需求修正說明
