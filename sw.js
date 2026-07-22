@@ -1,6 +1,6 @@
-// Service Worker v2.50.8 - ⚡ 引入預快取實現場地秒切換，新增PWA手動更新與強刷重載
-const CACHE_NAME = 'booking-system-v2.50.8';
-const APP_VERSION = 'v2.50.8';
+// Service Worker v2.51.0 - 🗄 L系列：匯出區間選擇、學期封存匯出、學期感知預設區間
+const CACHE_NAME = 'booking-system-v2.51.0';
+const APP_VERSION = 'v2.51.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -1,4 +1,4 @@
-/* ===== 通用工具類別 ===== */
+﻿/* ===== 通用工具類別 ===== */
 .hidden {
     display: none !important;
 }
@@ -9221,5 +9221,211 @@ body {
     #statsModalTitle svg {
         width: 20px;
         height: 20px;
+    }
+}
+
+
+/* ===== v2.51.0 (L 系列): 匯出區間彈窗 + 學期感知 chips ===== */
+
+.range-chip {
+    padding: 5px 14px;
+    border: 1.5px solid var(--border-color, #d8e0dc);
+    border-radius: 999px;
+    background: var(--card-bg, #fff);
+    color: var(--text-secondary, #4a5a54);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.range-chip:hover {
+    border-color: var(--primary-color, #1F4D3F);
+    color: var(--primary-dark, #163A2F);
+}
+
+.range-chip.active {
+    background: var(--primary-color, #1F4D3F);
+    border-color: var(--primary-color, #1F4D3F);
+    color: #fff;
+    font-weight: 700;
+}
+
+/* 匯出彈窗 */
+.export-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: var(--z-modal-primary, 2000);
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.export-modal-overlay.active {
+    display: flex;
+}
+
+.export-modal {
+    background: var(--card-bg, #fff);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.export-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--primary-gradient, linear-gradient(135deg, #1D5C48, #163A2F));
+    border-radius: 16px 16px 0 0;
+}
+
+.export-modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.btn-export-modal-close {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+}
+
+.btn-export-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.export-modal-body {
+    padding: 1.25rem;
+}
+
+.export-hint {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #4a5a54);
+    margin: 0 0 0.75rem;
+}
+
+.export-range-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.75rem;
+}
+
+.export-custom-range {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.export-custom-range input[type="date"] {
+    padding: 6px 10px;
+    border: 1.5px solid var(--border-color, #d8e0dc);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-primary, #21322c);
+    background: var(--card-bg, #fff);
+}
+
+.export-range-tilde {
+    color: var(--text-muted, #8a9a94);
+}
+
+.export-range-desc {
+    font-size: 0.85rem;
+    color: var(--primary-dark, #163A2F);
+    background: var(--primary-soft, #eaf3ef);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 0 0 1rem;
+    min-height: 1.2em;
+}
+
+.export-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.btn-export-run,
+.btn-export-archive {
+    flex: 1;
+    min-width: 150px;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-export-run {
+    background: var(--primary-color, #1F4D3F);
+    color: #fff;
+}
+
+.btn-export-run:hover {
+    background: var(--primary-dark, #163A2F);
+}
+
+.btn-export-archive {
+    background: var(--card-bg, #fff);
+    color: var(--primary-dark, #163A2F);
+    border: 2px solid var(--primary-color, #1F4D3F);
+}
+
+.btn-export-archive:hover {
+    background: var(--primary-soft, #eaf3ef);
+}
+
+.export-archive-note {
+    font-size: 0.8rem;
+    color: var(--text-muted, #8a9a94);
+    margin: 0.85rem 0 0;
+    line-height: 1.55;
+}
+
+/* 歷史彈窗學期 chips */
+.history-semester-chips {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+/* 統計彈窗區間 chips */
+.stats-range-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 600px) {
+    .export-actions {
+        flex-direction: column;
+    }
+    .btn-export-run,
+    .btn-export-archive {
+        min-width: 0;
     }
 }

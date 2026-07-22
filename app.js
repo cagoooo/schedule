@@ -2625,20 +2625,130 @@ function buildLeadTimeDistribution(bookings) {
     }).join('');
 }
 
-// ===== CSV 匯出功能 =====
+// ===== v2.51.0 (L.3): 台灣學制學期區間工具 =====
 
-async function exportToCSV() {
+/**
+ * 依台灣學制回傳學期區間 (上學期 8/1~翌年 1/31、下學期 2/1~7/31)
+ * @param {number} offset 0=本學期, -1=上一個學期, -2=上上學期...
+ * @returns {{label: string, start: string, end: string}} 日期為 YYYY/MM/DD 字串
+ */
+function getSemesterRange(offset = 0) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    // year = 學年起始西元年, half: 0=上學期, 1=下學期
+    let year, half;
+    if (m >= 8) { year = y; half = 0; }
+    else if (m === 1) { year = y - 1; half = 0; }
+    else { year = y - 1; half = 1; }
+    // 以「半學年」為單位套用 offset
+    const idx = year * 2 + half + offset;
+    year = Math.floor(idx / 2);
+    half = idx - year * 2;
+    const roc = year - 1911;
+    return half === 0
+        ? { label: `${roc}學年上學期`, start: `${year}/08/01`, end: `${year + 1}/01/31` }
+        : { label: `${roc}學年下學期`, start: `${year + 1}/02/01`, end: `${year + 1}/07/31` };
+}
+
+/**
+ * 回傳本學年完整區間 (8/1 ~ 翌年 7/31)
+ */
+function getSchoolYearRange() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const year = (today.getMonth() + 1 >= 8) ? y : y - 1;
+    return { label: `${year - 1911}學年(全學年)`, start: `${year}/08/01`, end: `${year + 1}/07/31` };
+}
+
+// ===== CSV 匯出功能 (v2.51.0 L.1/L.2: 區間選擇 + 學期封存匯出) =====
+
+/**
+ * 匯出入口：開啟區間選擇彈窗 (取代舊版直接全庫掃描)
+ */
+function exportToCSV() {
+    openExportModal();
+}
+
+let exportSelectedRange = 'current'; // current | previous | schoolYear | all | custom
+
+function openExportModal() {
+    const overlay = document.getElementById('exportModalOverlay');
+    if (!overlay) return;
+    exportSelectedRange = 'current';
+    overlay.querySelectorAll('.range-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.range === 'current');
+    });
+    document.getElementById('exportCustomRange').style.display = 'none';
+    updateExportRangeDesc();
+    overlay.classList.add('active');
+}
+
+function closeExportModal() {
+    const overlay = document.getElementById('exportModalOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+/**
+ * 將目前選取的匯出範圍換算為 {label, start, end}；全部歷史回傳 null 區間
+ */
+function resolveExportRange() {
+    switch (exportSelectedRange) {
+        case 'current': return getSemesterRange(0);
+        case 'previous': return getSemesterRange(-1);
+        case 'schoolYear': return getSchoolYearRange();
+        case 'all': return { label: '全部歷史', start: null, end: null };
+        case 'custom': {
+            const s = document.getElementById('exportStartDate').value;
+            const e = document.getElementById('exportEndDate').value;
+            if (!s || !e) return null;
+            const start = s.replace(/-/g, '/');
+            const end = e.replace(/-/g, '/');
+            if (start > end) return null;
+            return { label: `自訂 ${start}~${end}`, start, end };
+        }
+        default: return null;
+    }
+}
+
+function updateExportRangeDesc() {
+    const descEl = document.getElementById('exportRangeDesc');
+    if (!descEl) return;
+    const range = resolveExportRange();
+    if (!range) {
+        descEl.textContent = '⚠ 請選擇有效的起訖日期（起日不可晚於迄日）';
+        return;
+    }
+    descEl.textContent = range.start
+        ? `將匯出【${range.label}】 ${range.start} ~ ${range.end} 的預約資料`
+        : '⚠ 將掃描整個資料庫匯出全部歷史，資料量大時較耗時';
+}
+
+/**
+ * 執行匯出
+ * @param {boolean} archive true = 學期封存匯出 (CSV + JSON + 統計摘要)
+ */
+async function executeExport(archive = false) {
     try {
-        const confirmExport = confirm('確定要匯出所有歷史預約資料嗎？這可能需要一點時間。');
-        if (!confirmExport) return;
+        const range = resolveExportRange();
+        if (!range) {
+            showToast('請先選擇有效的日期區間', 'warning');
+            return;
+        }
 
-        showToast('正在準備匯出所有資料...', 'info');
+        showToast(`正在準備匯出【${range.label}】資料...`, 'info');
 
-        // 1. 獲取所有資料 (OrderBy Date Desc)
-        const snapshot = await bookingsCollection.orderBy('date', 'desc').get();
+        // 1. 獲取資料：有區間時走 (date range) 索引查詢，避免全庫掃描
+        let query = bookingsCollection.orderBy('date', 'desc');
+        if (range.start && range.end) {
+            query = query
+                .where('date', '>=', range.start)
+                .where('date', '<=', range.end);
+        }
+        const snapshot = await query.get();
 
         if (snapshot.empty) {
-            showToast('系統中沒有任何預約資料', 'warning');
+            showToast(`【${range.label}】沒有任何預約資料`, 'warning');
             return;
         }
 
@@ -2657,7 +2767,12 @@ async function exportToCSV() {
 
         const rows = [headers.join(',')];
 
-        // 3. Process Data
+        // 3. Process Data (同時為封存 JSON 蒐集原始資料與統計摘要)
+        const archiveBookings = [];
+        const summaryByRoom = {};
+        const summaryByMonth = {};
+        let summaryTotalPeriods = 0;
+
         snapshot.forEach(doc => {
             const data = doc.data();
 
@@ -2696,6 +2811,27 @@ async function exportToCSV() {
             ];
 
             rows.push(row.join(','));
+
+            // v2.51.0: 統計摘要累計 (供封存 JSON 使用)
+            summaryTotalPeriods += (data.periods || []).length;
+            summaryByRoom[roomName] = (summaryByRoom[roomName] || 0) + 1;
+            if (data.date) {
+                const monthKey = data.date.slice(0, 7); // YYYY/MM
+                summaryByMonth[monthKey] = (summaryByMonth[monthKey] || 0) + 1;
+            }
+
+            if (archive) {
+                archiveBookings.push({
+                    id: doc.id,
+                    date: data.date || '',
+                    room: roomName,
+                    periods: data.periods || [],
+                    booker: data.booker || '未知',
+                    reason: data.reason || '',
+                    createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+                    deviceId: data.deviceId || null
+                });
+            }
         });
 
         // 4. Generate & Download
@@ -2705,23 +2841,81 @@ async function exportToCSV() {
         const link = document.createElement('a');
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const safeLabel = range.label.replace(/[\\/:*?"<>|~]/g, '-');
         link.href = url;
-        link.download = `完整預約匯出_${timestamp}.csv`;
+        link.download = `預約匯出_${safeLabel}_${timestamp}.csv`;
 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
+        // v2.51.0 (L.1) 封存模式：加碼輸出 JSON (含統計摘要 + 原始資料)，作為學期永久備份
+        if (archive) {
+            const archiveJson = {
+                exportedAt: new Date().toISOString(),
+                system: '禮堂&專科教室&IPAD平板車預約系統',
+                range: { label: range.label, start: range.start, end: range.end },
+                summary: {
+                    totalBookings: snapshot.size,
+                    totalPeriods: summaryTotalPeriods,
+                    byRoom: summaryByRoom,
+                    byMonth: summaryByMonth
+                },
+                bookings: archiveBookings
+            };
+            const jsonBlob = new Blob([JSON.stringify(archiveJson, null, 2)], { type: 'application/json;charset=utf-8;' });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement('a');
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `學期封存_${safeLabel}_${timestamp}.json`;
+            document.body.appendChild(jsonLink);
+            jsonLink.click();
+            document.body.removeChild(jsonLink);
+            URL.revokeObjectURL(jsonUrl);
+        }
+
         // 5. Log Action
-        logSystemAction('EXPORT_CSV', { count: snapshot.size });
-        showToast(`✅ 成功匯出 ${snapshot.size} 筆完整資料`, 'success');
+        logSystemAction('EXPORT_CSV', { count: snapshot.size, range: range.label, archive: archive });
+        showToast(
+            archive
+                ? `✅ 已封存匯出【${range.label}】${snapshot.size} 筆 (CSV + JSON 摘要)`
+                : `✅ 成功匯出【${range.label}】${snapshot.size} 筆資料`,
+            'success'
+        );
+        closeExportModal();
 
     } catch (error) {
         console.error('匯出失敗:', error);
         showToast('❌ 匯出失敗: ' + error.message, 'error');
     }
 }
+
+// v2.51.0: 匯出彈窗事件綁定 (Event Delegation)
+document.addEventListener('click', (e) => {
+    // 區間 chips
+    const chip = e.target.closest('#exportRangeChips .range-chip');
+    if (chip) {
+        exportSelectedRange = chip.dataset.range;
+        document.querySelectorAll('#exportRangeChips .range-chip').forEach(c =>
+            c.classList.toggle('active', c === chip));
+        document.getElementById('exportCustomRange').style.display =
+            exportSelectedRange === 'custom' ? 'flex' : 'none';
+        updateExportRangeDesc();
+        return;
+    }
+    if (e.target.closest('#btnExportRunCSV')) { executeExport(false); return; }
+    if (e.target.closest('#btnExportRunArchive')) { executeExport(true); return; }
+    if (e.target.closest('#btnExportModalClose')) { closeExportModal(); return; }
+    // 點擊遮罩關閉
+    if (e.target.id === 'exportModalOverlay') { closeExportModal(); }
+});
+
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'exportStartDate' || e.target.id === 'exportEndDate') {
+        updateExportRangeDesc();
+    }
+});
 
 // ===== 統計功能 =====
 
@@ -2736,8 +2930,20 @@ const CHART_COLORS = [
  */
 function openStatsModal() {
     document.getElementById('statsModalOverlay').classList.add('active');
-    loadStatsData();
+    // v2.51.0 (L.3): 每次開啟重設為預設「本學期」
+    document.querySelectorAll('#statsRangeChips .range-chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.range === 'current'));
+    loadStatsData('current');
 }
+
+// v2.51.0 (L.3): 統計區間 chips 切換
+document.addEventListener('click', (e) => {
+    const chip = e.target.closest('#statsRangeChips .range-chip');
+    if (!chip) return;
+    document.querySelectorAll('#statsRangeChips .range-chip').forEach(c =>
+        c.classList.toggle('active', c === chip));
+    loadStatsData(chip.dataset.range);
+});
 
 /**
  * 關閉統計彈窗
@@ -2749,7 +2955,7 @@ function closeStatsModal() {
 /**
  * 載入統計資料並渲染圖表
  */
-async function loadStatsData() {
+async function loadStatsData(rangeKey = 'current') {
     try {
         showToast('正在載入統計資料...', 'info');
 
@@ -2760,18 +2966,34 @@ async function loadStatsData() {
         if (displayEl) displayEl.textContent = room;
 
         const today = new Date();
-        const statsStartDate = new Date();
-        statsStartDate.setDate(today.getDate() - 365);
-        const statsStartDateStr = formatDate(statsStartDate);
 
-        // 僅查詢當前選擇場地且最近一年內的資料
-        const snapshot = await bookingsCollection
+        // v2.51.0 (L.3): 學期感知區間 (預設本學期；near-year 為舊行為)
+        let statsStartDateStr, statsEndDateStr = null;
+        if (rangeKey === 'previous') {
+            const r = getSemesterRange(-1);
+            statsStartDateStr = r.start;
+            statsEndDateStr = r.end;
+        } else if (rangeKey === 'year365') {
+            const statsStartDate = new Date();
+            statsStartDate.setDate(today.getDate() - 365);
+            statsStartDateStr = formatDate(statsStartDate);
+        } else {
+            const r = getSemesterRange(0);
+            statsStartDateStr = r.start;
+            statsEndDateStr = r.end;
+        }
+
+        // 僅查詢當前選擇場地且指定區間內的資料
+        let statsQuery = bookingsCollection
             .where('room', '==', room)
-            .where('date', '>=', statsStartDateStr)
-            .get();
+            .where('date', '>=', statsStartDateStr);
+        if (statsEndDateStr) {
+            statsQuery = statsQuery.where('date', '<=', statsEndDateStr);
+        }
+        const snapshot = await statsQuery.get();
 
         if (snapshot.empty) {
-            showToast('該場地沒有預約資料', 'warning');
+            showToast('該場地在此區間沒有預約資料', 'warning');
             return;
         }
 
@@ -3399,18 +3621,27 @@ function closeHistoryModal() {
 /**
  * 載入歷史記錄資料
  */
-async function loadHistoryData() {
-    const monthInput = document.getElementById('historyMonth').value;
-    if (!monthInput) {
-        showToast('請選擇月份', 'warning');
-        return;
+async function loadHistoryData(rangeOverride = null) {
+    let startDate, endDate, rangeLabel;
+
+    if (rangeOverride && rangeOverride.start && rangeOverride.end) {
+        // v2.51.0 (L.3): 學期感知快速區間
+        startDate = rangeOverride.start;
+        endDate = rangeOverride.end;
+        rangeLabel = rangeOverride.label;
+    } else {
+        const monthInput = document.getElementById('historyMonth').value;
+        if (!monthInput) {
+            showToast('請選擇月份，或點選上方學期快速鍵', 'warning');
+            return;
+        }
+        const [year, month] = monthInput.split('-');
+        startDate = `${year}/${month}/01`;
+        endDate = `${year}/${month}/31`;
+        rangeLabel = `${year}/${month}`;
     }
 
-    const [year, month] = monthInput.split('-');
-    const startDate = `${year}/${month}/01`;
-    const endDate = `${year}/${month}/31`;
-
-    showToast('正在載入歷史記錄...', 'info');
+    showToast(`正在載入【${rangeLabel}】歷史記錄...`, 'info');
 
     try {
         const snapshot = await bookingsCollection
@@ -3463,7 +3694,30 @@ function initHistoryEventListeners() {
     document.getElementById('historyModalOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'historyModalOverlay') closeHistoryModal();
     });
-    document.getElementById('btnHistoryLoad').addEventListener('click', loadHistoryData);
+    document.getElementById('btnHistoryLoad').addEventListener('click', () => {
+        // 手動載入月份時，清掉學期 chips 的選取狀態
+        document.querySelectorAll('#historySemesterChips .range-chip').forEach(c => c.classList.remove('active'));
+        loadHistoryData();
+    });
+
+    // v2.51.0 (L.3): 學期感知快速區間 chips
+    const semesterChips = document.getElementById('historySemesterChips');
+    if (semesterChips) {
+        semesterChips.addEventListener('click', (e) => {
+            const chip = e.target.closest('.range-chip');
+            if (!chip) return;
+            semesterChips.querySelectorAll('.range-chip').forEach(c =>
+                c.classList.toggle('active', c === chip));
+            let range;
+            switch (chip.dataset.range) {
+                case 'current': range = getSemesterRange(0); break;
+                case 'previous': range = getSemesterRange(-1); break;
+                case 'schoolYear': range = getSchoolYearRange(); break;
+                default: return;
+            }
+            loadHistoryData(range);
+        });
+    }
 }
 
 // ===== 批次預約功能 =====

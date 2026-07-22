@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.50.8</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.51.0</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統 v2.50.6">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.50.8';
+            const APP_VERSION = 'v2.51.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             let isReloading = false;
 
@@ -642,6 +642,12 @@
                 </button>
             </div>
             <div class="stats-modal-body">
+                <!-- v2.51.0 (L.3): 統計區間切換 (預設本學期) -->
+                <div class="stats-range-chips" id="statsRangeChips">
+                    <button type="button" class="range-chip active" data-range="current">本學期</button>
+                    <button type="button" class="range-chip" data-range="previous">上學期</button>
+                    <button type="button" class="range-chip" data-range="year365">近一年</button>
+                </div>
                 <div class="stats-row">
                     <div class="stats-card pie-box">
                         <h4>
@@ -680,6 +686,50 @@
                     </div>
                 </div>
                 <div class="stats-summary" id="statsSummary"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v2.51.0 (L.1/L.2): 匯出區間選擇彈窗 -->
+    <div class="export-modal-overlay" id="exportModalOverlay">
+        <div class="export-modal">
+            <div class="export-modal-header">
+                <h3>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    匯出預約資料
+                </h3>
+                <button class="btn-export-modal-close" id="btnExportModalClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="export-modal-body">
+                <p class="export-hint">選擇匯出範圍（預設本學期，只讀取所需區間、不掃描整個資料庫）：</p>
+                <div class="export-range-chips" id="exportRangeChips">
+                    <button type="button" class="range-chip active" data-range="current">本學期</button>
+                    <button type="button" class="range-chip" data-range="previous">上學期</button>
+                    <button type="button" class="range-chip" data-range="schoolYear">本學年</button>
+                    <button type="button" class="range-chip" data-range="all">全部歷史</button>
+                    <button type="button" class="range-chip" data-range="custom">自訂區間</button>
+                </div>
+                <div class="export-custom-range" id="exportCustomRange" style="display:none;">
+                    <input type="date" id="exportStartDate">
+                    <span class="export-range-tilde">～</span>
+                    <input type="date" id="exportEndDate">
+                </div>
+                <p class="export-range-desc" id="exportRangeDesc"></p>
+                <div class="export-actions">
+                    <button type="button" class="btn-export-run" id="btnExportRunCSV">📥 匯出 CSV</button>
+                    <button type="button" class="btn-export-archive" id="btnExportRunArchive"
+                        title="CSV + JSON 雙格式，JSON 內含統計摘要，適合學期結束永久備份">📦 學期封存匯出</button>
+                </div>
+                <p class="export-archive-note">📦 封存匯出 = CSV + JSON 雙檔案，JSON 內含「總筆數 / 各場地 / 逐月」統計摘要，適合學期結束備份留存。<strong>只匯出、不會刪除任何資料。</strong></p>
             </div>
         </div>
     </div>
@@ -732,6 +782,12 @@
             </div>
             <div class="history-modal-body">
                 <div class="history-filters">
+                    <!-- v2.51.0 (L.3): 學期感知快速區間 -->
+                    <div class="history-semester-chips" id="historySemesterChips">
+                        <button type="button" class="range-chip" data-range="current">本學期</button>
+                        <button type="button" class="range-chip" data-range="previous">上學期</button>
+                        <button type="button" class="range-chip" data-range="schoolYear">本學年</button>
+                    </div>
                     <input type="month" id="historyMonth" class="history-month-input">
                     <button class="btn-history-load" id="btnHistoryLoad">載入</button>
                     <!-- v2.41.0 (M.2): 批次選取模式切換 -->
@@ -1477,7 +1533,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.50.8 · Pine · Compact
+        v2.51.0 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>
