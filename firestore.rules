@@ -103,6 +103,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ===== v2.52.0 (T.2): Sentry 告警去重鎖 (僅 Cloud Function 使用) =====
+    match /sentryAlerts/{alertId} {
+      // 前端完全無法存取 — 純 Cloud Function sentryWebhook 內部去重機制
+      allow read, write: if false;
+    }
+
     // ===== v2.46.0 (Phase 3): 排程提醒去重表 =====
     match /sentReminders/{reminderId} {
       // 只能由 Cloud Function (scheduledReminder) 寫入

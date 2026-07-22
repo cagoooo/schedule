@@ -43,6 +43,8 @@ const LINE_CHANNEL_SECRET = defineSecret('LINE_CHANNEL_SECRET');
 const LINE_ACCESS_TOKEN = defineSecret('LINE_ACCESS_TOKEN');
 // v2.48.0: Gemini API Key (用於 AI 學期白皮書文案撰寫)
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+// v2.52.0 (T.2): Sentry Webhook 共享密鑰 (驗證 webhook 來源, 防止偽造告警)
+const SENTRY_WEBHOOK_TOKEN = defineSecret('SENTRY_WEBHOOK_TOKEN');
 
 // ===== 工具函式 =====
 
@@ -1434,6 +1436,92 @@ exports.anomalyDetection = onSchedule(
         }
 
         logger.info(`[anomalyDetection] ✅ checked at ${new Date().toISOString()}`);
+    }
+);
+
+// ==========================================================================
+// Function #8.5 (v2.52.0 / T.2): sentryWebhook
+// 接收 Sentry 錯誤告警 webhook → 推播給所有訂閱的管理員 LINE
+// 安全: 用 ?token= 共享密鑰驗證來源 (SENTRY_WEBHOOK_TOKEN)
+// 去重: sentryAlerts/{issueId} 30 分鐘窗口, 避免同一 issue 洗版
+// ==========================================================================
+
+exports.sentryWebhook = onRequest(
+    {
+        secrets: [LINE_ACCESS_TOKEN, SENTRY_WEBHOOK_TOKEN],
+        region: 'asia-east1',
+    },
+    async (req, res) => {
+        // 只收 POST
+        if (req.method !== 'POST') {
+            return res.status(405).json({ error: 'Method Not Allowed' });
+        }
+
+        // 驗證共享密鑰 (query token 或 header)，constant-time 比對
+        const provided = String(req.query.token || req.get('x-sentry-token') || '');
+        const expected = SENTRY_WEBHOOK_TOKEN.value();
+        const ok = provided.length === expected.length &&
+            crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+        if (!ok) {
+            logger.warn('[sentryWebhook] ❌ token 驗證失敗');
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        try {
+            const body = req.body || {};
+            const ev = body.event || {};
+
+            // Sentry legacy webhook 欄位 (盡量容錯抓取)
+            const level = (body.level || ev.level || 'error').toUpperCase();
+            const project = body.project_name || body.project || ev.project || 'schedule';
+            const environment = ev.environment || 'unknown';
+            const title = ev.title || body.message || ev.metadata?.value || ev.metadata?.type || '未知錯誤';
+            const culprit = body.culprit || ev.culprit || '';
+            const issueUrl = body.url || ev.web_url || ev.url || 'https://smes.sentry.io/issues/';
+            // 去重用的 issue id (欄位在不同版本可能不同)
+            const issueId = String(body.id || ev.issue_id || ev.groupID || ev.event_id || title);
+
+            // 只在 production 環境推播 (本機 development 的錯誤不吵管理員)
+            if (environment === 'development') {
+                logger.info('[sentryWebhook] 略過 development 環境告警');
+                return res.status(200).json({ ok: true, skipped: 'development' });
+            }
+
+            // 去重: 同一 issue 30 分鐘內只推一次
+            const lockRef = db.collection('sentryAlerts').doc(issueId.replace(/[\/\s]/g, '_').slice(0, 200));
+            const lockSnap = await lockRef.get();
+            const now = Date.now();
+            if (lockSnap.exists) {
+                const last = lockSnap.data().lastNotifiedMs || 0;
+                if (now - last < 30 * 60 * 1000) {
+                    logger.info('[sentryWebhook] 30 分鐘內已推播過同一 issue, 略過', { issueId });
+                    return res.status(200).json({ ok: true, deduped: true });
+                }
+            }
+            await lockRef.set({
+                lastNotifiedMs: now,
+                title: title.slice(0, 200),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+
+            // 組 LINE 文字告警 (截斷避免過長)
+            const icon = level === 'FATAL' ? '💀' : (level === 'ERROR' ? '🔴' : '⚠️');
+            const text =
+                `${icon} 系統錯誤告警 (${level})\n\n` +
+                `📦 專案: ${project}\n` +
+                `🌐 環境: ${environment}\n` +
+                `❗ ${String(title).slice(0, 180)}\n` +
+                (culprit ? `📍 ${String(culprit).slice(0, 120)}\n` : '') +
+                `\n🔗 查看詳情:\n${issueUrl}`;
+
+            await pushToAdmins(text, LINE_ACCESS_TOKEN.value());
+            logger.info('[sentryWebhook] ✅ 已推播錯誤告警', { issueId, level });
+            return res.status(200).json({ ok: true });
+        } catch (e) {
+            logger.error('[sentryWebhook] 處理失敗', e);
+            // 仍回 200, 避免 Sentry 重試風暴
+            return res.status(200).json({ ok: false, error: e.message });
+        }
     }
 );
 
