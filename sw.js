@@ -1,6 +1,6 @@
-// Service Worker v2.54.0 - 📜 P1-3 預約異動履歷 + 🏆 P1-7 成就徽章
-const CACHE_NAME = 'booking-system-v2.54.0';
-const APP_VERSION = 'v2.54.0';
+// Service Worker v2.54.1 - 🏫 不開放時段設定彈窗內直接下拉切換場地 (管理員 UX)
+const CACHE_NAME = 'booking-system-v2.54.1';
+const APP_VERSION = 'v2.54.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -5267,3 +5267,35 @@ body {
     color: var(--primary-color, #1F4D3F);
     font-weight: 700;
 }
+
+
+/* ===== v2.54.1: 設定彈窗內場地下拉 (深色 header 上) ===== */
+.settings-room-select {
+    margin-left: 4px;
+    padding: 5px 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.45);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    max-width: 240px;
+}
+
+.settings-room-select:hover {
+    background: rgba(255, 255, 255, 0.24);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.settings-room-select:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 1px;
+}
+
+/* 下拉展開的選項在系統白底上, 用深色字 */
+.settings-room-select option {
+    color: var(--text-primary, #162622);
+    background: #fff;
+    font-weight: 500;
+}

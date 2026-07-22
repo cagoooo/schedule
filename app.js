@@ -4255,16 +4255,58 @@ function removeBatchDate(date) {
 }
 
 
+// v2.54.1: 設定彈窗專屬狀態 — 與主畫面的全域 unavailableSlots 解耦,
+// 讓管理員可在彈窗內直接下拉切換場地, 不污染日曆渲染用的全域狀態
+let settingsCurrentRoom = null;
+let settingsSlots = [];
+
+/**
+ * 讀取指定場地的不開放時段 (不動全域 unavailableSlots)
+ */
+async function fetchRoomSlots(room) {
+    try {
+        const doc = await db.collection('roomSettings').doc(room).get();
+        return doc.exists ? (doc.data().unavailableSlots || []) : [];
+    } catch (e) {
+        console.error('讀取場地設定失敗:', e);
+        return [];
+    }
+}
+
+/**
+ * 目前勾選狀態是否與載入時不同 (未儲存變更)
+ */
+function settingsHasUnsavedChanges() {
+    const checked = Array.from(document.querySelectorAll('.unavailable-check:checked')).map(cb => cb.dataset.slot);
+    if (checked.length !== settingsSlots.length) return true;
+    const set = new Set(settingsSlots);
+    return checked.some(s => !set.has(s));
+}
+
+/**
+ * 在彈窗內切換場地並載入該場地設定
+ */
+async function switchSettingsRoom(room) {
+    settingsCurrentRoom = room;
+    showToast(`正在載入「${room}」設定...`, 'info');
+    settingsSlots = await fetchRoomSlots(room);
+    renderSettingsTable();
+}
+
 /**
  * 開啟不開放時段設定彈窗
  */
 async function openSettingsModal() {
     if (!requireAdmin('管理不開放時段')) return;
-    const room = getSelectedRoom();
-    document.getElementById('settingsRoomName').textContent = room;
-    showToast('正在載入設定...', 'info');
-    await loadRoomSettings(room); // 確保開啟時資料是最新的
-    renderSettingsTable();
+
+    // v2.54.1: 用主畫面場地清單填充彈窗內下拉 (單一資料來源, 場地異動不用改兩處)
+    const modalSelect = document.getElementById('settingsRoomSelect');
+    const mainSelect = document.getElementById('roomSelect');
+    modalSelect.innerHTML = Array.from(mainSelect.options)
+        .map(o => `<option value="${o.value}">${o.textContent}</option>`).join('');
+    modalSelect.value = getSelectedRoom();
+
+    await switchSettingsRoom(getSelectedRoom());
     document.getElementById('settingsModalOverlay').classList.add('active');
 }
 
@@ -4287,7 +4329,7 @@ function renderSettingsTable() {
             <td>${period.name}</td>
             ${dayIds.map(dayId => {
         const slotId = `${dayId}_${period.id}`;
-        const isChecked = unavailableSlots.includes(slotId);
+        const isChecked = settingsSlots.includes(slotId);
         return `<td><input type="checkbox" class="unavailable-check" data-slot="${slotId}" ${isChecked ? 'checked' : ''}></td>`;
     }).join('')}
         </tr>
@@ -4313,10 +4355,12 @@ async function loadRoomSettings(room) {
 
 /**
  * 儲存場地設定
+ * v2.54.1: 儲存到「彈窗內選定的場地」(settingsCurrentRoom), 存檔後不關閉彈窗,
+ *          方便管理員直接下拉切下一個場地繼續設定
  */
 async function saveRoomSettings() {
     if (!requireAdmin('儲存不開放時段設定')) return;
-    const room = getSelectedRoom();
+    const room = settingsCurrentRoom || getSelectedRoom();
     const checks = document.querySelectorAll('.unavailable-check:checked');
     const newSlots = Array.from(checks).map(cb => cb.dataset.slot);
 
@@ -4326,21 +4370,38 @@ async function saveRoomSettings() {
             unavailableSlots: newSlots,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        unavailableSlots = newSlots;
-        showToast('設定已儲存', 'success');
-        closeSettingsModal();
+        settingsSlots = newSlots; // 更新彈窗基準 (dirty 判斷用)
+        showToast(`✅ 「${room}」設定已儲存，可繼續切換其他場地`, 'success');
 
-        // 重新整理目前的畫面
-        if (viewMode === 'week') {
-            loadBookingsFromFirebase();
-        } else {
-            loadMonthBookings();
+        // 若儲存的正是主畫面當前場地 → 同步全域並重新整理日曆
+        if (room === getSelectedRoom()) {
+            unavailableSlots = newSlots;
+            if (viewMode === 'week') {
+                loadBookingsFromFirebase();
+            } else {
+                loadMonthBookings();
+            }
         }
     } catch (error) {
         console.error('儲存場地設定失敗:', error);
         showToast('儲存失敗: ' + error.message, 'error');
     }
 }
+
+// v2.54.1: 彈窗內場地下拉切換 (有未儲存變更時先確認)
+document.addEventListener('change', async (e) => {
+    if (e.target.id !== 'settingsRoomSelect') return;
+    const newRoom = e.target.value;
+    if (newRoom === settingsCurrentRoom) return;
+    if (settingsHasUnsavedChanges()) {
+        const ok = confirm(`「${settingsCurrentRoom}」有未儲存的變更，切換場地將放棄這些變更。\n確定要切換到「${newRoom}」嗎？`);
+        if (!ok) {
+            e.target.value = settingsCurrentRoom; // 還原下拉
+            return;
+        }
+    }
+    await switchSettingsRoom(newRoom);
+});
 
 // ===== 初始化 =====
 
