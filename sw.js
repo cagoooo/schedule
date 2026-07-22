@@ -1,6 +1,6 @@
-// Service Worker v2.54.1 - 🏫 不開放時段設定彈窗內直接下拉切換場地 (管理員 UX)
-const CACHE_NAME = 'booking-system-v2.54.1';
-const APP_VERSION = 'v2.54.1';
+// Service Worker v2.55.0 - 🤖 P1-2(修正版) AI 替代方案推薦全面改良 (不開放時段正確排除+空閒度排序)
+const CACHE_NAME = 'booking-system-v2.55.0';
+const APP_VERSION = 'v2.55.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -4433,7 +4433,6 @@ document.addEventListener('DOMContentLoaded', () => {
 async function findSmartAlternatives(dateStr, periodId, roomName) {
     const suggestions = [];
     const targetDate = parseDate(dateStr);
-    const targetPeriod = PERIODS.find(p => p.id === periodId);
 
     // 準備查詢範圍：前後 7 天
     const startDate = new Date(targetDate);
@@ -4446,15 +4445,41 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
 
     // 一次性查詢範圍內所有資料 (包含所有場地)
     // 這樣可以同時滿足 Strategy A (同場地不同日), B (同日不同場地), C (同日同場地不同時段)
-    const snapshot = await bookingsCollection
-        .where('date', '>=', startDateStr)
-        .where('date', '<=', endDateStr)
-        .get();
+    // v2.55.0: 同時抓「全部場地的固定不開放設定」(~4 個 doc, 成本極低)
+    //          → 徹底修掉舊版「推薦了其實固定不開放的時段」的缺陷
+    const [snapshot, settingsSnap] = await Promise.all([
+        bookingsCollection
+            .where('date', '>=', startDateStr)
+            .where('date', '<=', endDateStr)
+            .get(),
+        db.collection('roomSettings').get().catch(() => null),
+    ]);
 
     const rangeBookings = [];
     snapshot.forEach(doc => {
         rangeBookings.push(doc.data());
     });
+
+    // 各場地固定不開放設定表 {room: Set(slotId)}
+    const settingsMap = {};
+    if (settingsSnap) {
+        settingsSnap.forEach(doc => {
+            settingsMap[doc.id] = new Set(doc.data().unavailableSlots || []);
+        });
+    }
+    const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+    // 輔助：指定「場地」在指定日期+節次是否固定不開放 (v2.55.0 正確版, 取代舊 stub)
+    function isSlotBlockedFor(room, dateObj, pid) {
+        const set = settingsMap[room];
+        if (!set) return false; // 該場地無設定 = 全開放
+        return set.has(`${DAY_IDS[dateObj.getDay()]}_${pid}`);
+    }
+
+    // 輔助：週末不推薦 (學校情境, 老師平日上課)
+    function isWeekend(d) {
+        return d.getDay() === 0 || d.getDay() === 6;
+    }
 
     // 輔助：檢查是否被預約 (基於本次查詢結果)
     function isBookedInRange(checkDateStr, checkPeriodId, checkRoom) {
@@ -4465,43 +4490,35 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
         );
     }
 
-    // 1. [策略 A] 同場地，鄰近日期 (前後 7 天)
-    for (let i = 1; i <= 7; i++) {
-        // 往前找
-        const prevDate = new Date(targetDate);
-        prevDate.setDate(targetDate.getDate() - i);
-        const prevDateStr = formatDate(prevDate);
+    // 輔助：某場地當天已被借用的總節次數 (用於「越空的場地越優先」)
+    function roomBusyCount(room, dStr) {
+        return rangeBookings
+            .filter(b => b.date === dStr && (b.room || '禮堂') === room)
+            .reduce((n, b) => n + (b.periods ? b.periods.length : 0), 0);
+    }
 
-        if (prevDate >= new Date()) { // 不找過去的時間
-            // 檢查預約 & 固定不開放 (假設固定不開放設定不隨日期變動，或是全域的)
-            // 註：unavailableSlots 僅針對「當前選定場地」。若 targetRoom 即為當前選定場地，則可直接用。
-            // 若不是 (例如在 dashboard 觸發?)，則可能不準。但此函式目前主要在 modal (已選定 room) 觸發。
-            if (!isBookedInRange(prevDateStr, periodId, roomName) && !isPeriodUnavailable(prevDate, periodId)) {
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // 1. [策略 A] 同場地，鄰近日期 (前後 7 天; 跳過週末與過去日期)
+    for (let i = 1; i <= 7; i++) {
+        for (const dir of [-1, 1]) {
+            const d = new Date(targetDate);
+            d.setDate(targetDate.getDate() + dir * i);
+            const ds = formatDate(d);
+            if (d < todayMidnight) continue;     // 不推過去
+            if (isWeekend(d)) continue;          // v2.55.0: 不推週六日
+            // v2.55.0: 改用「目標場地自己的」不開放設定 (舊版誤用主畫面場地的全域設定)
+            if (!isBookedInRange(ds, periodId, roomName) && !isSlotBlockedFor(roomName, d, periodId)) {
                 suggestions.push({
                     type: 'date',
-                    date: prevDateStr,
+                    date: ds,
                     period: periodId,
                     room: roomName,
                     score: 100 - i * 5,
-                    desc: `前 ${i} 天同一時段`
+                    desc: dir === -1 ? `前 ${i} 天同一時段` : `後 ${i} 天同一時段`
                 });
             }
-        }
-
-        // 往後找
-        const nextDate = new Date(targetDate);
-        nextDate.setDate(targetDate.getDate() + i);
-        const nextDateStr = formatDate(nextDate);
-
-        if (!isBookedInRange(nextDateStr, periodId, roomName) && !isPeriodUnavailable(nextDate, periodId)) {
-            suggestions.push({
-                type: 'date',
-                date: nextDateStr,
-                period: periodId,
-                room: roomName,
-                score: 100 - i * 5,
-                desc: `後 ${i} 天同一時段`
-            });
         }
     }
 
@@ -4521,23 +4538,25 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
 
     recommendedRooms.forEach(otherRoom => {
         // 檢查該場地是否被預約
-        const isOccupied = isBookedInRange(dateStr, periodId, otherRoom);
+        if (isBookedInRange(dateStr, periodId, otherRoom)) return;
+        // v2.55.0 🔴 修正核心缺陷: 檢查「該場地自己的」固定不開放時段
+        // (舊版直接忽略 → 會推薦老師一個點了才發現不能約的時段)
+        if (isSlotBlockedFor(otherRoom, targetDate, periodId)) return;
 
-        // 檢查是否為不開放 (需額外邏輯，暫略)
-        // 這裡我們假設其他場地沒有特殊的 "固定不開放"，或者我們無法得知 (因沒載入設定)。
-        // 為了避免推薦了也不能用的，理想上應 fetch 設定。但為求效能，暫時忽略。
-
-        if (!isOccupied) {
-            const isSimilar = (similarRooms[roomName] || []).includes(otherRoom);
-            suggestions.push({
-                type: 'room',
-                date: dateStr,
-                period: periodId,
-                room: otherRoom,
-                score: isSimilar ? 95 : 80,
-                desc: `同時間可用的 ${otherRoom}`
-            });
-        }
+        const isSimilar = (similarRooms[roomName] || []).includes(otherRoom);
+        // v2.55.0: 越空的場地越優先 — 當天已借節次越多扣越多分 (每節 -2, 上限 -10)
+        // iPad 車互推時, 自動優先推薦「當天最空的那台車」, 減少再度衝突的機率
+        const busy = roomBusyCount(otherRoom, dateStr);
+        const score = (isSimilar ? 95 : 80) - Math.min(busy, 5) * 2;
+        const busyDesc = busy === 0 ? '當天完全沒人借 👍' : `當天已借 ${busy} 節`;
+        suggestions.push({
+            type: 'room',
+            date: dateStr,
+            period: periodId,
+            room: otherRoom,
+            score,
+            desc: `同時段可用・${busyDesc}`
+        });
     });
 
     // 3. [策略 C] 同場地，鄰近節次 (前後 2 節)
@@ -4547,7 +4566,8 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
             const newIndex = periodIndex + offset;
             if (newIndex >= 0 && newIndex < PERIODS.length) {
                 const newPeriod = PERIODS[newIndex];
-                if (!isBookedInRange(dateStr, newPeriod.id, roomName) && !isPeriodUnavailable(targetDate, newPeriod.id)) {
+                // v2.55.0: 改用目標場地自己的設定
+                if (!isBookedInRange(dateStr, newPeriod.id, roomName) && !isSlotBlockedFor(roomName, targetDate, newPeriod.id)) {
                     suggestions.push({
                         type: 'period',
                         date: dateStr,
@@ -4561,10 +4581,10 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
         });
     }
 
-    // 排序並取前 3 名
+    // 排序並取前 4 名 (v2.55.0: 3→4, 給老師多一點選擇)
     return suggestions
         .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
+        .slice(0, 4);
 }
 
 /**
@@ -4575,12 +4595,6 @@ function isPeriodUnavailable(date, periodId) {
     const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
     const slotId = `${dayId}_${periodId}`;
     return unavailableSlots.includes(slotId);
-}
-
-function isPeriodUnavailableInRoom(date, periodId, roomName) {
-    // 理想狀況應讀取該場地設定。
-    // 暫時回傳 false，不阻擋建議 (讓最後提交時再檢查)
-    return false;
 }
 
 /**
