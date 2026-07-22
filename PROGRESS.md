@@ -4,7 +4,31 @@
 
 ---
 
-## 📅 當前版本：v2.52.1 (2026-07-22) - 👤 M.3 我的預約 個人化儀表板 (P0-4)
+## 📅 當前版本：v2.53.0 (2026-07-22) - 📢 P1-1 Web Push 瀏覽器通知
+
+### 🎯 優化核心
+補足**沒綁 LINE** 的老師的通知管道：開啟瀏覽器通知後，預約成功/被取消/被管理員強刪時，直接推播到該裝置的瀏覽器，不必綁 LINE。
+
+### 📦 實作內容
+1. **VAPID 金鑰**：`web-push` 產生金鑰對；公鑰嵌入前端（[app.js](file:///h:/schedule/app.js) `WEB_PUSH_PUBLIC_KEY`）+ 後端常數；私鑰存 Firebase Secret `VAPID_PRIVATE_KEY`。
+2. **前端訂閱**（[app.js](file:///h:/schedule/app.js)）：「我的預約」彈窗頂部新增「🔔 瀏覽器通知」開關 —— 請求權限 → `pushManager.subscribe` → 訂閱物件存入 `webPushSubscriptions/{deviceId}`；可一鍵關閉（unsubscribe + 刪除）。狀態自動偵測（未開啟/已開啟/被封鎖/不支援）。
+3. **Service Worker**（[sw.js](file:///h:/schedule/sw.js)）：新增 `push`（顯示通知，同 tag 取代避免堆積）與 `notificationclick`（聚焦已開分頁或開新視窗）handler。
+4. **Cloud Functions**（[functions/index.js](file:///h:/schedule/functions/index.js)）：新增 `sendWebPushToDevice()` helper（訂閱失效 404/410 自動刪除）；整合進 `notifyOnBookingCreate`（✅ 預約成功）、`notifyOnBookingUpdate`（❌ 預約已取消）、`notifyOnBookingDelete`（⚠️ 管理員取消）三個既有觸發器，與 LINE 通知並行。
+5. **Firestore rules**：`webPushSubscriptions` 前端不可讀他人訂閱；寫入強制 `deviceId == 文件 key`（實測違規寫入被拒）。
+6. **新依賴**：functions 加入 `web-push`。
+
+### ✅ 驗證（本機 http server）
+- VAPID 公鑰解析正確（65 bytes、首位元組 0x04 合法 EC 點）。
+- UI 狀態機正確（自動化瀏覽器 permission=denied → 正確顯示「已被瀏覽器封鎖」）。
+- Firestore 寫入規則：合法寫入成功、`deviceId≠key` 違規寫入被拒（permission-denied）。
+- 三個通知函式與 rules 部署成功（VAPID secret 存取已授權）。
+
+### ⚠️ 需真實裝置完成的最後一步
+Web Push 先天需在**真實裝置點擊授權**（自動化環境無法程式化授權，故訂閱→實際推播送達這段需在手機/桌機瀏覽器實測）。使用者於「我的預約 → 🔔 瀏覽器通知 → 開啟」授權後，做一筆預約即可收到「✅ 預約成功」瀏覽器通知確認。
+
+---
+
+## 📅 v2.52.1 (2026-07-22) - 👤 M.3 我的預約 個人化儀表板 (P0-4)
 
 ### 🎯 優化核心
 每位老師打開「我的預約」就能看到自己在此裝置建立的所有預約，分「今日 / 即將到來 / 已結束」三區，開學後使用頻率最高的新功能。

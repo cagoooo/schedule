@@ -109,6 +109,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ===== v2.53.0 (P1-1): Web Push 訂閱 =====
+    match /webPushSubscriptions/{deviceId} {
+      // 僅 Cloud Function 讀取 (發送推播); 前端不可讀他人訂閱
+      allow read: if false;
+      // 前端可寫入自己的訂閱 (deviceId 必須等於文件 key)
+      allow create, update: if request.resource.data.deviceId == deviceId
+        && request.resource.data.deviceId is string
+        && request.resource.data.keys().size() <= 5;
+      // 允許取消訂閱 (刪除自己的; deviceId 為 key, 不易被猜)
+      allow delete: if true;
+    }
+
     // ===== v2.46.0 (Phase 3): 排程提醒去重表 =====
     match /sentReminders/{reminderId} {
       // 只能由 Cloud Function (scheduledReminder) 寫入

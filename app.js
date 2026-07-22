@@ -3689,6 +3689,106 @@ function closeHistoryModal() {
 function openMyBookingsModal() {
     document.getElementById('myBookingsModalOverlay').classList.add('active');
     loadMyBookings();
+    refreshWebPushStatus();
+}
+
+// ===== v2.53.0 (P1-1): Web Push 瀏覽器通知 =====
+
+const WEB_PUSH_PUBLIC_KEY = 'BKj5fZ1qLjaZ7bu9u9F9ywyrqAGXHuwApi_rxEXcJfXIckUCB8rJXoHPMFzSk0_OptvBNO1SSut2C3u9sD7McUg';
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+}
+
+function webPushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+/**
+ * 更新「我的預約」內的瀏覽器通知開關狀態
+ */
+async function refreshWebPushStatus() {
+    const statusEl = document.getElementById('webPushStatus');
+    const btn = document.getElementById('webPushToggle');
+    if (!statusEl || !btn) return;
+
+    if (!webPushSupported()) {
+        statusEl.textContent = '此瀏覽器不支援';
+        btn.style.display = 'none';
+        return;
+    }
+    if (Notification.permission === 'denied') {
+        statusEl.textContent = '已被瀏覽器封鎖（請到網站設定開啟）';
+        btn.disabled = true;
+        btn.textContent = '無法開啟';
+        return;
+    }
+
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        btn.disabled = false;
+        if (sub) {
+            statusEl.textContent = '已開啟 — 預約異動會推播到此裝置';
+            btn.textContent = '關閉';
+            btn.dataset.action = 'disable';
+            btn.classList.add('on');
+        } else {
+            statusEl.textContent = '未開啟 — 開啟後不必綁 LINE 也能收通知';
+            btn.textContent = '開啟';
+            btn.dataset.action = 'enable';
+            btn.classList.remove('on');
+        }
+    } catch (e) {
+        statusEl.textContent = '狀態讀取失敗';
+        btn.disabled = true;
+    }
+}
+
+async function toggleWebPush() {
+    const btn = document.getElementById('webPushToggle');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    btn.disabled = true;
+    try {
+        if (action === 'enable') {
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') {
+                showToast('未取得通知權限', 'warning');
+                await refreshWebPushStatus();
+                return;
+            }
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
+            });
+            const deviceId = getDeviceId();
+            await db.collection('webPushSubscriptions').doc(deviceId).set({
+                deviceId,
+                subscription: JSON.parse(JSON.stringify(sub)),
+                userAgent: navigator.userAgent.slice(0, 200),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+            showToast('✅ 已開啟瀏覽器通知', 'success');
+        } else {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+            await db.collection('webPushSubscriptions').doc(getDeviceId()).delete().catch(() => { });
+            showToast('已關閉瀏覽器通知', 'info');
+        }
+    } catch (e) {
+        console.error('[WebPush] toggle 失敗:', e);
+        showToast('操作失敗，請稍後再試', 'error');
+    } finally {
+        await refreshWebPushStatus();
+    }
 }
 
 function closeMyBookingsModal() {
@@ -3886,6 +3986,9 @@ function initHistoryEventListeners() {
     // v2.52.0 (M.3): 我的預約 按鈕
     const btnMy = document.getElementById('btnMyBookings');
     if (btnMy) btnMy.addEventListener('click', openMyBookingsModal);
+    // v2.53.0 (P1-1): 瀏覽器通知開關
+    const webPushBtn = document.getElementById('webPushToggle');
+    if (webPushBtn) webPushBtn.addEventListener('click', toggleWebPush);
     const btnMyClose = document.getElementById('btnMyBookingsClose');
     if (btnMyClose) btnMyClose.addEventListener('click', closeMyBookingsModal);
     const myOverlay = document.getElementById('myBookingsModalOverlay');

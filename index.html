@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.52.1</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.53.0</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.52.1',
+                release: 'v2.53.0',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,7 +38,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.52.1';
+            const APP_VERSION = 'v2.53.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -849,6 +849,14 @@
                 </button>
             </div>
             <div class="mybookings-modal-body">
+                <!-- v2.53.0 (P1-1): 瀏覽器通知開關 -->
+                <div class="webpush-row" id="webPushRow">
+                    <div class="webpush-info">
+                        <span class="webpush-title">🔔 瀏覽器通知</span>
+                        <span class="webpush-status" id="webPushStatus">檢查中…</span>
+                    </div>
+                    <button type="button" class="webpush-toggle" id="webPushToggle" disabled>開啟</button>
+                </div>
                 <div class="mybookings-summary" id="myBookingsSummary"></div>
                 <div id="myBookingsContent">
                     <!-- 由 JavaScript 動態生成 -->
@@ -1653,7 +1661,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.52.1 · Pine · Compact
+        v2.53.0 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>

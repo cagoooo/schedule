@@ -1,6 +1,6 @@
-// Service Worker v2.52.1 - 👤 M.3 我的預約 個人化儀表板
-const CACHE_NAME = 'booking-system-v2.52.1';
-const APP_VERSION = 'v2.52.1';
+// Service Worker v2.53.0 - 📢 P1-1 Web Push 瀏覽器通知 (push/notificationclick handler)
+const CACHE_NAME = 'booking-system-v2.53.0';
+const APP_VERSION = 'v2.53.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -140,4 +140,37 @@ self.addEventListener('message', event => {
             event.source.postMessage({ type: 'VERSION', version: APP_VERSION });
         }
     }
+});
+
+// ===== v2.53.0 (P1-1): Web Push 通知 =====
+self.addEventListener('push', event => {
+    let data = { title: '禮堂預約系統', body: '你有一則新通知', url: './' };
+    try {
+        if (event.data) data = Object.assign(data, event.data.json());
+    } catch (e) {
+        if (event.data) data.body = event.data.text();
+    }
+    event.waitUntil(
+        self.registration.showNotification(data.title, {
+            body: data.body,
+            icon: './favicon.png',
+            badge: './favicon.png',
+            tag: data.tag || 'schedule-push', // 同 tag 會取代舊通知, 避免堆積
+            data: { url: data.url || './' },
+        })
+    );
+});
+
+// 點擊通知 → 聚焦已開分頁或開新視窗
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    const targetUrl = (event.notification.data && event.notification.data.url) || './';
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (const client of clientList) {
+                if (client.url.includes('/schedule') && 'focus' in client) return client.focus();
+            }
+            if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+        })
+    );
 });

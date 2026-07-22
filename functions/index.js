@@ -23,6 +23,7 @@ const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const line = require('@line/bot-sdk');
 const crypto = require('crypto');
+const webpush = require('web-push'); // v2.53.0 (P1-1): Web Push 瀏覽器通知
 
 // 初始化 Firebase Admin
 // v2.48.0: 顯式指定 storageBucket (新版 Firebase 預設 bucket 為 .firebasestorage.app)
@@ -45,6 +46,34 @@ const LINE_ACCESS_TOKEN = defineSecret('LINE_ACCESS_TOKEN');
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 // v2.52.0 (T.2): Sentry Webhook 共享密鑰 (驗證 webhook 來源, 防止偽造告警)
 const SENTRY_WEBHOOK_TOKEN = defineSecret('SENTRY_WEBHOOK_TOKEN');
+// v2.53.0 (P1-1): Web Push VAPID 私鑰 (公鑰可公開, 直接嵌入前端與此常數)
+const VAPID_PRIVATE_KEY = defineSecret('VAPID_PRIVATE_KEY');
+const VAPID_PUBLIC_KEY = 'BKj5fZ1qLjaZ7bu9u9F9ywyrqAGXHuwApi_rxEXcJfXIckUCB8rJXoHPMFzSk0_OptvBNO1SSut2C3u9sD7McUg';
+const VAPID_SUBJECT = 'mailto:ipad@mail2.smes.tyc.edu.tw';
+
+/**
+ * v2.53.0 (P1-1): 推送 Web Push 給指定裝置 (若該裝置有訂閱)
+ * 訂閱失效 (404/410) 時自動刪除
+ */
+async function sendWebPushToDevice(deviceId, payload, privateKey) {
+    if (!deviceId || !privateKey) return;
+    try {
+        const doc = await db.collection('webPushSubscriptions').doc(deviceId).get();
+        if (!doc.exists) return;
+        const sub = doc.data().subscription;
+        if (!sub || !sub.endpoint) return;
+        webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, privateKey);
+        await webpush.sendNotification(sub, JSON.stringify(payload));
+        logger.info('[webPush] ✅ 已推送', { deviceId, title: payload.title });
+    } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+            await db.collection('webPushSubscriptions').doc(deviceId).delete().catch(() => { });
+            logger.info('[webPush] 訂閱已失效, 已刪除', { deviceId });
+        } else {
+            logger.warn('[webPush] 推送失敗', { deviceId, err: e.message });
+        }
+    }
+}
 
 // ===== 工具函式 =====
 
@@ -993,7 +1022,7 @@ async function notifyRoomWatchers(booking, eventType, accessToken, bookerLineUse
 exports.notifyOnBookingCreate = onDocumentCreated(
     {
         document: 'bookings/{bookingId}',
-        secrets: [LINE_ACCESS_TOKEN],
+        secrets: [LINE_ACCESS_TOKEN, VAPID_PRIVATE_KEY],
         region: 'asia-east1',
     },
     async (event) => {
@@ -1041,6 +1070,13 @@ exports.notifyOnBookingCreate = onDocumentCreated(
             accessToken,
             lineUserId,
         );
+
+        // 3. v2.53.0 (P1-1): Web Push 給預約者本人的裝置 (若有訂閱, 補足未綁 LINE 者)
+        await sendWebPushToDevice(booking.deviceId, {
+            title: '✅ 預約成功',
+            body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+            url: 'https://cagoooo.github.io/schedule/',
+        }, VAPID_PRIVATE_KEY.value());
     }
 );
 
@@ -1052,7 +1088,7 @@ exports.notifyOnBookingCreate = onDocumentCreated(
 exports.notifyOnBookingUpdate = onDocumentUpdated(
     {
         document: 'bookings/{bookingId}',
-        secrets: [LINE_ACCESS_TOKEN],
+        secrets: [LINE_ACCESS_TOKEN, VAPID_PRIVATE_KEY],
         region: 'asia-east1',
     },
     async (event) => {
@@ -1089,6 +1125,13 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
             accessToken,
             lineUserId,
         );
+
+        // 3. v2.53.0 (P1-1): Web Push 給預約者裝置 (取消最有價值 — 人不在畫面前也會知道)
+        await sendWebPushToDevice(before.deviceId || after.deviceId, {
+            title: '❌ 預約已取消',
+            body: `${before.room}｜${before.date}｜${formatPeriods(before.periods)}`,
+            url: 'https://cagoooo.github.io/schedule/',
+        }, VAPID_PRIVATE_KEY.value());
     }
 );
 
@@ -1101,7 +1144,7 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
 exports.notifyOnBookingDelete = onDocumentDeleted(
     {
         document: 'bookings/{bookingId}',
-        secrets: [LINE_ACCESS_TOKEN],
+        secrets: [LINE_ACCESS_TOKEN, VAPID_PRIVATE_KEY],
         region: 'asia-east1',
     },
     async (event) => {
@@ -1135,6 +1178,13 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
             accessToken,
             lineUserId,
         );
+
+        // 3. v2.53.0 (P1-1): Web Push 給預約者裝置
+        await sendWebPushToDevice(booking.deviceId, {
+            title: '⚠️ 預約已被管理員取消',
+            body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+            url: 'https://cagoooo.github.io/schedule/',
+        }, VAPID_PRIVATE_KEY.value());
     }
 );
 
