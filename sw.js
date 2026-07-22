@@ -1,6 +1,6 @@
-// Service Worker v2.51.0 - 🗄 L系列：匯出區間選擇、學期封存匯出、學期感知預設區間
-const CACHE_NAME = 'booking-system-v2.51.0';
-const APP_VERSION = 'v2.51.0';
+// Service Worker v2.51.1 - 🛡 F.3 Sentry 前端錯誤監控上線 (Loader Script 純錯誤模式)
+const CACHE_NAME = 'booking-system-v2.51.1';
+const APP_VERSION = 'v2.51.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

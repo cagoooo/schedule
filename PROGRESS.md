@@ -4,7 +4,31 @@
 
 ---
 
-## 📅 當前版本：v2.51.0 (2026-07-22) - 🗄 L 系列資料生命週期：匯出區間選擇、學期封存匯出、學期感知預設區間
+## 📅 當前版本：v2.51.1 (2026-07-22) - 🛡 F.3 Sentry 前端錯誤監控上線 (P0-3)
+
+### 🎯 優化核心
+接入 Sentry 前端錯誤監控 — roadmap 放了三個月的長期第一名（F.3）。從此老師端發生的 JS 錯誤會自動上報到 Sentry 後台，不再依賴老師口頭回報「怪怪的」。開學人流高峰前的最後一道保險。
+
+### 📦 實作內容
+1. **Sentry 專案**：組織 `smes`（school Gmail 帳號）、專案 slug `schedule`、平台 Browser JavaScript。
+2. **Loader Script 整合**（[index.html](file:///h:/schedule/index.html) `<head>` 最前）：
+   - 使用官方 Loader（`js.sentry-cdn.com/1f8c...min.js`），非同步載入不拖慢首屏；SDK 版本自動保持最新。
+   - **純錯誤監控模式**：後台 Loader 設定已關閉 Tracing / Session Replay / Logs & Metrics / User Feedback，只上報錯誤 — 節省免費額度（5,000 events/月）並避免側錄畫面的個資疑慮。
+3. **`window.sentryOnLoad` 設定**：
+   - `release: 'v2.51.1'` 版本標記（每次發版需同步 bump，可對照哪版引入的錯誤）。
+   - `environment`：github.io = production，其他（本機開發）= development。
+   - `ignoreErrors` 噪音過濾：ResizeObserver、chrome-extension（v2.41.4 教訓）、離線 fetch 失敗等。
+4. **端到端驗證**：本地丟測試錯誤 → Sentry 後台 25 秒內收到 issue `SCHEDULE-1` ✓。
+5. **SW 版本**：升級 **v2.51.1**，部署後自動彈出更新提示。
+
+### 📌 維運備忘
+- Sentry 後台：https://smes.sentry.io/issues/（用 ipad@mail2.smes.tyc.edu.tw 登入）
+- 每週半小時例行檢查清單（FUTURE_PROPOSAL）中的「開 Sentry 看本週新錯誤」現在正式可執行。
+- 高優先錯誤會寄 email 通知（建立專案時選的預設告警）。
+
+---
+
+## 📅 v2.51.0 (2026-07-22) - 🗄 L 系列資料生命週期：匯出區間選擇、學期封存匯出、學期感知預設區間
 
 ### 🎯 優化核心
 八月新學期前的資料治理套件（P0-1 / P0-2 / P0-4 / P0-5 一次交付）。根治系統僅存的全庫掃描點（CSV 匯出），新增「學期封存匯出」讓管理員每學年一鍵備份，並讓歷史查詢與統計以台灣學制學期為預設區間。
