@@ -4,7 +4,29 @@
 
 ---
 
-## 📅 當前版本：v2.52.0 (2026-07-22) - 🔧 修 SW 更新無限迴圈 + 🗄 L.5 資料庫健康卡 + 🧹 T.1 新學期小掃除
+## 📅 當前版本：v2.52.0 (2026-07-22) - 📱 T.2 Sentry 告警接 LINE + 🔧 修 SW 更新無限迴圈 + 🗄 L.5 資料庫健康卡 + 🧹 T.1 新學期小掃除
+
+### 📱 新增：T.2 Sentry 錯誤告警接 LINE (P0-2)
+Sentry 偵測到正式站新錯誤時，30 秒內直接 LINE 推播給管理員 —— 不必等 email、不必主動去後台看。
+
+**架構**：`正式站錯誤 → Sentry → Internal Integration webhook → Cloud Function sentryWebhook → pushToAdmins → 管理員 LINE`
+
+**實作**：
+1. **新增 Cloud Function `sentryWebhook`**（[functions/index.js](file:///h:/schedule/functions/index.js)）：接收 Sentry webhook → 複用既有 `pushToAdmins()` 推播（v2.46 adminLineRecipients 基建）。
+2. **安全**：`SENTRY_WEBHOOK_TOKEN` 共享密鑰（Firebase Secret）以 constant-time 比對驗證來源；只收 POST；密鑰只在 URL query，不進 git。
+3. **去重**：`sentryAlerts/{issueId}` 30 分鐘窗口，防同一 issue 洗版；[firestore.rules](file:///h:/schedule/firestore.rules) 該集合前端完全禁止存取。
+4. **格式相容**：解析器同時支援 legacy webhook 與 Internal Integration（`body.data.issue`）；issue webhook 只在 `action=created` 時通知，忽略 resolved/assigned/ignored 等狀態變更。
+5. **Sentry 端**：因新版告警系統**已移除 legacy webhook**（實測 alert rule 動作搜尋 legacy/webhook 皆 0 結果），改建 **Internal Integration「LINE 錯誤告警 (schedule)」**，Issue&Event 權限=Read，訂閱 **Webhooks → Issues → Created**，webhook URL 指向函式（含 token）。
+
+**端到端驗證**：正式站觸發真實錯誤 `E2E-LINE鏈路測試-567686` → Sentry 建立 issue 7625977799 → 函式收到 created webhook → LINE 推播成功送達管理員手機 ✅（issueId 完全吻合）。
+
+**已知小限制**：Internal Integration 的 issue webhook 為 issue 層級、payload 不含單一環境欄位，故 LINE 訊息「環境」顯示 `unknown`（不影響功能）。若日後要嚴格 production-only，可改用帶環境的 event_alert webhook + alert rule，或在 Sentry Inbound Filters 丟棄 development 事件。
+
+**維運備忘**：Sentry Internal Integration 設定頁 `smes.sentry.io/settings/developer-settings/line-schedule-b219cd/`；密鑰存於 Firebase Secret `SENTRY_WEBHOOK_TOKEN`（帳號 **cagooo@gmail.com** 是 schedule-10ed3 專案 owner，非 ipad）。
+
+---
+
+## 📅 v2.52.0 (2026-07-22 稍早) - 🔧 修 SW 更新無限迴圈 + 🗄 L.5 資料庫健康卡 + 🧹 T.1 新學期小掃除
 
 ### 🎯 本版重點
 使用者回報「SW 更新橫幅一直跳、按了『立即更新』還是一直出現」——這是線上 bug，本版優先修復；同時完成第二輪 P0 的 T.1（新學期小掃除）與 L.5（資料庫健康卡）。
