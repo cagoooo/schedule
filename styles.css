@@ -4863,3 +4863,190 @@ body {
 .data-health-note a {
     color: var(--primary-color, #1F4D3F);
 }
+
+
+/* ===== v2.52.0 (M.3): 我的預約 個人化儀表板 ===== */
+.btn-mybookings {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1.5px solid var(--border-color, #E1DECF);
+    border-radius: 10px;
+    background: var(--card-bg, #fff);
+    color: var(--primary-dark, #163A2F);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-mybookings:hover {
+    background: var(--primary-soft, #eaf3ef);
+    border-color: var(--primary-color, #1F4D3F);
+}
+
+.mybookings-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: var(--z-modal-secondary, 1000);
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.mybookings-modal-overlay.active {
+    display: flex;
+}
+
+.mybookings-modal {
+    background: var(--bg-color, #F7F5EC);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.mybookings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--primary-gradient, linear-gradient(135deg, #1F4D3F, #103127));
+    flex-shrink: 0;
+}
+
+.mybookings-modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    font-size: 1.15rem;
+    margin: 0;
+}
+
+.btn-mybookings-close {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+}
+
+.btn-mybookings-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.mybookings-modal-body {
+    padding: 1rem 1.25rem 1.25rem;
+    overflow-y: auto;
+}
+
+.mybookings-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.mb-stat {
+    background: var(--card-bg, #fff);
+    border: 1.5px solid var(--border-color, #E1DECF);
+    border-radius: 12px;
+    padding: 0.7rem 0.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.mb-stat-hl {
+    border-color: var(--primary-color, #1F4D3F);
+    background: var(--primary-soft, #eaf3ef);
+}
+
+.mb-stat-num {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-dark, #163A2F);
+    font-variant-numeric: tabular-nums;
+}
+
+.mb-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #94998F);
+}
+
+.mybookings-section {
+    margin-bottom: 1.1rem;
+}
+
+.mybookings-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.98rem;
+    color: var(--primary-dark, #163A2F);
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 2px solid var(--border-color, #E1DECF);
+}
+
+.mybookings-section-count {
+    margin-left: auto;
+    background: var(--primary-color, #1F4D3F);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 1px 9px;
+}
+
+.mybookings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.mybookings-section-empty {
+    font-size: 0.85rem;
+    color: var(--text-muted, #94998F);
+    padding: 0.4rem 0.2rem;
+    margin: 0;
+}
+
+.mybookings-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted, #94998F);
+}
+
+.mybookings-empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mybookings-empty-hint {
+    font-size: 0.85rem;
+    margin-top: 0.4rem;
+}
+
+.mybookings-note {
+    font-size: 0.78rem;
+    color: var(--text-muted, #94998F);
+    margin: 0.5rem 0 0;
+    line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+    .mybookings-label { display: none; }
+    .mybookings-summary { grid-template-columns: repeat(2, 1fr); }
+}

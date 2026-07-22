@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.52.0</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.52.1</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.52.0',
+                release: 'v2.52.1',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,7 +38,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.52.0';
+            const APP_VERSION = 'v2.52.1';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -350,6 +350,14 @@
                         <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                     </svg>
+                </button>
+                <!-- v2.52.0 (M.3): 我的預約 (所有使用者可見, 依此裝置 deviceId 查詢) -->
+                <button class="btn-mybookings" id="btnMyBookings" title="查看我在此裝置建立的預約">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span class="mybookings-label">我的預約</span>
                 </button>
                 <!-- v2.44.0 (1.1) / v2.45.1: LINE 綁定按鈕 (採 LINE 官方品牌風格 logo) -->
                 <button class="btn-line-bind" id="btnLineBind" title="綁定 LINE 接收預約通知">
@@ -821,6 +829,34 @@
         </div>
     </div>
 
+
+    <!-- v2.52.0 (M.3): 我的預約 個人化儀表板 -->
+    <div class="mybookings-modal-overlay" id="myBookingsModalOverlay">
+        <div class="mybookings-modal">
+            <div class="mybookings-modal-header">
+                <h3>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    我的預約
+                </h3>
+                <button class="btn-mybookings-close" id="btnMyBookingsClose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mybookings-modal-body">
+                <div class="mybookings-summary" id="myBookingsSummary"></div>
+                <div id="myBookingsContent">
+                    <!-- 由 JavaScript 動態生成 -->
+                </div>
+                <p class="mybookings-note">📱 此清單顯示「本裝置」建立的預約（同一台裝置/瀏覽器）。換裝置或清除瀏覽器資料後不會保留。</p>
+            </div>
+        </div>
+    </div>
 
     <!-- 歷史記錄彈窗 -->
     <div class="history-modal-overlay" id="historyModalOverlay">
@@ -1617,7 +1653,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.52.0 · Pine · Compact
+        v2.52.1 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>

@@ -1732,6 +1732,12 @@ async function executeDeleteBooking() {
             loadHistoryData();
         }
 
+        // v2.52.0 (M.3): 如果「我的預約」彈窗是開啟的，重新整理
+        const myOverlay = document.getElementById('myBookingsModalOverlay');
+        if (myOverlay && myOverlay.classList.contains('active')) {
+            loadMyBookings();
+        }
+
         // 如果搜尋結果彈窗是開啟的，重新整理搜尋結果
         if (document.getElementById('searchModalOverlay').classList.contains('active')) {
             // 只有當搜尋框有值時才重搜，避免報錯
@@ -3675,6 +3681,107 @@ function closeHistoryModal() {
     document.getElementById('historyModalOverlay').classList.remove('active');
 }
 
+// ===== v2.52.0 (M.3): 我的預約 個人化儀表板 =====
+
+/**
+ * 開啟「我的預約」彈窗
+ */
+function openMyBookingsModal() {
+    document.getElementById('myBookingsModalOverlay').classList.add('active');
+    loadMyBookings();
+}
+
+function closeMyBookingsModal() {
+    document.getElementById('myBookingsModalOverlay').classList.remove('active');
+}
+
+/**
+ * 載入本裝置 (deviceId) 的所有預約，分「今日 / 即將到來 / 過去」三區呈現
+ * 註: where('deviceId','==') 為單欄位等值查詢, Firestore 自動索引, 不需複合索引
+ */
+async function loadMyBookings() {
+    const content = document.getElementById('myBookingsContent');
+    const summary = document.getElementById('myBookingsSummary');
+    content.innerHTML = '<div class="loading-spinner"></div>';
+    summary.innerHTML = '';
+
+    try {
+        const deviceId = getDeviceId();
+        const snap = await bookingsCollection.where('deviceId', '==', deviceId).get();
+
+        if (!window.historyBookings) window.historyBookings = {};
+
+        const bookings = [];
+        snap.forEach(doc => {
+            const b = doc.data();
+            b.id = doc.id;
+            // 過濾已刪除 (空節次) 的預約
+            if (!b.periods || b.periods.length === 0) return;
+            bookings.push(b);
+            window.historyBookings[b.id] = b;
+        });
+
+        if (bookings.length === 0) {
+            summary.innerHTML = '';
+            content.innerHTML = `
+                <div class="mybookings-empty">
+                    <div class="mybookings-empty-icon">🗓️</div>
+                    <p>你在此裝置還沒有任何預約紀錄</p>
+                    <p class="mybookings-empty-hint">在上方選擇日期與場地即可開始預約，之後就會出現在這裡。</p>
+                </div>`;
+            return;
+        }
+
+        const todayStr = formatDate(new Date());
+        const todayList = [];
+        const futureList = [];
+        const pastList = [];
+        bookings.forEach(b => {
+            if (b.date === todayStr) todayList.push(b);
+            else if (b.date > todayStr) futureList.push(b);
+            else pastList.push(b);
+        });
+        // 排序: 今日/未來 由近到遠; 過去 由新到舊
+        todayList.sort((a, b) => (a.periods[0] || '').localeCompare(b.periods[0] || ''));
+        futureList.sort((a, b) => a.date.localeCompare(b.date));
+        pastList.sort((a, b) => b.date.localeCompare(a.date));
+        const pastShown = pastList.slice(0, 30); // 過去只顯示最近 30 筆
+
+        // 摘要列
+        summary.innerHTML = `
+            <div class="mb-stat"><span class="mb-stat-num">${bookings.length}</span><span class="mb-stat-label">總筆數</span></div>
+            <div class="mb-stat"><span class="mb-stat-num">${todayList.length}</span><span class="mb-stat-label">今日</span></div>
+            <div class="mb-stat mb-stat-hl"><span class="mb-stat-num">${futureList.length}</span><span class="mb-stat-label">即將到來</span></div>
+            <div class="mb-stat"><span class="mb-stat-num">${pastList.length}</span><span class="mb-stat-label">已結束</span></div>`;
+
+        const renderSection = (title, icon, list, emptyText) => {
+            const items = list.length
+                ? list.map(b => createBookingItemHTML(b, { showDeleteBtn: true, showRebookBtn: true })).join('')
+                : `<p class="mybookings-section-empty">${emptyText}</p>`;
+            return `
+                <div class="mybookings-section">
+                    <h4 class="mybookings-section-title">${icon} ${title}<span class="mybookings-section-count">${list.length}</span></h4>
+                    <div class="mybookings-list">${items}</div>
+                </div>`;
+        };
+
+        let html = '';
+        html += renderSection('今日', '📅', todayList, '今天沒有預約。');
+        html += renderSection('即將到來', '🔜', futureList, '目前沒有未來的預約。');
+        if (pastList.length > 0) {
+            const moreNote = pastList.length > pastShown.length
+                ? `<p class="mybookings-section-empty">僅顯示最近 ${pastShown.length} 筆，更早的請用「歷史」查詢。</p>`
+                : '';
+            html += renderSection('已結束（最近）', '🗂️', pastShown, '') + moreNote;
+        }
+        content.innerHTML = html;
+
+    } catch (error) {
+        console.error('[MyBookings] 載入失敗:', error);
+        content.innerHTML = '<p class="mybookings-section-empty">載入失敗，請稍後再試。</p>';
+    }
+}
+
 /**
  * 載入歷史記錄資料
  */
@@ -3775,6 +3882,16 @@ function initHistoryEventListeners() {
             loadHistoryData(range);
         });
     }
+
+    // v2.52.0 (M.3): 我的預約 按鈕
+    const btnMy = document.getElementById('btnMyBookings');
+    if (btnMy) btnMy.addEventListener('click', openMyBookingsModal);
+    const btnMyClose = document.getElementById('btnMyBookingsClose');
+    if (btnMyClose) btnMyClose.addEventListener('click', closeMyBookingsModal);
+    const myOverlay = document.getElementById('myBookingsModalOverlay');
+    if (myOverlay) myOverlay.addEventListener('click', (e) => {
+        if (e.target.id === 'myBookingsModalOverlay') closeMyBookingsModal();
+    });
 }
 
 // ===== 批次預約功能 =====

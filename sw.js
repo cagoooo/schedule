@@ -1,6 +1,6 @@
-// Service Worker v2.52.0 - 🔧 修 SW 更新迴圈 + L.5 資料庫健康卡 + T.1 新學期小掃除
-const CACHE_NAME = 'booking-system-v2.52.0';
-const APP_VERSION = 'v2.52.0';
+// Service Worker v2.52.1 - 👤 M.3 我的預約 個人化儀表板
+const CACHE_NAME = 'booking-system-v2.52.1';
+const APP_VERSION = 'v2.52.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
