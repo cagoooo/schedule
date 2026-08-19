@@ -9908,3 +9908,69 @@ body {
     background: #fff;
     font-weight: 500;
 }
+
+/* ==========================================================================
+   v2.56.0 — 手機端管理員工具列 (≤640px header 藏起設定/公告/儀表板時的替代入口)
+   ========================================================================== */
+
+.mobile-admin-bar {
+    display: none;                       /* 預設不顯示; 由 JS 加 .active + 手機寬度才出現 */
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.85rem;
+    background: var(--card-bg, #fff);
+    border: 1px solid rgba(31, 77, 63, 0.18);
+    border-left: 4px solid var(--primary-color, #1f4d3f);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 2px 10px -4px rgba(31, 77, 63, 0.28);
+}
+
+.mobile-admin-bar-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary-color, #1f4d3f);
+    letter-spacing: 0.02em;
+}
+
+.mobile-admin-bar-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.mobile-admin-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.6rem 0.35rem;
+    min-height: 62px;                    /* 手指好按 */
+    background: var(--primary-color, #1f4d3f);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.mobile-admin-btn span {
+    color: #fff;                         /* 明寫, 避免被父層 color 規則蓋掉 */
+}
+
+.mobile-admin-btn:active {
+    background: var(--primary-dark, #163b30);
+    transform: scale(0.97);
+}
+
+/* 只有「管理員已登入 (.active)」且「手機寬度」時才出現;
+   桌機/平板仍走 header 上的三顆 icon, 不重複佔版面 */
+@media (max-width: 640px) {
+    .mobile-admin-bar.active {
+        display: flex;
+    }
+}

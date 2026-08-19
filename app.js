@@ -349,6 +349,9 @@ function updateAuthUI() {
             badge.style.display = 'inline-flex';
         }
         if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+
+        // v2.56.0: 手機端 (≤640px) header 藏起設定/公告/儀表板, 改由主內容區工具列進入
+        document.getElementById('mobileAdminBar')?.classList.add('active');
     } else {
         btn.classList.remove('logged-in');
         text.textContent = '管理員';
@@ -360,6 +363,7 @@ function updateAuthUI() {
         // v2.50.4: 隱藏 admin 徽章 + logout
         if (badge) badge.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'none';
+        document.getElementById('mobileAdminBar')?.classList.remove('active');
     }
 }
 
@@ -2009,6 +2013,10 @@ function initEventListeners() {
 
     // 不開放時段設定監聽
     document.getElementById('btnOpenSettings').addEventListener('click', openSettingsModal);
+    // v2.56.0: 手機端管理員工具列 → 轉發至 header 既有按鈕 (handler / requireAdmin 完全共用)
+    document.getElementById('mBtnSettings')?.addEventListener('click', () => document.getElementById('btnOpenSettings')?.click());
+    document.getElementById('mBtnAnnouncements')?.addEventListener('click', () => document.getElementById('btnOpenAnnouncements')?.click());
+    document.getElementById('mBtnDashboard')?.addEventListener('click', () => document.getElementById('btnOpenDashboard')?.click());
     document.getElementById('btnSettingsClose').addEventListener('click', closeSettingsModal);
     document.getElementById('btnSaveSettings').addEventListener('click', saveRoomSettings);
     document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {

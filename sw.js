@@ -1,6 +1,6 @@
-// Service Worker v2.55.0 - 🤖 P1-2(修正版) AI 替代方案推薦全面改良 (不開放時段正確排除+空閒度排序)
-const CACHE_NAME = 'booking-system-v2.55.0';
-const APP_VERSION = 'v2.55.0';
+// Service Worker v2.56.0 - 📱 手機端管理員工具列 (不開放時段/公告/儀表板 行動入口)
+const CACHE_NAME = 'booking-system-v2.56.0';
+const APP_VERSION = 'v2.56.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

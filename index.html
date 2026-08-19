@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.55.0</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.56.0</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.55.0',
+                release: 'v2.56.0',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,7 +38,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.55.0';
+            const APP_VERSION = 'v2.56.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -383,6 +383,36 @@
 
     <!-- 主要內容區 -->
     <main class="main-content">
+        <!-- v2.56.0: 手機端管理員工具列 (≤640px header 藏起三顆 icon, 這裡補回入口) -->
+        <section class="mobile-admin-bar" id="mobileAdminBar" aria-label="管理員工具">
+            <span class="mobile-admin-bar-title">🔐 管理員工具</span>
+            <div class="mobile-admin-bar-actions">
+                <button type="button" class="mobile-admin-btn" id="mBtnSettings">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                    </svg>
+                    <span>不開放時段</span>
+                </button>
+                <button type="button" class="mobile-admin-btn" id="mBtnAnnouncements">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <span>場地公告</span>
+                </button>
+                <button type="button" class="mobile-admin-btn" id="mBtnDashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="9"></rect>
+                        <rect x="14" y="3" width="7" height="5"></rect>
+                        <rect x="14" y="12" width="7" height="9"></rect>
+                        <rect x="3" y="16" width="7" height="5"></rect>
+                    </svg>
+                    <span>儀表板</span>
+                </button>
+            </div>
+        </section>
+
         <!-- 查詢控制區 -->
         <section class="control-panel">
             <div class="control-row">
@@ -1693,7 +1723,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.55.0 · Pine · Compact
+        v2.56.0 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>
