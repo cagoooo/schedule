@@ -38,6 +38,7 @@ const EXPORT_NAMES = [
     'computeAchievements',
     'urlBase64ToUint8Array', 'webPushSupported',
     'formatDate', 'parseDate', 'getMonday',
+    'getUnavailableSlotId', 'isSlotUnavailable',
     'formatTrailValue',
     'getDeviceId',
 ];

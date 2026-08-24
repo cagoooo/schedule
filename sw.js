@@ -1,6 +1,6 @@
-// Service Worker v2.56.0 - 📱 手機端管理員工具列 (不開放時段/公告/儀表板 行動入口)
-const CACHE_NAME = 'booking-system-v2.56.0';
-const APP_VERSION = 'v2.56.0';
+// Service Worker v2.56.1 - 🔒 修正預約彈窗沿用錯誤場地的不開放時段設定
+const CACHE_NAME = 'booking-system-v2.56.1';
+const APP_VERSION = 'v2.56.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

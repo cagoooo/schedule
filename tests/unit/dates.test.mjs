@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { loadApp } from './app-loader.mjs';
 
-const { formatDate, parseDate, getMonday } = loadApp();
+const { formatDate, parseDate, getMonday, getUnavailableSlotId, isSlotUnavailable } = loadApp();
 
 describe('formatDate', () => {
     it('補零: 個位數月/日 → 兩位數', () => {
@@ -51,5 +51,20 @@ describe('getMonday', () => {
         const m = getMonday(new Date(2026, 6, 22, 15, 30));
         expect(m.getHours()).toBe(0);
         expect(m.getMinutes()).toBe(0);
+    });
+});
+
+describe('固定不開放時段星期對應', () => {
+    it('2026/08/24 是星期一，應使用 mon 前綴', () => {
+        const date = parseDate('2026/08/24');
+        expect(getUnavailableSlotId(date, 'period1')).toBe('mon_period1');
+    });
+
+    it('只會依傳入的場地設定集合判斷，不會把其他星期的鎖定套過來', () => {
+        const date = parseDate('2026/08/24');
+        const c212Slots = ['mon_period1', 'mon_period2', 'mon_period3'];
+        expect(isSlotUnavailable(date, 'period3', c212Slots)).toBe(true);
+        expect(isSlotUnavailable(date, 'period7', c212Slots)).toBe(false);
+        expect(isSlotUnavailable(date, 'period1', ['thu_period1'])).toBe(false);
     });
 });

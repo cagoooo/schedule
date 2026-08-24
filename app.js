@@ -96,6 +96,7 @@ const ROOMS = [
 ];
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 // ===== 全域狀態 =====
 let currentWeekStart = getMonday(new Date());
@@ -110,6 +111,9 @@ let rangeStartDate = null;
 let rangeEndDate = null;
 let currentUser = null;
 let unavailableSlots = []; // 當前場地的不開放時段 (例如: ["mon_period1", "wed_lunch"])
+// 預約彈窗的場地可能與主畫面不同，不能直接沿用日曆用的 unavailableSlots。
+let bookingModalUnavailableSlots = [];
+let bookingModalSettingsRequest = 0;
 
 // ===== Rate Limiting 設定 =====
 const RATE_LIMIT = {
@@ -290,6 +294,27 @@ function isSameDay(date1, date2) {
  */
 function getWeekdayName(date) {
     return WEEKDAYS[date.getDay()];
+}
+
+/**
+ * 取得日期 + 節次對應的固定不開放設定 ID
+ * @param {Date} date
+ * @param {string} periodId
+ * @returns {string}
+ */
+function getUnavailableSlotId(date, periodId) {
+    return `${DAY_IDS[date.getDay()]}_${periodId}`;
+}
+
+/**
+ * 檢查指定設定集合是否鎖定日期 + 節次
+ * @param {Date} date
+ * @param {string} periodId
+ * @param {string[]} slots
+ * @returns {boolean}
+ */
+function isSlotUnavailable(date, periodId, slots = unavailableSlots) {
+    return Array.isArray(slots) && slots.includes(getUnavailableSlotId(date, periodId));
 }
 
 // ===== Firebase Auth =====
@@ -979,8 +1004,8 @@ function renderMonthCalendar() {
     const currentDate = new Date(startDay);
     while (currentDate <= endDay) {
         // 判斷是否為不開放時段
-        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][currentDate.getDay()];
-        const isUnavailable = unavailableSlots.some(slot => slot.startsWith(dayId));
+        const dayId = DAY_IDS[currentDate.getDay()];
+        const isUnavailable = unavailableSlots.some(slot => slot.startsWith(`${dayId}_`));
 
         if (isUnavailable) {
             // 在月曆模式下，如果該天有任一節次被封鎖，我們雖然不鎖全天，但渲染時需注意
@@ -1230,7 +1255,7 @@ function switchView(mode) {
 /**
  * 渲染節次勾選框
  */
-function renderPeriodCheckboxes(date) {
+function renderPeriodCheckboxes(date, unavailableForBooking = unavailableSlots) {
     const container = document.getElementById('periodCheckboxes');
     container.innerHTML = '';
 
@@ -1240,9 +1265,7 @@ function renderPeriodCheckboxes(date) {
 
         // 檢查固定不開放
         const dateObj = parseDate(date);
-        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
-        const slotId = `${dayId}_${period.id}`;
-        const isUnavailable = unavailableSlots.includes(slotId);
+        const isUnavailable = isSlotUnavailable(dateObj, period.id, unavailableForBooking);
 
         const isDisabled = isBooked || isUnavailable;
         const statusTip = isUnavailable ? '固定不開放時段' : (isBooked ? `已被 ${booker} 預約` : '可預約');
@@ -1278,7 +1301,7 @@ function renderPeriodCheckboxes(date) {
 /**
  * 開啟預約彈窗
  */
-function openBookingModal(dateStr) {
+async function openBookingModal(dateStr, roomOverride = null) {
     selectedDate = dateStr;
 
     // 初始化批次日曆顯示月份為所選日期之月份
@@ -1286,7 +1309,9 @@ function openBookingModal(dateStr) {
     batchDisplayMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
 
     document.getElementById('modalDate').textContent = dateStr;
-    document.getElementById('modalRoomSelect').value = getSelectedRoom(); // 同步當前選單場地
+    const modalRoomSelect = document.getElementById('modalRoomSelect');
+    const room = roomOverride || getSelectedRoom();
+    modalRoomSelect.value = room; // 同步當前選單場地
     document.getElementById('bookerName').value = '';
     document.getElementById('bookingReason').value = '';
     document.getElementById('repeatBooking').checked = false;
@@ -1300,14 +1325,27 @@ function openBookingModal(dateStr) {
     document.getElementById('smartSuggestions').classList.add('hidden');
     document.getElementById('suggestionsList').innerHTML = '';
 
-    renderPeriodCheckboxes(dateStr);
+    // 先顯示彈窗，再載入「彈窗目前場地」的設定；不能沿用主畫面上一個場地的設定。
+    bookingModalUnavailableSlots = [];
+    document.getElementById('periodCheckboxes').innerHTML =
+        '<div class="loading-text" style="color:#666;text-align:center;padding:12px;">載入固定不開放時段...</div>';
 
     // v2.41.0 (M.1): 顯示場地公告 banner
     try {
-        renderAnnouncementBannerInBookingModal(getSelectedRoom(), dateStr);
+        renderAnnouncementBannerInBookingModal(room, dateStr);
     } catch (e) { /* announcements not yet loaded */ }
 
     document.getElementById('modalOverlay').classList.add('active');
+
+    const requestId = ++bookingModalSettingsRequest;
+    const slots = await fetchRoomSlots(room);
+    if (requestId !== bookingModalSettingsRequest
+        || selectedDate !== dateStr
+        || modalRoomSelect.value !== room) {
+        return;
+    }
+    bookingModalUnavailableSlots = slots;
+    renderPeriodCheckboxes(dateStr, bookingModalUnavailableSlots);
 }
 
 /**
@@ -1338,6 +1376,8 @@ function highlightInvalidField(elementId) {
  * 關閉預約彈窗
  */
 function closeBookingModal() {
+    bookingModalSettingsRequest += 1;
+    bookingModalUnavailableSlots = [];
     document.getElementById('modalOverlay').classList.remove('active');
     selectedDate = null;
 }
@@ -1383,15 +1423,15 @@ async function quickRebook(booking) {
     }
 
     // 略等資料載入後再開啟預約彈窗
-    setTimeout(() => {
-        openBookingModal(newDateStr);
+    setTimeout(async () => {
+        const modalRoomSelect = document.getElementById('modalRoomSelect');
+        const bookingRoom = booking.room && modalRoomSelect
+            && Array.from(modalRoomSelect.options).some(o => o.value === booking.room)
+            ? booking.room
+            : null;
+        await openBookingModal(newDateStr, bookingRoom);
 
         // 預填欄位
-        if (booking.room) {
-            const modalRoomSelect = document.getElementById('modalRoomSelect');
-            const exists = modalRoomSelect && Array.from(modalRoomSelect.options).some(o => o.value === booking.room);
-            if (exists) modalRoomSelect.value = booking.room;
-        }
         document.getElementById('bookerName').value = booking.booker || '';
         document.getElementById('bookingReason').value = booking.reason || '';
 
@@ -1483,13 +1523,15 @@ async function submitBooking() {
         }
     }
 
+    // 以預約彈窗選定的場地重新讀取設定，避免沿用主畫面或上一個場地的鎖定集合。
+    const bookingUnavailableSlots = await fetchRoomSlots(room);
+    bookingModalUnavailableSlots = bookingUnavailableSlots;
+
     // 檢查所有日期的固定不開放時段
     for (const dateStr of datesToBook) {
         const dateObj = parseDate(dateStr);
-        const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dateObj.getDay()];
         for (const periodId of selectedPeriods) {
-            const slotId = `${dayId}_${periodId}`;
-            if (unavailableSlots.includes(slotId)) {
+            if (isSlotUnavailable(dateObj, periodId, bookingUnavailableSlots)) {
                 showToast(`${dateStr} 的 ${PERIODS.find(p => p.id === periodId).name} 為固定禁排時段`, 'error');
                 return;
             }
@@ -1998,17 +2040,32 @@ function initEventListeners() {
         }
     });
 
-    // 預約彈窗場地切換 -> 刷新節次狀態 (修復衝突檢查失效)
-    document.getElementById('modalRoomSelect').addEventListener('change', () => {
-        if (selectedDate) {
-            renderPeriodCheckboxes(selectedDate);
-            // 重置 AI 建議 (因為場地變了)
-            document.getElementById('smartSuggestions').classList.add('hidden');
-            // v2.41.0 (M.1): 場地切換 → 重新整理公告 banner
-            try {
-                renderAnnouncementBannerInBookingModal(getSelectedRoom(), selectedDate);
-            } catch (e) { /* silent */ }
+    // 預約彈窗場地切換 -> 載入該場地設定後再刷新節次狀態
+    document.getElementById('modalRoomSelect').addEventListener('change', async (e) => {
+        if (!selectedDate) return;
+
+        const room = e.target.value;
+        const date = selectedDate;
+        const requestId = ++bookingModalSettingsRequest;
+        bookingModalUnavailableSlots = [];
+        document.getElementById('periodCheckboxes').innerHTML =
+            '<div class="loading-text" style="color:#666;text-align:center;padding:12px;">載入固定不開放時段...</div>';
+
+        // 重置 AI 建議 (因為場地變了)
+        document.getElementById('smartSuggestions').classList.add('hidden');
+        // v2.41.0 (M.1): 場地切換 → 重新整理公告 banner
+        try {
+            renderAnnouncementBannerInBookingModal(room, date);
+        } catch (e) { /* silent */ }
+
+        const slots = await fetchRoomSlots(room);
+        if (requestId !== bookingModalSettingsRequest
+            || selectedDate !== date
+            || e.target.value !== room) {
+            return;
         }
+        bookingModalUnavailableSlots = slots;
+        renderPeriodCheckboxes(date, bookingModalUnavailableSlots);
     });
 
     // 不開放時段設定監聽
@@ -4330,7 +4387,7 @@ function closeSettingsModal() {
  */
 function renderSettingsTable() {
     const tbody = document.getElementById('settingsTableBody');
-    const dayIds = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const dayIds = DAY_IDS;
 
     tbody.innerHTML = PERIODS.map(period => `
         <tr>
@@ -4475,8 +4532,6 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
             settingsMap[doc.id] = new Set(doc.data().unavailableSlots || []);
         });
     }
-    const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-
     // 輔助：指定「場地」在指定日期+節次是否固定不開放 (v2.55.0 正確版, 取代舊 stub)
     function isSlotBlockedFor(room, dateObj, pid) {
         const set = settingsMap[room];
@@ -4600,9 +4655,7 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
  * (維持原用全域變數 unavailableSlots 的邏輯，僅適用於「當前選定場地」)
  */
 function isPeriodUnavailable(date, periodId) {
-    const dayId = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
-    const slotId = `${dayId}_${periodId}`;
-    return unavailableSlots.includes(slotId);
+    return isSlotUnavailable(date, periodId);
 }
 
 /**
@@ -4679,18 +4732,20 @@ function applySuggestion(suggestion) {
 
     // 2. 更新場地 (若不同)
     const roomSelect = document.getElementById('modalRoomSelect');
-    if (roomSelect.value !== suggestion.room) {
-        roomSelect.value = suggestion.room;
-        // 觸發場地變更邏輯 (例如重新載入 unavailableSlots)
-        // 這裡簡化：直接呼叫載入設定
-        loadRoomSettings(suggestion.room).then(() => {
-            renderPeriodCheckboxes(selectedDate);
-            checkSuggestionPeriod(suggestion.period);
-        });
-    } else {
-        renderPeriodCheckboxes(selectedDate);
+    roomSelect.value = suggestion.room;
+    // 智慧建議也要走預約彈窗自己的場地設定，不能污染或沿用日曆全域狀態。
+    const modalSettingsRequest = ++bookingModalSettingsRequest;
+    bookingModalUnavailableSlots = [];
+    fetchRoomSlots(suggestion.room).then(slots => {
+        if (modalSettingsRequest !== bookingModalSettingsRequest
+            || !selectedDate
+            || roomSelect.value !== suggestion.room) {
+            return;
+        }
+        bookingModalUnavailableSlots = slots;
+        renderPeriodCheckboxes(selectedDate, bookingModalUnavailableSlots);
         checkSuggestionPeriod(suggestion.period);
-    }
+    });
 
     // 3. 隱藏建議區
     document.getElementById('smartSuggestions').classList.add('hidden');
