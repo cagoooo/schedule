@@ -114,6 +114,8 @@ let unavailableSlots = []; // 當前場地的不開放時段 (例如: ["mon_peri
 // 預約彈窗的場地可能與主畫面不同，不能直接沿用日曆用的 unavailableSlots。
 let bookingModalUnavailableSlots = [];
 let bookingModalSettingsRequest = 0;
+// v2.57.0: 找空檔搜尋請求代數，避免舊結果覆蓋目前指定的被預約節次。
+let smartSuggestionsRequest = 0;
 
 // ===== Rate Limiting 設定 =====
 const RATE_LIMIT = {
@@ -1257,42 +1259,105 @@ function switchView(mode) {
  */
 function renderPeriodCheckboxes(date, unavailableForBooking = unavailableSlots) {
     const container = document.getElementById('periodCheckboxes');
+    const dateObj = parseDate(date);
     container.innerHTML = '';
 
     PERIODS.forEach(period => {
-        const isBooked = isPeriodBooked(parseDate(date), period.id);
-        const booker = getBookerForPeriod(parseDate(date), period.id);
+        const isBooked = isPeriodBooked(dateObj, period.id);
+        const booker = getBookerForPeriod(dateObj, period.id);
 
         // 檢查固定不開放
-        const dateObj = parseDate(date);
         const isUnavailable = isSlotUnavailable(dateObj, period.id, unavailableForBooking);
 
         const isDisabled = isBooked || isUnavailable;
         const statusTip = isUnavailable ? '固定不開放時段' : (isBooked ? `已被 ${booker} 預約` : '可預約');
+        const safeBooker = escapeHtml(booker || '其他使用者');
 
         const checkboxEl = document.createElement('div');
-        checkboxEl.className = `period-checkbox ${isUnavailable ? 'unavailable' : ''}`;
+        checkboxEl.className = [
+            'period-checkbox',
+            isUnavailable ? 'unavailable' : '',
+            isBooked ? 'is-booked' : '',
+        ].filter(Boolean).join(' ');
+        checkboxEl.dataset.periodId = period.id;
+        checkboxEl.setAttribute('role', 'group');
+        checkboxEl.setAttribute('aria-label', `${period.name}：${statusTip}`);
 
         let labelContent = period.name;
         if (isUnavailable) {
             labelContent += ' <span class="lock-icon">🔒</span>';
         } else if (isBooked) {
             // 若被預約，顯示找空檔按鈕 (僅限非固定不開放)
-            labelContent += ` <span class="booked-info">(${booker})</span>`;
+            labelContent += ` <span class="booked-info">(${safeBooker})</span>`;
         }
 
         checkboxEl.innerHTML = `
-            <input type="checkbox" 
-                   id="period_${period.id}" 
+            <input type="checkbox"
+                   id="period_${period.id}"
                    value="${period.id}"
                    ${isDisabled ? 'disabled' : ''}>
             <label for="period_${period.id}"
-                   title="${statusTip}">
+                   title="${escapeHtml(statusTip)}">
                 ${labelContent}
             </label>
-            ${isBooked && !isUnavailable ? `<button type="button" class="btn-find-alt" onclick="showSmartSuggestions('${period.id}')">🔍 找空檔</button>` : ''}
+            ${isBooked && !isUnavailable ? `
+                <div class="period-alt-action">
+                    <span class="period-alt-connector" aria-hidden="true">
+                        <span class="period-alt-connector-line"></span>
+                        <span class="period-alt-connector-arrow">➜</span>
+                    </span>
+                    <button type="button"
+                            class="btn-find-alt"
+                            data-period-id="${period.id}"
+                            aria-controls="smartSuggestions"
+                            aria-label="為${period.name}尋找可替代的空檔"
+                            title="為${period.name}尋找可替代的空檔"
+                            onclick="showSmartSuggestions('${period.id}', this)">
+                        <span class="btn-find-alt-icon" aria-hidden="true">🔍</span>
+                        <span class="btn-find-alt-copy">
+                            <span class="btn-find-alt-text">找空檔</span>
+                            <span class="btn-find-alt-context">替代 ${period.name}</span>
+                        </span>
+                    </button>
+                </div>
+            ` : ''}
         `;
         container.appendChild(checkboxEl);
+    });
+}
+
+/**
+ * 重置找空檔區域，並取消尚未完成的舊搜尋。
+ */
+function resetSmartSuggestions() {
+    smartSuggestionsRequest += 1;
+
+    const container = document.getElementById('smartSuggestions');
+    const list = document.getElementById('suggestionsList');
+    const targetContext = document.getElementById('suggestionsTargetContext');
+    const status = document.getElementById('suggestionsSearchStatus');
+    const statusText = document.getElementById('suggestionsSearchStatusText');
+    const statusDetail = document.getElementById('suggestionsSearchStatusDetail');
+    const progressBar = document.getElementById('suggestionsSearchProgressBar');
+    const progressPercent = document.getElementById('suggestionsSearchProgressPercent');
+    const progressTrack = status?.querySelector('[role="progressbar"]');
+
+    container?.classList.add('hidden');
+    container?.removeAttribute('aria-busy');
+    list && (list.innerHTML = '');
+    targetContext && (targetContext.textContent = '');
+    status?.classList.add('hidden');
+    status?.classList.remove('is-searching', 'is-complete', 'is-empty', 'is-error');
+    statusText && (statusText.textContent = '準備搜尋替代空檔…');
+    statusDetail && (statusDetail.textContent = '即將比對附近日期、場地與節次');
+    progressBar && (progressBar.style.width = '0%');
+    progressPercent && (progressPercent.textContent = '0%');
+    progressTrack?.setAttribute('aria-valuenow', '0');
+    progressTrack?.setAttribute('aria-valuetext', '準備搜尋');
+
+    document.querySelectorAll('.period-checkbox.is-suggestion-source').forEach(el => {
+        el.classList.remove('is-suggestion-source', 'is-searching');
+        el.removeAttribute('aria-busy');
     });
 }
 
@@ -1321,9 +1386,8 @@ async function openBookingModal(dateStr, roomOverride = null) {
     const date = parseDate(dateStr);
     document.getElementById('repeatFrequency').textContent = `每週${getWeekdayName(date)}`;
 
-    // 重置並隱藏建議區域
-    document.getElementById('smartSuggestions').classList.add('hidden');
-    document.getElementById('suggestionsList').innerHTML = '';
+    // 重置並隱藏建議區域；同時取消前一個彈窗可能尚未完成的搜尋。
+    resetSmartSuggestions();
 
     // 先顯示彈窗，再載入「彈窗目前場地」的設定；不能沿用主畫面上一個場地的設定。
     bookingModalUnavailableSlots = [];
@@ -1377,6 +1441,7 @@ function highlightInvalidField(elementId) {
  */
 function closeBookingModal() {
     bookingModalSettingsRequest += 1;
+    resetSmartSuggestions();
     bookingModalUnavailableSlots = [];
     document.getElementById('modalOverlay').classList.remove('active');
     selectedDate = null;
@@ -2051,8 +2116,8 @@ function initEventListeners() {
         document.getElementById('periodCheckboxes').innerHTML =
             '<div class="loading-text" style="color:#666;text-align:center;padding:12px;">載入固定不開放時段...</div>';
 
-        // 重置 AI 建議 (因為場地變了)
-        document.getElementById('smartSuggestions').classList.add('hidden');
+        // 重置 AI 建議 (因為場地變了)，避免舊場地的搜尋結果殘留。
+        resetSmartSuggestions();
         // v2.41.0 (M.1): 場地切換 → 重新整理公告 banner
         try {
             renderAnnouncementBannerInBookingModal(room, date);
@@ -4494,10 +4559,24 @@ document.addEventListener('DOMContentLoaded', () => {
  * @param {string} dateStr 目標日期 (YYYY/MM/DD)
  * @param {string} periodId 目標節次 ID
  * @param {string} roomName 目標場地名稱
+ * @param {(progress: {percent: number, text: string, detail: string}) => void} [onProgress]
  */
-async function findSmartAlternatives(dateStr, periodId, roomName) {
+async function findSmartAlternatives(dateStr, periodId, roomName, onProgress = null) {
     const suggestions = [];
     const targetDate = parseDate(dateStr);
+
+    // v2.57.0: 將實際查詢階段回報給 UI，讓進度條不是只有靜態轉圈圈。
+    const reportProgress = (percent, text, detail) => {
+        if (typeof onProgress !== 'function') return;
+        try {
+            onProgress({ percent, text, detail });
+        } catch (error) {
+            // 進度 UI 失敗不可影響真正的替代方案查詢。
+            console.warn('找空檔進度更新失敗:', error);
+        }
+    };
+
+    reportProgress(12, '正在讀取附近日期與場地資料…', '查詢目標前後 7 天的預約與固定不開放設定');
 
     // 準備查詢範圍：前後 7 天
     const startDate = new Date(targetDate);
@@ -4520,6 +4599,8 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
         db.collection('roomSettings').get().catch(() => null),
     ]);
 
+    reportProgress(56, '正在比對已預約時段…', '排除已被預約與固定不開放的選項');
+
     const rangeBookings = [];
     snapshot.forEach(doc => {
         rangeBookings.push(doc.data());
@@ -4532,6 +4613,7 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
             settingsMap[doc.id] = new Set(doc.data().unavailableSlots || []);
         });
     }
+    reportProgress(72, '正在尋找可用替代方案…', '比對鄰近日期、其他場地與相鄰節次');
     // 輔助：指定「場地」在指定日期+節次是否固定不開放 (v2.55.0 正確版, 取代舊 stub)
     function isSlotBlockedFor(room, dateObj, pid) {
         const set = settingsMap[room];
@@ -4645,6 +4727,7 @@ async function findSmartAlternatives(dateStr, periodId, roomName) {
     }
 
     // 排序並取前 4 名 (v2.55.0: 3→4, 給老師多一點選擇)
+    reportProgress(94, '正在整理推薦順序…', '依照日期、場地與節次的接近程度排序');
     return suggestions
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
@@ -4659,27 +4742,106 @@ function isPeriodUnavailable(date, periodId) {
 }
 
 /**
+ * 更新找空檔進度 UI。
+ */
+function updateSmartSearchProgress(percent, text, detail = '', state = 'searching') {
+    const status = document.getElementById('suggestionsSearchStatus');
+    if (!status) return;
+
+    const progressBar = document.getElementById('suggestionsSearchProgressBar');
+    const progressPercent = document.getElementById('suggestionsSearchProgressPercent');
+    const statusText = document.getElementById('suggestionsSearchStatusText');
+    const statusDetail = document.getElementById('suggestionsSearchStatusDetail');
+    const progressTrack = status.querySelector('[role="progressbar"]');
+    const numericPercent = Math.min(100, Math.max(0, Number(percent) || 0));
+
+    status.classList.remove('hidden', 'is-searching', 'is-complete', 'is-empty', 'is-error');
+    status.classList.add(`is-${state}`);
+    progressBar && (progressBar.style.width = `${numericPercent}%`);
+    progressPercent && (progressPercent.textContent = `${Math.round(numericPercent)}%`);
+    statusText && (statusText.textContent = text);
+    statusDetail && (statusDetail.textContent = detail);
+    progressTrack?.setAttribute('aria-valuenow', String(Math.round(numericPercent)));
+    progressTrack?.setAttribute('aria-valuetext', `${Math.round(numericPercent)}%：${text}`);
+}
+
+/**
+ * 將找空檔區域捲動到彈窗可視範圍，讓使用者看見搜尋進度與結果。
+ */
+function scrollToSmartSuggestions() {
+    const container = document.getElementById('smartSuggestions');
+    if (!container || container.classList.contains('hidden')) return;
+
+    const scroll = () => {
+        if (typeof container.scrollIntoView === 'function') {
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(scroll);
+    } else {
+        setTimeout(scroll, 0);
+    }
+}
+
+/**
  * 顯示智慧建議
  */
-async function showSmartSuggestions(periodId) {
+async function showSmartSuggestions(periodId, triggerEl = null) {
     const container = document.getElementById('smartSuggestions');
     const list = document.getElementById('suggestionsList');
+    const roomSelect = document.getElementById('modalRoomSelect');
+    const targetContext = document.getElementById('suggestionsTargetContext');
+    const period = PERIODS.find(p => p.id === periodId);
+    if (!container || !list || !roomSelect || !period) return;
 
-    // 顯示載入中
-    container.classList.remove('hidden');
-    list.innerHTML = '<div class="loading-text" style="color:#666;text-align:center;padding:10px;">🔍 AI 正在分析最佳替代方案...</div>';
-
-    const room = document.getElementById('modalRoomSelect').value;
+    const requestId = ++smartSuggestionsRequest;
+    const room = roomSelect.value;
     const date = document.getElementById('modalDate').textContent;
+    const source = (triggerEl && typeof triggerEl.closest === 'function')
+        ? triggerEl.closest('.period-checkbox')
+        : document.querySelector(`.period-checkbox[data-period-id="${periodId}"]`);
+
+    document.querySelectorAll('.period-checkbox.is-suggestion-source').forEach(el => {
+        el.classList.remove('is-suggestion-source', 'is-searching');
+        el.removeAttribute('aria-busy');
+    });
+    source?.classList.add('is-suggestion-source', 'is-searching');
+    source?.setAttribute('aria-busy', 'true');
+    container.setAttribute('aria-busy', 'true');
+    container.classList.remove('hidden');
+    targetContext && (targetContext.textContent = `查詢目標：${period.name} · ${room} · ${date}（此節已被預約）`);
+    list.innerHTML = '';
+
+    // 先讓使用者看見搜尋進度，再開始查詢；結果完成後會再次定位到同一區塊。
+    updateSmartSearchProgress(8, '正在準備搜尋替代空檔…', `針對${period.name}建立搜尋條件`, 'searching');
+    scrollToSmartSuggestions();
 
     try {
-        const suggestions = await findSmartAlternatives(date, periodId, room);
+        const suggestions = await findSmartAlternatives(date, periodId, room, progress => {
+            if (requestId !== smartSuggestionsRequest
+                || selectedDate !== date
+                || roomSelect.value !== room) {
+                return;
+            }
+            updateSmartSearchProgress(progress.percent, progress.text, progress.detail, 'searching');
+        });
+
+        if (requestId !== smartSuggestionsRequest
+            || selectedDate !== date
+            || roomSelect.value !== room) {
+            return;
+        }
 
         list.innerHTML = '';
         if (suggestions.length === 0) {
-            list.innerHTML = '<div style="color:#666;text-align:center;padding:10px;">找不到合適的替代方案 😅</div>';
+            updateSmartSearchProgress(100, '搜尋完成，但目前沒有合適的替代方案', '已比對附近日期、其他場地與相鄰節次', 'empty');
+            list.innerHTML = '<div class="suggestions-empty">找不到合適的替代方案 😅</div>';
+            scrollToSmartSuggestions();
             return;
         }
+
+        updateSmartSearchProgress(100, '搜尋完成', `找到 ${suggestions.length} 個可用替代方案`, 'complete');
 
         suggestions.forEach(s => {
             const pName = PERIODS.find(p => p.id === s.period).name;
@@ -4709,15 +4871,22 @@ async function showSmartSuggestions(periodId) {
             list.appendChild(card);
         });
 
-        // 自動捲動到建議區域 (提升 UX)
+        // 自動捲動到建議區域 (提升 UX)，確保載入完成後結果仍在視線內。
         setTimeout(() => {
-            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 300);
-
-
+            if (requestId === smartSuggestionsRequest) scrollToSmartSuggestions();
+        }, 120);
     } catch (error) {
+        if (requestId !== smartSuggestionsRequest) return;
         console.error('AI 建議分析失敗:', error);
-        list.innerHTML = '<div style="color:red;text-align:center;">分析發生錯誤</div>';
+        updateSmartSearchProgress(100, '搜尋失敗', '請稍後再試，或確認網路連線', 'error');
+        list.innerHTML = '<div class="suggestions-empty is-error">分析發生錯誤，請稍後再試。</div>';
+        scrollToSmartSuggestions();
+    } finally {
+        if (requestId === smartSuggestionsRequest) {
+            container.setAttribute('aria-busy', 'false');
+            source?.classList.remove('is-searching');
+            source?.removeAttribute('aria-busy');
+        }
     }
 }
 
@@ -4747,8 +4916,8 @@ function applySuggestion(suggestion) {
         checkSuggestionPeriod(suggestion.period);
     });
 
-    // 3. 隱藏建議區
-    document.getElementById('smartSuggestions').classList.add('hidden');
+    // 3. 隱藏建議區，並取消尚未完成的舊搜尋
+    resetSmartSuggestions();
 
     // 4. 提示
     showToast('已切換至建議時段，請確認後預約', 'success');

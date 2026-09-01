@@ -1,6 +1,6 @@
-// Service Worker v2.56.1 - 🔒 修正預約彈窗沿用錯誤場地的不開放時段設定
-const CACHE_NAME = 'booking-system-v2.56.1';
-const APP_VERSION = 'v2.56.1';
+// Service Worker v2.57.0 - ✨ 強化被預約節次與找空檔的 UX 連結與進度回饋
+const CACHE_NAME = 'booking-system-v2.57.0';
+const APP_VERSION = 'v2.57.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

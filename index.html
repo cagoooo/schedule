@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.56.1</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.57.0</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.56.1',
+                release: 'v2.57.0',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,7 +38,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.56.1';
+            const APP_VERSION = 'v2.57.0';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -661,10 +661,26 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
-                            <path d="M12 2a10 10 0 1 1-10 10h10V2z" opacity="0.5"></path>
+                        <path d="M12 2a10 10 0 1 1-10 10h10V2z" opacity="0.5"></path>
                             <path d="M2 12h10v10"></path>
                         </svg>
-                        💡 AI 智慧建議替代方案
+                        <span class="suggestions-header-text">💡 AI 智慧建議替代方案</span>
+                    </div>
+                    <div class="suggestions-target-context" id="suggestionsTargetContext" aria-live="polite"></div>
+                    <div class="suggestions-search-status hidden" id="suggestionsSearchStatus" role="status"
+                        aria-live="polite" aria-atomic="true">
+                        <div class="suggestions-progress-head">
+                            <span class="suggestions-progress-icon" aria-hidden="true">🔍</span>
+                            <div class="suggestions-progress-copy">
+                                <strong id="suggestionsSearchStatusText">準備搜尋替代空檔…</strong>
+                                <span id="suggestionsSearchStatusDetail">即將比對附近日期、場地與節次</span>
+                            </div>
+                            <span class="suggestions-progress-percent" id="suggestionsSearchProgressPercent">0%</span>
+                        </div>
+                        <div class="suggestions-progress-track" role="progressbar" aria-label="找空檔搜尋進度"
+                            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="準備搜尋">
+                            <span class="suggestions-progress-bar" id="suggestionsSearchProgressBar"></span>
+                        </div>
                     </div>
                     <div class="suggestions-list" id="suggestionsList">
                         <!-- 由 JS 動態生成 -->
@@ -1723,7 +1739,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.56.1 · Pine · Compact
+        v2.57.0 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>

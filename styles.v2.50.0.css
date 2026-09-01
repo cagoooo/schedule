@@ -9909,6 +9909,342 @@ body {
     font-weight: 500;
 }
 
+
+/* ===== v2.57.0: 被預約節次與找空檔的視覺連結 + 搜尋進度 ===== */
+.period-checkbox.is-booked {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+    border: 1px solid rgba(245, 158, 11, 0.42);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 251, 235, 0.96));
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.12);
+}
+
+.period-checkbox.is-booked > label {
+    min-width: 0;
+    flex: 0 1 auto;
+}
+
+.period-checkbox.is-booked .booked-info {
+    max-width: min(12rem, 28vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.period-alt-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 0 0 auto;
+}
+
+.period-alt-connector {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    color: #d97706;
+    flex: 0 0 auto;
+}
+
+.period-alt-connector-line {
+    width: clamp(12px, 2vw, 24px);
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.58;
+}
+
+.period-alt-connector-arrow {
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.period-checkbox.is-booked .btn-find-alt {
+    margin-left: 0;
+    min-height: 42px;
+    padding: 0.4rem 0.65rem;
+    gap: 0.35rem;
+    border-radius: 11px;
+    white-space: nowrap;
+}
+
+.btn-find-alt-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.btn-find-alt-copy {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    line-height: 1.05;
+}
+
+.btn-find-alt-text {
+    font-size: 0.82rem;
+}
+
+.btn-find-alt-context {
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.64rem;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.btn-find-alt:focus-visible {
+    outline: 3px solid rgba(245, 158, 11, 0.5);
+    outline-offset: 2px;
+}
+
+.period-checkbox.is-suggestion-source {
+    position: relative;
+    z-index: 2;
+    border-color: #f59e0b;
+    outline: 3px solid rgba(245, 158, 11, 0.24);
+    outline-offset: 3px;
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.22);
+}
+
+.period-checkbox.is-suggestion-source.is-searching {
+    animation: suggestionSourcePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes suggestionSourcePulse {
+    0%,
+    100% {
+        outline-color: rgba(245, 158, 11, 0.24);
+        box-shadow: 0 6px 18px rgba(245, 158, 11, 0.18);
+    }
+
+    50% {
+        outline-color: rgba(245, 158, 11, 0.62);
+        box-shadow: 0 8px 24px rgba(245, 158, 11, 0.32);
+    }
+}
+
+.smart-suggestions {
+    scroll-margin-block: 1rem;
+}
+
+.suggestions-header-text {
+    min-width: 0;
+}
+
+.suggestions-target-context {
+    margin: -0.65rem 0 1rem;
+    padding: 0.6rem 0.8rem;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 10px 10px 0;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.suggestions-search-status {
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+    color: #1e3a8a;
+}
+
+.suggestions-search-status.hidden {
+    display: none;
+}
+
+.suggestions-progress-head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.suggestions-progress-icon {
+    flex: 0 0 auto;
+    font-size: 1.15rem;
+}
+
+.suggestions-progress-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.suggestions-progress-copy strong,
+.suggestions-progress-copy span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.suggestions-progress-copy strong {
+    color: #1e3a8a;
+    font-size: 0.9rem;
+}
+
+.suggestions-progress-copy span {
+    color: #64748b;
+    font-size: 0.76rem;
+}
+
+.suggestions-progress-percent {
+    flex: 0 0 auto;
+    color: #1d4ed8;
+    font-size: 0.82rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.suggestions-progress-track {
+    width: 100%;
+    height: 9px;
+    margin-top: 0.75rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dbeafe;
+}
+
+.suggestions-progress-bar {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f59e0b, #3b82f6, #6366f1);
+    transition: width 0.35s ease;
+}
+
+.suggestions-search-status.is-searching .suggestions-progress-bar {
+    position: relative;
+    overflow: hidden;
+}
+
+.suggestions-search-status.is-searching .suggestions-progress-bar::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
+    animation: suggestionsProgressShimmer 1.15s linear infinite;
+}
+
+@keyframes suggestionsProgressShimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+
+.suggestions-search-status.is-complete {
+    border-color: #86efac;
+    background: linear-gradient(135deg, #f0fdf4, #f8fafc);
+}
+
+.suggestions-search-status.is-complete,
+.suggestions-search-status.is-complete .suggestions-progress-copy strong,
+.suggestions-search-status.is-complete .suggestions-progress-percent {
+    color: #166534;
+}
+
+.suggestions-search-status.is-empty {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb, #fff);
+}
+
+.suggestions-search-status.is-empty,
+.suggestions-search-status.is-empty .suggestions-progress-copy strong,
+.suggestions-search-status.is-empty .suggestions-progress-percent {
+    color: #92400e;
+}
+
+.suggestions-search-status.is-error {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2, #fff);
+}
+
+.suggestions-search-status.is-error,
+.suggestions-search-status.is-error .suggestions-progress-copy strong,
+.suggestions-search-status.is-error .suggestions-progress-percent {
+    color: #b91c1c;
+}
+
+.suggestions-empty {
+    padding: 1.25rem 0.75rem;
+    color: #64748b;
+    text-align: center;
+    line-height: 1.6;
+}
+
+.suggestions-empty.is-error {
+    color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+    .period-checkbox.is-booked {
+        width: 100%;
+        flex: 1 1 100%;
+        justify-content: space-between;
+        gap: 0.35rem;
+    }
+
+    .period-checkbox.is-booked > label {
+        flex: 1 1 auto;
+    }
+
+    .period-alt-action {
+        margin-left: auto;
+    }
+
+    .period-alt-connector-line {
+        width: clamp(10px, 4vw, 18px);
+    }
+
+    .period-checkbox.is-booked .btn-find-alt {
+        min-height: 40px;
+        padding: 0.35rem 0.55rem;
+    }
+
+    .btn-find-alt-context {
+        max-width: 7.5rem;
+        font-size: 0.6rem;
+    }
+
+    .suggestions-target-context {
+        font-size: 0.8rem;
+    }
+
+    .suggestions-search-status {
+        padding: 0.75rem;
+    }
+
+    .suggestions-progress-copy span {
+        font-size: 0.7rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .smart-suggestions,
+    .suggestion-card,
+    .period-checkbox.is-suggestion-source,
+    .suggestions-search-status.is-searching .suggestions-progress-bar::after {
+        animation: none;
+    }
+
+    .suggestions-progress-bar,
+    .suggestion-card {
+        transition: none;
+    }
+}
+
 /* ==========================================================================
    v2.56.0 — 手機端管理員工具列 (≤640px header 藏起設定/公告/儀表板時的替代入口)
    ========================================================================== */
