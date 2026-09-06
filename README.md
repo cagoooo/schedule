@@ -1,4 +1,6 @@
-# 禮堂&專科教室&IPAD平板車預約系統 v2.50.6
+# 禮堂&專科教室&IPAD平板車預約系統 v2.57.0
+
+🌐 **線上使用：[禮堂&專科教室&IPAD平板車預約系統](https://cagoooo.github.io/schedule/)**
 
 學校禮堂、專科教室及IPAD平板車線上預約借用系統，支援查詢與查詢借用時段。
 
@@ -388,7 +390,7 @@ firebase deploy
 - Repository：`cagoooo/schedule`
 - 可見性：公開
 - 主要技術：CSS、Playwright、Firebase
-- 線上入口：未在 GitHub repository metadata 設定
+- 線上入口：<https://cagoooo.github.io/schedule/>
 
 ### 可以怎麼應用
 
