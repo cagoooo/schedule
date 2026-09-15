@@ -29,6 +29,27 @@ test.describe('頁面載入', () => {
     });
 });
 
+test.describe('LINE 綁定碼自動帶入', () => {
+    test('綁定碼產生後，QR 與手機按鈕共用 LINE 預填連結', async ({ page }) => {
+        await page.goto('/index.html');
+
+        const result = await page.evaluate(() => {
+            window.updateLineBindingUx(' bktml3 ');
+            const qr = document.querySelector('#lineBindQrImg');
+            const prefillLink = document.querySelector('#btnLineBindPrefill');
+            return {
+                href: prefillLink?.href,
+                qrData: qr?.src ? new URL(qr.src).searchParams.get('data') : null,
+                hint: document.querySelector('#lineBindPrefillHint')?.textContent,
+            };
+        });
+
+        expect(result.href).toBe('https://line.me/R/oaMessage/%40450qmudw/?BKTML3');
+        expect(result.qrData).toBe('https://line.me/R/oaMessage/%40450qmudw/?BKTML3');
+        expect(result.hint).toContain('BKTML3');
+    });
+});
+
 test.describe('我的預約 (M.3 + P1-1 + P1-5 + P1-7)', () => {
     test('開啟彈窗 → 通知開關/偏好列可見 → 關閉', async ({ page }) => {
         await page.goto('/index.html');

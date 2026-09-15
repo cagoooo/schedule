@@ -7161,6 +7161,40 @@ body:has(.pwa-update-banner.show) .pwa-prompt {
     color: #14532d;
 }
 
+/* v2.58.1: LINE oaMessage 預填綁定碼 CTA */
+.line-bind-prefill-cta {
+    margin-top: 0.9rem;
+    padding: 0.85rem 0.75rem;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid #86efac;
+    border-radius: 10px;
+}
+.btn-line-bind-prefill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0.72rem 1.1rem;
+    background: linear-gradient(135deg, #06c755 0%, #04a943 100%);
+    color: white !important;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 3px 10px rgba(6, 199, 85, 0.35);
+}
+.btn-line-bind-prefill:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 5px 14px rgba(6, 199, 85, 0.5);
+}
+.line-bind-prefill-hint {
+    margin: 0.55rem 0 0 !important;
+    font-size: 0.8rem !important;
+    color: #166534 !important;
+}
+
 /* v2.44.3: 手機加好友 CTA 區塊 */
 .line-bind-mobile-cta {
     margin-top: 1rem;

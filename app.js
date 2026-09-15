@@ -6304,8 +6304,59 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 
 const LINE_FUNCTIONS_BASE = 'https://asia-east1-schedule-10ed3.cloudfunctions.net';
+const LINE_BOT_BASIC_ID = '@450qmudw';
+const LINE_QR_ENDPOINT = 'https://api.qrserver.com/v1/create-qr-code/';
 let lineBindPollTimer = null;
 let lineBindCountdownTimer = null;
+
+/**
+ * 建立 LINE 官方 oaMessage 連結，讓 LINE 開啟 Bot 對話時預填綁定碼。
+ * LINE Bot ID 與訊息都必須 percent-encode；綁定碼本身會先正規化成大寫。
+ */
+function buildLinePrefillUrl(code) {
+    const normalizedCode = String(code ?? '').trim().toUpperCase();
+    const encodedBotId = encodeURIComponent(LINE_BOT_BASIC_ID);
+    return normalizedCode
+        ? `https://line.me/R/oaMessage/${encodedBotId}/?${encodeURIComponent(normalizedCode)}`
+        : `https://line.me/R/oaMessage/${encodedBotId}/`;
+}
+
+/**
+ * 建立動態 QR 圖片網址；QR 內容是 LINE oaMessage 預填連結，不是單純的加好友網址。
+ */
+function buildLineQrUrl(code) {
+    return `${LINE_QR_ENDPOINT}?size=320x320&margin=12&data=${encodeURIComponent(buildLinePrefillUrl(code))}`;
+}
+
+/**
+ * 綁定碼產生後更新 QR 與手機直接開啟按鈕。
+ */
+function updateLineBindingUx(code) {
+    const normalizedCode = String(code ?? '').trim().toUpperCase();
+    if (!normalizedCode) return;
+
+    const prefillUrl = buildLinePrefillUrl(normalizedCode);
+    const qrImg = document.getElementById('lineBindQrImg');
+    const qrFallback = document.getElementById('lineBindQrFallback');
+    const qrHint = document.getElementById('lineBindQrHint');
+    const prefillLink = document.getElementById('btnLineBindPrefill');
+    const prefillHint = document.getElementById('lineBindPrefillHint');
+
+    if (qrFallback) qrFallback.style.display = 'none';
+    if (qrImg) {
+        qrImg.style.display = '';
+        qrImg.alt = `LINE 綁定 QR Code（掃描後自動帶入綁定碼 ${normalizedCode}）`;
+        qrImg.src = buildLineQrUrl(normalizedCode);
+    }
+    if (qrHint) qrHint.textContent = '✨ 掃描後會自動開啟 LINE 並帶入綁定碼';
+    if (prefillLink) {
+        prefillLink.href = prefillUrl;
+        prefillLink.dataset.bindingCode = normalizedCode;
+    }
+    if (prefillHint) {
+        prefillHint.textContent = `點擊後會開啟 LINE 對話，綁定碼 ${normalizedCode} 會先填好；確認後直接送出即可。`;
+    }
+}
 
 /**
  * 開啟 LINE 綁定彈窗 — 自動依綁定狀態顯示對應 step
@@ -6544,17 +6595,22 @@ async function startLineBinding() {
         }
 
         const data = await res.json();
+        const bindingCode = String(data.code || '').trim().toUpperCase();
+        if (!/^[A-Z0-9]{6}$/.test(bindingCode)) {
+            throw new Error('綁定碼格式錯誤');
+        }
 
         // 顯示 Step 2
         document.getElementById('lineBindStep1').style.display = 'none';
         document.getElementById('lineBindStep2').style.display = 'block';
-        document.getElementById('lineBindCode').textContent = data.code;
+        document.getElementById('lineBindCode').textContent = bindingCode;
+        updateLineBindingUx(bindingCode);
 
         // 啟動倒數 (5 分鐘)
         startBindCountdown(data.expiresInSeconds || 300);
 
         // 啟動輪詢綁定狀態 (每 3 秒)
-        startBindPolling(data.code);
+        startBindPolling(bindingCode);
 
     } catch (err) {
         console.error('[LINE Bind] 產生綁定碼失敗', err);

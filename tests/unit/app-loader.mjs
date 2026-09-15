@@ -41,6 +41,7 @@ const EXPORT_NAMES = [
     'getUnavailableSlotId', 'isSlotUnavailable',
     'formatTrailValue',
     'getDeviceId',
+    'buildLinePrefillUrl', 'buildLineQrUrl',
 ];
 
 let cached = null;

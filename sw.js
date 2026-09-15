@@ -1,6 +1,6 @@
-// Service Worker v2.58.0 - 🔔 新增電腦教室(二)管理員預約/取消通知設定
-const CACHE_NAME = 'booking-system-v2.58.0';
-const APP_VERSION = 'v2.58.0';
+// Service Worker v2.58.1 - 📲 綁定碼 QR 自動帶入 LINE 輸入框
+const CACHE_NAME = 'booking-system-v2.58.1';
+const APP_VERSION = 'v2.58.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

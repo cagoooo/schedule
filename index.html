@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.58.0</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.58.1</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.58.0',
+                release: 'v2.58.1',
                 environment: location.hostname.endsWith('github.io') ? 'production' : 'development',
                 // 過濾已知噪音，節省免費額度
                 ignoreErrors: [
@@ -38,7 +38,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.58.0';
+            const APP_VERSION = 'v2.58.1';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -1696,30 +1696,43 @@
                     <div class="line-bind-instructions">
                         <h4>📱 操作步驟:</h4>
                         <ol>
-                            <li>用 LINE 掃下方 QR Code 加 Bot 為好友</li>
-                            <li>把上方綁定碼傳給 Bot</li>
+                            <li>用 LINE 掃描下方 QR Code，或點按鈕開啟 LINE</li>
+                            <li>綁定碼會自動帶入輸入框，確認後送出</li>
                             <li>Bot 回覆「✅ 綁定成功」即完成</li>
                         </ol>
                     </div>
 
                     <div class="line-bind-qr-container">
-                        <!-- v2.44.3: 改用 LINE 官方 Bot QR endpoint (sid/M 是 Bot,sid/L 是 channel) -->
-                        <img id="lineBindQrImg" alt="LINE Bot QR Code"
+                        <!-- v2.58.1: QR 會在綁定碼產生後改為 LINE oaMessage 預填連結 -->
+                        <img id="lineBindQrImg" alt="LINE Bot 加好友 QR Code（產生綁定碼後會自動更新）"
                              src="https://qr-official.line.me/sid/M/450qmudw.png"
                              onerror="this.style.display='none'; document.getElementById('lineBindQrFallback').style.display='block';">
                         <div id="lineBindQrFallback" style="display:none; padding: 1rem;">
                             <p>⚠ QR Code 載入失敗</p>
                             <p style="font-size:0.85rem; color:#64748b;">
-                                請改用下方按鈕直接加好友。
+                                請改用下方「在 LINE 開啟並帶入綁定碼」按鈕。
                             </p>
                         </div>
-                        <p class="line-bind-qr-hint">📱 用 LINE 掃描加 Bot 為好友</p>
+                        <p class="line-bind-qr-hint" id="lineBindQrHint">📱 產生綁定碼後，掃描即可自動帶入</p>
 
-                        <!-- v2.44.3: 手機備援 - 直接點按開啟 LINE 加好友 -->
+                        <!-- v2.58.1: 手機優先 — 官方 LINE oaMessage 預填連結 -->
+                        <div class="line-bind-prefill-cta">
+                            <a id="btnLineBindPrefill" href="https://line.me/R/oaMessage/%40450qmudw/"
+                               target="_blank" rel="noopener"
+                               class="btn-line-bind-prefill"
+                               aria-label="在 LINE 開啟並自動帶入綁定碼">
+                                📲 在 LINE 開啟並帶入綁定碼
+                            </a>
+                            <p id="lineBindPrefillHint" class="line-bind-prefill-hint" aria-live="polite">
+                                手機點擊後會開啟 LINE 對話，綁定碼會自動填入；確認後直接送出即可。
+                            </p>
+                        </div>
+
+                        <!-- v2.44.3: 備援 - 直接點按開啟 LINE 加好友 -->
                         <div class="line-bind-mobile-cta">
                             <a href="https://line.me/R/ti/p/@450qmudw" target="_blank" rel="noopener"
                                class="btn-add-line-friend">
-                                ➕ 點此直接加 LINE 好友
+                                ➕ 若尚未加好友，點此先加 LINE 好友
                             </a>
                             <p class="line-bind-id-hint">
                                 或在 LINE 搜尋 ID: <code>@450qmudw</code>
@@ -1750,7 +1763,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.58.0 · Pine · Compact
+        v2.58.1 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>
