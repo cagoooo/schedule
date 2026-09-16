@@ -1,6 +1,6 @@
-// Service Worker v2.59.2 - 我的預約響應式卡片
-const CACHE_NAME = 'booking-system-v2.59.2';
-const APP_VERSION = 'v2.59.2';
+// Service Worker v2.59.3 - 統一進階分析學期日期
+const CACHE_NAME = 'booking-system-v2.59.3';
+const APP_VERSION = 'v2.59.3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

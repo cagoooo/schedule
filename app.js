@@ -2455,27 +2455,6 @@ function renderTodayTrend(bookings) {
 // ===== Analytics v2 — 進階分析儀表板 =====
 
 /**
- * 計算本學期起訖日（上學期：8/1~1/31，下學期：2/1~7/31）
- * @returns {{ start: Date, end: Date }}
- */
-function getSemesterRange() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1; // 1-12
-    let start, end;
-    if (m >= 8) {
-        // 上學期：本年 8/1 ~ 次年 1/31
-        start = new Date(y, 7, 1);
-        end = new Date(y + 1, 0, 31);
-    } else {
-        // 下學期：本年 2/1 ~ 7/31
-        start = new Date(y, 1, 1);
-        end = new Date(y, 6, 31);
-    }
-    return { start, end };
-}
-
-/**
  * 進階分析儀表板主入口
  */
 async function loadAdvancedAnalytics() {
@@ -2484,8 +2463,9 @@ async function loadAdvancedAnalytics() {
     const endInput = document.getElementById('analyticsEnd');
     if (!startInput.value || !endInput.value) {
         const { start, end } = getSemesterRange();
-        startInput.value = formatDateISO(start);
-        endInput.value = formatDateISO(end);
+        // 共用學期函式回傳 YYYY/MM/DD 字串；日期欄位需要 YYYY-MM-DD。
+        startInput.value = start.replaceAll('/', '-');
+        endInput.value = end.replaceAll('/', '-');
     }
 
     // 綁定「重新分析」按鈕（防止重複綁定）
