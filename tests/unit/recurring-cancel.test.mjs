@@ -8,6 +8,13 @@ const remaining = context.remainingRecurringPeriods;
 const booking = { id: 'a', room: '五年級IPAD車(28台)', booker: '老師甲', date: '2026/09/14', periods: ['period1', 'period5'], deviceId: 'device-a', reason: '教學' };
 const filter = { room: booking.room, booker: booking.booker, start: '2026/09/14', end: '2026/10/12', weekdays: [1], periods: ['period5'] };
 describe('跨週指定節次取消', () => {
+    it('原設備識別需非空且完全相同；管理員可協助他人', () => {
+        expect(context.canRecurringCancel(booking, { isAdmin: false, deviceId: 'device-a' })).toBe(true);
+        expect(context.canRecurringCancel(booking, { isAdmin: false, deviceId: 'device-b' })).toBe(false);
+        expect(context.canRecurringCancel({}, { isAdmin: false })).toBe(false);
+        expect(context.canRecurringCancel(booking, { isAdmin: true })).toBe(true);
+        expect(context.canRecurringCancel(null, { isAdmin: true })).toBe(false);
+    });
     it('跨週比對完整姓名、場地、星期、日期邊界與節次', () => {
         const rows = [booking, { ...booking, id: 'b', date: '2026/10/12' },
             { ...booking, id: 'other-name', booker: '老師甲乙' },

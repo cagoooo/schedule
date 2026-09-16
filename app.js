@@ -334,7 +334,8 @@ auth.onAuthStateChanged((user) => {
  */
 function updateAuthUI() {
     const bulkButton = document.getElementById('btnRecurringCancel');
-    if (bulkButton) bulkButton.hidden = !currentUser;
+    if (bulkButton) bulkButton.hidden = false;
+    if (typeof refreshRecurringAccess === 'function') refreshRecurringAccess();
     const btn = document.getElementById('btnAdminLogin');
     const text = document.getElementById('adminLoginText');
 
@@ -1724,7 +1725,7 @@ let pendingDeletePeriod = null;
 
 function showBookingDetail(booking, period) {
     const bulkDetailButton = document.getElementById('btnRecurringCancelDetail');
-    if (bulkDetailButton) bulkDetailButton.hidden = !currentUser;
+    if (bulkDetailButton) bulkDetailButton.hidden = !currentUser && !(booking.deviceId && booking.deviceId === getDeviceId());
     pendingDeleteBooking = booking;
     pendingDeletePeriod = period;
 

@@ -1,4 +1,20 @@
-/* 管理員跨週取消：預覽固定快照，交易時重新核對，僅移除選定節次。 */
+/* 跨週取消：管理員或原設備，預覽與交易皆核對歸屬，僅移除選定節次。 */
+function canRecurringCancel(booking, actor) {
+    return !!booking && (actor.isAdmin || (!!actor.deviceId && booking.deviceId === actor.deviceId));
+}
+
+function recurringActor() {
+    return { isAdmin: !!auth.currentUser, deviceId: getDeviceId() };
+}
+
+function refreshRecurringAccess() {
+    if (!document.getElementById('rcTitle')) return;
+    recurringEl('rcTitle').textContent = auth.currentUser ? '管理員批次取消預約' : '本機預約批次取消';
+    recurringEl('rcScope').textContent = auth.currentUser
+        ? '管理員可協助所有老師取消。跨週找出固定節次，預覽後一次取消。'
+        : '僅顯示目前這台設備、這個瀏覽器建立的預約。請使用原預約瀏覽器；清除網站資料或改用無痕模式後，請洽管理員協助。';
+    if (!recurringBusy) invalidateRecurringPreview();
+}
 function planRecurringCancellation(bookings, filter) {
     return bookings.filter(b => b.room === filter.room && b.booker === filter.booker &&
         b.date >= filter.start && b.date <= filter.end &&
@@ -31,7 +47,12 @@ function invalidateRecurringPreview() {
 }
 
 function openRecurringCancel(booking, period) {
-    if (!requireAdmin('批次取消預約') || recurringBusy) return;
+    if (recurringBusy) return;
+    if (booking && !canRecurringCancel(booking, recurringActor())) {
+        showToast('這筆預約不是由目前瀏覽器建立，請使用原設備或洽管理員協助。', 'warning');
+        return;
+    }
+    refreshRecurringAccess();
     const dialog = recurringEl('recurringCancelDialog');
     recurringEl('rcRoom').value = booking?.room || getSelectedRoom();
     recurringEl('rcBooker').value = booking?.booker || '';
@@ -48,7 +69,7 @@ function openRecurringCancel(booking, period) {
 }
 
 async function previewRecurringCancellation() {
-    if (!requireAdmin('批次取消預約') || recurringBusy) return;
+    if (recurringBusy) return;
     const form = recurringEl('rcForm');
     if (!form.reportValidity()) return;
     const filter = {
@@ -67,8 +88,10 @@ async function previewRecurringCancellation() {
     try {
         // 單欄位日期索引即可；不受目前日曆已載入週次限制。
         const snapshot = await bookingsCollection.where('date', '>=', filter.start).where('date', '<=', filter.end).get({ source: 'server' });
-        if (generation !== recurringGeneration || !auth.currentUser) return;
-        recurringPreview = planRecurringCancellation(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })), filter);
+        if (generation !== recurringGeneration) return;
+        const actor = recurringActor();
+        recurringPreview = planRecurringCancellation(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })), filter)
+            .filter(booking => canRecurringCancel(booking, actor));
         const fragment = document.createDocumentFragment();
         recurringPreview.forEach((booking, index) => {
             const row = document.createElement('label');
@@ -96,12 +119,13 @@ function selectedRecurringBookings() {
 
 function updateRecurringCount() {
     const selected = selectedRecurringBookings();
-    recurringEl('rcStatus').textContent = recurringPreview.length ? `找到 ${recurringPreview.length} 筆，已選 ${selected.length} 筆／${selected.reduce((n, b) => n + b.cancelPeriods.length, 0)} 節。可取消勾選不需處理的日期。` : '沒有符合條件的預約，請調整姓名、日期、星期或節次。';
+    recurringEl('rcStatus').textContent = recurringPreview.length ? `找到 ${recurringPreview.length} 筆，已選 ${selected.length} 筆／${selected.reduce((n, b) => n + b.cancelPeriods.length, 0)} 節。可取消勾選不需處理的日期。` : `沒有符合條件的${auth.currentUser ? '' : '本機'}預約，請調整姓名、日期、星期或節次。`;
     recurringEl('rcExecute').disabled = !selected.length;
 }
 
 async function executeRecurringCancellation() {
-    if (!requireAdmin('批次取消預約') || recurringBusy) return;
+    if (recurringBusy) return;
+    const actor = recurringActor();
     const selected = selectedRecurringBookings();
     if (!selected.length) return;
     const count = selected.reduce((n, b) => n + b.cancelPeriods.length, 0);
@@ -117,14 +141,20 @@ async function executeRecurringCancellation() {
         for (const preview of selected) {
             recurringEl('rcStatus').textContent = `處理中 ${success + skipped + failed + 1} / ${selected.length}…`;
             try {
-                if (!auth.currentUser) throw new Error('管理員已登出');
                 const changed = await db.runTransaction(async transaction => {
                     const ref = bookingsCollection.doc(preview.id);
                     const snapshot = await transaction.get(ref);
-                    const remaining = remainingRecurringPeriods(snapshot.exists ? snapshot.data() : null, preview);
+                    const live = snapshot.exists ? snapshot.data() : null;
+                    if (!canRecurringCancel(live, actor) || !canRecurringCancel(live, recurringActor())) return false;
+                    const remaining = remainingRecurringPeriods(live, preview);
                     if (remaining === null) return false;
-                    if (remaining.length) transaction.update(ref, { periods: remaining });
-                    else transaction.delete(ref);
+                    if (actor.isAdmin && auth.currentUser) {
+                        if (remaining.length) transaction.update(ref, { periods: remaining });
+                        else transaction.delete(ref);
+                    } else {
+                        // 沿用本人取消規則，清空節次觸發既有取消通知，不執行管理員刪除。
+                        transaction.update(ref, { periods: remaining, deviceId: actor.deviceId });
+                    }
                     return true;
                 });
                 if (changed) { success++; completed.push({ id: preview.id, periods: preview.cancelPeriods }); }
@@ -132,9 +162,9 @@ async function executeRecurringCancellation() {
             } catch (error) { failed++; console.error('[Recurring cancel]', preview.id, error); }
         }
         bookingsCache = {}; monthBookingsCache = {};
-        logSystemAction('BATCH_CANCEL_BOOKINGS', { attemptedCount: selected.length, successCount: success, filteredOut: skipped, failedCount: failed, executedBy: 'admin', cancelledPeriods: completed }, completed.map(b => b.id).join(','));
+        logSystemAction('BATCH_CANCEL_BOOKINGS', { attemptedCount: selected.length, successCount: success, filteredOut: skipped, failedCount: failed, executedBy: actor.isAdmin ? 'admin' : 'user', cancelledPeriods: completed }, completed.map(b => b.id).join(','));
         invalidateRecurringPreview();
-        recurringEl('rcStatus').textContent = `完成：取消 ${success} 筆；${skipped} 筆資料已異動而略過；${failed} 筆失敗。${skipped || failed ? '請重新預覽後再處理剩餘項目。' : ''}`;
+        recurringEl('rcStatus').textContent = `完成：取消 ${success} 筆；${skipped} 筆資料或權限已異動而略過；${failed} 筆失敗。${skipped || failed ? '請重新預覽後再處理剩餘項目。' : ''}`;
         try { await loadBookingsFromFirebase(true); } catch (error) { showToast('取消已處理，日曆更新失敗，請重新查詢。', 'warning'); }
     } finally {
         recurringBusy = false;
@@ -146,13 +176,13 @@ async function executeRecurringCancellation() {
 document.addEventListener('DOMContentLoaded', () => {
     const button = document.createElement('button');
     button.id = 'btnRecurringCancel'; button.className = 'btn-history'; button.textContent = '批次取消';
-    button.hidden = !currentUser; button.addEventListener('click', () => openRecurringCancel());
+    button.addEventListener('click', () => openRecurringCancel());
     recurringEl('btnHistory').after(button);
     const dialog = document.createElement('dialog');
     dialog.id = 'recurringCancelDialog'; dialog.className = 'rc-dialog';
     dialog.setAttribute('aria-labelledby', 'rcTitle');
     dialog.innerHTML = `<h2 id="rcTitle">管理員批次取消預約</h2>
-        <p>跨週找出同一老師的固定節次，預覽後一次取消。請設定要處理的起訖日期。</p>
+        <p id="rcScope"></p>
         <form id="rcForm"><fieldset id="rcControls"><div class="rc-fields">
         <label>場地<select id="rcRoom" required></select></label>
         <label>老師完整姓名<input id="rcBooker" required maxlength="50" placeholder="請輸入完整姓名（完全符合）"></label>
@@ -177,4 +207,5 @@ document.addEventListener('DOMContentLoaded', () => {
     recurringEl('rcClose').addEventListener('click', () => { recurringGeneration++; dialog.close(); });
     dialog.addEventListener('cancel', event => { if (recurringBusy) event.preventDefault(); else recurringGeneration++; });
     recurringEl('rcExecute').addEventListener('click', executeRecurringCancellation);
+    refreshRecurringAccess();
 });

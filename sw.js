@@ -1,6 +1,6 @@
-// Service Worker v2.59.0 - 管理員跨週指定節次批次取消
-const CACHE_NAME = 'booking-system-v2.59.0';
-const APP_VERSION = 'v2.59.0';
+// Service Worker v2.59.1 - 原設備老師跨週批次取消
+const CACHE_NAME = 'booking-system-v2.59.1';
+const APP_VERSION = 'v2.59.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
