@@ -10344,3 +10344,22 @@ body {
         display: flex;
     }
 }
+/* 跨週批次取消：桌面雙欄、手機單欄，清單獨立捲動。 */
+#btnRecurringCancel[hidden], #btnRecurringCancelDetail[hidden] { display: none !important; }
+.rc-dialog { width: min(780px, calc(100vw - 24px)); max-height: 90dvh; box-sizing: border-box; border: 0; border-radius: 18px; padding: 24px; color: #193d32; background: #fff; overflow: auto; }
+.rc-dialog { margin: auto; }
+.rc-dialog::backdrop { background: #102b2466; }
+.rc-dialog h2 { margin-top: 0; }
+.rc-dialog fieldset { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.rc-dialog legend { font-weight: 700; margin-bottom: 8px; }
+.rc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.rc-fields label { display: grid; gap: 6px; }
+.rc-fields input, .rc-fields select { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #cbd5ce; border-radius: 8px; padding: 10px; font: inherit; background: white; }
+.rc-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-options label { display: flex; align-items: center; gap: 6px; padding: 8px; background: #f2f6f3; border-radius: 8px; cursor: pointer; }
+.rc-results { max-height: 32dvh; overflow: auto; }
+.rc-result { display: flex; gap: 12px; align-items: flex-start; padding: 12px 4px; border-bottom: 1px solid #e3e9e5; cursor: pointer; }
+.rc-result input { margin-top: 5px; }
+.rc-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+.rc-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 540px) { .rc-dialog { padding: 16px; } .rc-fields { grid-template-columns: 1fr; } .delete-modal-actions { flex-wrap: wrap; } }

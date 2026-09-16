@@ -1,12 +1,13 @@
-// Service Worker v2.58.1 - 📲 綁定碼 QR 自動帶入 LINE 輸入框
-const CACHE_NAME = 'booking-system-v2.58.1';
-const APP_VERSION = 'v2.58.1';
+// Service Worker v2.59.0 - 管理員跨週指定節次批次取消
+const CACHE_NAME = 'booking-system-v2.59.0';
+const APP_VERSION = 'v2.59.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './styles.css',
     './styles.v2.50.0.css',
     './app.js',
+    './recurring-cancel.js',
     './config.js',
     './favicon.png',
     './manifest.json',

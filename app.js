@@ -333,6 +333,8 @@ auth.onAuthStateChanged((user) => {
  * 更新登入 UI
  */
 function updateAuthUI() {
+    const bulkButton = document.getElementById('btnRecurringCancel');
+    if (bulkButton) bulkButton.hidden = !currentUser;
     const btn = document.getElementById('btnAdminLogin');
     const text = document.getElementById('adminLoginText');
 
@@ -1721,6 +1723,8 @@ let pendingDeleteBooking = null;
 let pendingDeletePeriod = null;
 
 function showBookingDetail(booking, period) {
+    const bulkDetailButton = document.getElementById('btnRecurringCancelDetail');
+    if (bulkDetailButton) bulkDetailButton.hidden = !currentUser;
     pendingDeleteBooking = booking;
     pendingDeletePeriod = period;
 
