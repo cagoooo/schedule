@@ -10363,3 +10363,25 @@ body {
 .rc-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
 .rc-dialog button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 540px) { .rc-dialog { padding: 16px; } .rc-fields { grid-template-columns: 1fr; } .delete-modal-actions { flex-wrap: wrap; } }
+.mybookings-list .history-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "date room" "periods booker" "actions actions";
+    gap: 12px 16px;
+    padding: 18px;
+}
+.mybookings-list .history-item > * { min-width: 0; max-width: 100%; }
+.mybookings-list .history-date { grid-area: date; }
+.mybookings-list .history-room { grid-area: room; justify-self: start; white-space: normal; overflow-wrap: anywhere; }
+.mybookings-list .history-periods-container { grid-area: periods; }
+.mybookings-list .history-booker { grid-area: booker; overflow-wrap: anywhere; }
+.mybookings-list .history-actions { grid-area: actions; width: 100%; margin: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.mybookings-list .history-reason { flex: 1 1 100%; min-width: 0; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+.mybookings-list .history-reason:empty { display: none; }
+.mybookings-list .btn-history-rebook span { display: inline; }
+.mybookings-list .history-actions button { flex-shrink: 0; position: static; min-height: 36px; }
+@media (max-width: 540px) {
+    .mybookings-modal { max-height: 92dvh; }
+    .mybookings-modal-body { padding: 14px; }
+    .mybookings-list .history-item { grid-template-columns: minmax(0, 1fr); grid-template-areas: "date" "room" "booker" "periods" "actions"; padding: 14px; gap: 10px; }
+}
