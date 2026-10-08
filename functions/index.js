@@ -484,6 +484,23 @@ function formatPeriods(periodIds) {
 }
 
 /**
+ * 日期字串 (YYYY/MM/DD 或 YYYY-MM-DD) 補上星期, 例: 2026/10/15 (四)
+ * 用 UTC 計算避免伺服器時區造成跨日誤差; 解析失敗原樣回傳
+ */
+const WEEKDAY_SHORT = ['日', '一', '二', '三', '四', '五', '六'];
+function getWeekdayShort(dateStr) {
+    const m = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/.exec(String(dateStr || '').trim());
+    if (!m) return '';
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return isNaN(d.getTime()) ? '' : WEEKDAY_SHORT[d.getUTCDay()];
+}
+function formatDateWithWeekday(dateStr) {
+    if (!dateStr) return '-';
+    const w = getWeekdayShort(dateStr);
+    return w ? `${dateStr} (${w})` : dateStr;
+}
+
+/**
  * 取得綁定的 LINE userId,沒綁定回 null
  */
 async function getBoundLineUserId(deviceId) {
@@ -523,7 +540,7 @@ function createBookingFlexMessage(booking, eventType) {
     }[eventType] || { title: '📌 預約異動通知', color: '#6366f1', hint: '' };
 
     const periodsStr = formatPeriods(booking.periods);
-    const altText = `${config.title}: ${booking.room || '禮堂'} ${booking.date}`;
+    const altText = `${config.title}: ${booking.room || '禮堂'} ${formatDateWithWeekday(booking.date)}`;
 
     return {
         type: 'flex',
@@ -557,7 +574,7 @@ function createBookingFlexMessage(booking, eventType) {
                         contents: [
                             { type: 'text', text: '📅', size: 'sm', flex: 0 },
                             { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
-                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                            { type: 'text', text: formatDateWithWeekday(booking.date), size: 'sm', flex: 5, weight: 'bold' },
                         ],
                     },
                     {
@@ -683,8 +700,13 @@ async function tryAcquireBatchLock(batchId) {
 function formatBatchDates(bookings) {
     const dates = bookings.map(b => b.date).filter(Boolean).sort();
     if (dates.length === 0) return '-';
-    if (dates.length <= 8) return dates.join('、');
-    return `${dates.slice(0, 6).join('、')}…等共 ${dates.length} 天`;
+    const labeled = dates.map(formatDateWithWeekday);
+    // 批次通常是「每週固定一天」, 全部同星期時開頭先標「每週X」
+    const weekdays = new Set(dates.map(getWeekdayShort));
+    const prefix = (dates.length > 1 && weekdays.size === 1 && !weekdays.has(''))
+        ? `每週${[...weekdays][0]}：` : '';
+    if (labeled.length <= 8) return prefix + labeled.join('、');
+    return `${prefix}${labeled.slice(0, 6).join('、')}…等共 ${dates.length} 天`;
 }
 
 /**
@@ -900,7 +922,7 @@ function createRoomWatcherFlexMessage(booking, eventType) {
     }[eventType] || { title: '📢 教室異動通知', subtitle: '', color: '#6366f1' };
 
     const periodsStr = formatPeriods(booking.periods);
-    const altText = `${config.title}: ${booking.room || '-'} ${booking.date}`;
+    const altText = `${config.title}: ${booking.room || '-'} ${formatDateWithWeekday(booking.date)}`;
 
     return {
         type: 'flex',
@@ -943,7 +965,7 @@ function createRoomWatcherFlexMessage(booking, eventType) {
                         contents: [
                             { type: 'text', text: '📅', size: 'sm', flex: 0 },
                             { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
-                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                            { type: 'text', text: formatDateWithWeekday(booking.date), size: 'sm', flex: 5, weight: 'bold' },
                         ],
                     },
                     {
@@ -1097,7 +1119,7 @@ exports.notifyOnBookingCreate = onDocumentCreated(
         if (prefs.onCreate) {
             await sendWebPushToDevice(booking.deviceId, {
                 title: '✅ 預約成功',
-                body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+                body: `${booking.room}｜${formatDateWithWeekday(booking.date)}｜${formatPeriods(booking.periods)}`,
                 url: 'https://cagoooo.github.io/schedule/',
             }, VAPID_PRIVATE_KEY.value());
         }
@@ -1157,7 +1179,7 @@ exports.notifyOnBookingUpdate = onDocumentUpdated(
         if (prefs.onCancel) {
             await sendWebPushToDevice(bookerDeviceId, {
                 title: '❌ 預約已取消',
-                body: `${before.room}｜${before.date}｜${formatPeriods(before.periods)}`,
+                body: `${before.room}｜${formatDateWithWeekday(before.date)}｜${formatPeriods(before.periods)}`,
                 url: 'https://cagoooo.github.io/schedule/',
             }, VAPID_PRIVATE_KEY.value());
         }
@@ -1214,7 +1236,7 @@ exports.notifyOnBookingDelete = onDocumentDeleted(
         if (prefs.onCancel) {
             await sendWebPushToDevice(booking.deviceId, {
                 title: '⚠️ 預約已被管理員取消',
-                body: `${booking.room}｜${booking.date}｜${formatPeriods(booking.periods)}`,
+                body: `${booking.room}｜${formatDateWithWeekday(booking.date)}｜${formatPeriods(booking.periods)}`,
                 url: 'https://cagoooo.github.io/schedule/',
             }, VAPID_PRIVATE_KEY.value());
         }
@@ -1348,7 +1370,7 @@ function createReminderFlexMessage(booking) {
     const startTime = PERIOD_START_TIMES[booking.periods[0]] || '?';
     return {
         type: 'flex',
-        altText: `⏰ 30 分鐘後使用提醒: ${booking.room} ${booking.date}`,
+        altText: `⏰ 30 分鐘後使用提醒: ${booking.room} ${formatDateWithWeekday(booking.date)}`,
         contents: {
             type: 'bubble',
             size: 'mega',
@@ -1388,7 +1410,7 @@ function createReminderFlexMessage(booking) {
                         contents: [
                             { type: 'text', text: '📅', size: 'sm', flex: 0 },
                             { type: 'text', text: '日期', size: 'sm', color: '#888888', flex: 2, margin: 'sm' },
-                            { type: 'text', text: booking.date || '-', size: 'sm', flex: 5, weight: 'bold' },
+                            { type: 'text', text: formatDateWithWeekday(booking.date), size: 'sm', flex: 5, weight: 'bold' },
                         ],
                     },
                     {
