@@ -2242,7 +2242,6 @@ async function aggregateSemesterStats(startDate, endDate) {
         byClassroom: {},
         byPeriod: {},
         byWeekday: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
-        topUsers: {},
         ipadByGrade: { '三年級': 0, '四年級': 0, '五年級': 0, '六年級': 0 },
         leadTimeDistribution: { '當天': 0, '1-3 天': 0, '4-7 天': 0, '8-30 天': 0, '> 30 天': 0 },
     };
@@ -2284,9 +2283,6 @@ async function aggregateSemesterStats(startDate, endDate) {
             }
         }
 
-        // Top users
-        const booker = b.booker || '未知';
-        stats.topUsers[booker] = (stats.topUsers[booker] || 0) + 1;
 
         // IPAD 各年級借用
         ['三年級', '四年級', '五年級', '六年級'].forEach(grade => {
@@ -2301,11 +2297,6 @@ async function aggregateSemesterStats(startDate, endDate) {
         ? (stats.totalCancelled / stats.totalBookings * 100).toFixed(1)
         : 0;
 
-    // Top 10 老師
-    stats.topUsersList = Object.entries(stats.topUsers)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([name, count]) => ({ name, count }));
 
     // 場地排行
     stats.classroomRanking = Object.entries(stats.byClassroom)

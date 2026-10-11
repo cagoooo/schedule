@@ -327,6 +327,12 @@ function isSlotUnavailable(date, periodId, slots = unavailableSlots) {
 auth.onAuthStateChanged((user) => {
     currentUser = user;
     updateAuthUI();
+    if (user && new URLSearchParams(location.search).get('openReports') === '1') {
+        setTimeout(() => {
+            openDashboard();
+            document.querySelector('.tab-btn[data-tab="reports"]')?.click();
+        }, 0);
+    }
 });
 
 /**
@@ -6844,7 +6850,9 @@ async function generateSemesterReport() {
 
         const lp = data.linePush || {};
         let lineLabel = '';
-        if (lp.adminCount === 0) {
+        if (new URLSearchParams(location.search).get('reportDemo') === '1') {
+            lineLabel = '<span style="color:#6d28d9;font-weight:700">示範模式：未發送正式 LINE 通知</span>';
+        } else if (lp.adminCount === 0) {
             lineLabel = '<span style="color:#dc2626;font-weight:700">⚠ 無管理員訂閱告警 — 請先去 Header → LINE → 訂閱告警</span>';
         } else if (lp.failed === 0) {
             lineLabel = `<span style="color:#16a34a;font-weight:700">✅ 已推送給 ${lp.succeeded}/${lp.adminCount} 位管理員</span>`;
@@ -6867,7 +6875,9 @@ async function generateSemesterReport() {
             </button>
         `;
         document.getElementById('btnOpenGeneratedReport').addEventListener('click', () => openPrivateSemesterReport(data.reportId));
-        const toastMsg = lp.adminCount === 0
+        const toastMsg = new URLSearchParams(location.search).get('reportDemo') === '1'
+            ? '✅ 報告產出成功（示範模式未發 LINE）'
+            : lp.adminCount === 0
             ? '✅ 報告產出成功（但無人訂閱告警，故未推 LINE）'
             : lp.failed === 0
                 ? '✅ AI 學期報告產出成功，已推 LINE!'

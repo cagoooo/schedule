@@ -1,10 +1,12 @@
 'use strict';
 // 預設僅盤點。明確 --apply 才撤除 reports/ 物件公開 ACL 與下載 token；不刪除報告。
-const { execFileSync } = require('node:child_process');
+const { execSync } = require('node:child_process');
 const fs = require('node:fs');
 const bucket = 'schedule-10ed3.firebasestorage.app';
 const apply = process.argv.includes('--apply');
-const token = execFileSync('gcloud.cmd', ['auth', 'print-access-token', '--account=ipad@mail2.smes.tyc.edu.tw', '--project=schedule-10ed3'], { encoding: 'utf8', timeout: 20000 }).trim();
+const account = process.argv.find(arg => arg.startsWith('--account='))?.slice(10) || 'ipad@mail2.smes.tyc.edu.tw';
+if (!['ipad@mail2.smes.tyc.edu.tw', 'cagooo@gmail.com'].includes(account)) throw new Error('未核可的操作帳號');
+const token = execSync('gcloud auth print-access-token --account=' + account + ' --project=schedule-10ed3', { encoding: 'utf8', timeout: 20000 }).trim();
 async function api(path, options = {}) {
     const res = await fetch('https://storage.googleapis.com/storage/v1/b/' + bucket + path, {
         ...options, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30000),
