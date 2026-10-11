@@ -31,6 +31,8 @@ async function api(path, options = {}) {
     const manifest = { at: new Date().toISOString(), apply, bucket, objects };
     fs.writeFileSync(require('node:path').join(evidenceDir, Date.now() + '-before.json'), JSON.stringify(manifest, null, 2));
     console.log('盤點 reports/ 物件：' + objects.length + '；' + (apply ? '執行撤除公開權限' : '尚未修改'));
+    console.log('含公開 ACL：' + objects.filter(o => o.acl?.some(a => ['allUsers', 'allAuthenticatedUsers'].includes(a.entity))).length
+        + '；含下載 token：' + objects.filter(o => o.metadata?.firebaseStorageDownloadTokens).length);
     if (!apply) return;
     let verified = 0;
     for (const obj of objects) {
