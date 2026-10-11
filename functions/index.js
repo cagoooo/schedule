@@ -24,6 +24,7 @@ const admin = require('firebase-admin');
 const line = require('@line/bot-sdk');
 const crypto = require('crypto');
 const webpush = require('web-push'); // v2.53.0 (P1-1): Web Push 瀏覽器通知
+const { withPdfPrintTools } = require('./report-pdf-print');
 
 // 初始化 Firebase Admin
 // v2.48.0: 顯式指定 storageBucket (新版 Firebase 預設 bucket 為 .firebasestorage.app)
@@ -2932,7 +2933,7 @@ exports.getSemesterReport = onRequest({ cors: true, region: 'asia-east1' }, asyn
         const path = record.data().fileName;
         if (!path?.startsWith('reports/') || path.includes('..')) return res.status(400).json({ error: '報告路徑無效' });
         const [content] = await admin.storage().bucket().file(path).download();
-        res.json({ html: content.toString('utf8') });
+        res.json({ html: withPdfPrintTools(content.toString('utf8')) });
     } catch (err) {
         logger.error('[getSemesterReport]', err);
         res.status(500).json({ error: '報告讀取失敗' });
