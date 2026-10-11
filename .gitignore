@@ -11,6 +11,7 @@ functions/.runtimeconfig.json
 functions/.env
 functions/.env.local
 .firebase/
+private-report-audit/
 
 # Editor
 .vscode/

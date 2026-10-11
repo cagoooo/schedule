@@ -4,9 +4,9 @@ rules_version = '2';
 // v2.48.0: AI 學期白皮書 (HTML 報告儲存於 reports/ 路徑)
 service firebase.storage {
   match /b/{bucket}/o {
-    // 報告路徑：所有人可讀（HTML 公開分享連結），僅 Cloud Functions 可寫
+    // 報告不提供公開下載；管理員透過後端驗證後讀取，僅 Cloud Functions 可寫
     match /reports/{file=**} {
-      allow read: if true;
+      allow read: if false; // 僅透過驗證管理員的後端讀取，不產生下載 token
       allow write: if false; // 僅後端 Admin SDK 可寫
     }
 

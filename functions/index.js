@@ -2321,6 +2321,7 @@ async function aggregateSemesterStats(startDate, endDate) {
  * 回傳 { narrative, source: 'gemini' | 'fallback', error?: string }
  */
 async function narrateStatsWithGemini(stats, semesterName, apiKey) {
+    stats = require('./report-privacy').anonymousReportStats(stats);
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
@@ -2341,7 +2342,6 @@ ${JSON.stringify({
         場地排行: stats.classroomRanking,
         節次熱度: stats.byPeriod,
         週幾分布: stats.byWeekday,
-        老師排行Top10: stats.topUsersList,
         IPAD各年級: stats.ipadByGrade,
         提前天數分布: stats.leadTimeDistribution,
     }, null, 2)}
@@ -2354,7 +2354,7 @@ ${JSON.stringify({
   "suggestions": "下學期改善建議,150 字內,提供 2-3 個具體可執行的建議"
 }
 
-語氣專業但親切,適合校長/主任閱讀。直接回傳 JSON,不要額外文字。`;
+語氣專業但親切,適合校長/主任閱讀。不辨識或推測個人身分；推測原因須標明尚待查證。直接回傳 JSON,不要額外文字。`;
 
     try {
         const result = await model.generateContent(prompt);
@@ -2385,7 +2385,8 @@ ${JSON.stringify({
 /**
  * 渲染 HTML 報告
  */
-function renderReportHTML(stats, narrative, semesterName, generatedAt) {
+function renderReportHTML(stats, narrative, semesterName, generatedAt, source = 'fallback') {
+    narrative = Object.fromEntries(Object.entries(narrative).map(([key, value]) => [key, require('./report-privacy').escapeReportText(value)]));
     const periodNames = {
         morning: '晨間/早會',
         period1: '第一節', period2: '第二節', period3: '第三節', period4: '第四節',
@@ -2521,7 +2522,7 @@ function renderReportHTML(stats, narrative, semesterName, generatedAt) {
             <h1>📊 ${semesterName}</h1>
             <div class="subtitle">場地預約使用報告</div>
             <div class="meta">${generatedAt}</div>
-            <div class="ai-badge">🤖 由 Gemini AI 智慧分析撰寫</div>
+            <div class="ai-badge">${source === 'gemini' ? '🤖 Gemini AI 彙總分析・須人工覆核' : '⚠ 統計模板・非 AI 生成'}・限管理員查看</div>
         </div>
 
         <div class="section">
@@ -2571,17 +2572,8 @@ function renderReportHTML(stats, narrative, semesterName, generatedAt) {
         </div>
 
         <div class="section">
-            <h2>👥 老師預約 Top 10</h2>
-            ${stats.topUsersList.length > 0 ? `
-            <table>
-                <thead><tr><th style="width:80px;">排名</th><th>姓名</th><th style="text-align:right;">預約次數</th></tr></thead>
-                <tbody>
-                    ${stats.topUsersList.map((u, i) => {
-                        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
-                        return `<tr><td><span class="rank-badge ${rankClass}">${i + 1}</span></td><td><strong>${u.name}</strong></td><td style="text-align:right;font-weight:700;color:#6d28d9;">${u.count}</td></tr>`;
-                    }).join('')}
-                </tbody>
-            </table>` : '<p style="color:#94a3b8;">本學期尚無預約紀錄</p>'}
+            <h2>🔒 個人資料保護</h2>
+            <p>本報告僅分析彙總統計，不列出教師姓名或個人排行。AI 建議須由管理員查核後採用。</p>
         </div>
 
         ${Object.values(stats.ipadByGrade).some(v => v > 0) ? `
@@ -2700,9 +2692,15 @@ exports.generateSemesterReport = onRequest(
         memory: '512MiB',
     },
     async (req, res) => {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const reportAdmin = await requireReportAdmin(req, res);
+        if (!reportAdmin) return;
         try {
             // 取得參數 (可指定學期,或自動偵測當前學期)
             const { startDate: customStart, endDate: customEnd } = req.body || {};
+            if ((customStart || customEnd) && (!/^\d{4}\/\d{2}\/\d{2}$/.test(customStart || '') || !/^\d{4}\/\d{2}\/\d{2}$/.test(customEnd || '') || customStart > customEnd)) {
+                return res.status(400).json({ error: '日期區間格式無效' });
+            }
             let semesterName, startDate, endDate;
             if (customStart && customEnd) {
                 semesterName = `自訂期間 (${customStart} ~ ${customEnd})`;
@@ -2718,7 +2716,7 @@ exports.generateSemesterReport = onRequest(
             logger.info(`[Report] 開始產出 ${semesterName} (${startDate} ~ ${endDate})`);
 
             // 1. 聚合統計
-            const stats = await aggregateSemesterStats(startDate, endDate);
+            const stats = require('./report-privacy').anonymousReportStats(await aggregateSemesterStats(startDate, endDate));
             logger.info(`[Report] 統計完成: ${stats.totalBookings} 筆預約`);
 
             // 2. Gemini 撰寫文案 (v2.48.1: 回傳 { narrative, source, error? })
@@ -2730,7 +2728,7 @@ exports.generateSemesterReport = onRequest(
             // 3. 渲染 HTML
             const tw = new Date(Date.now() + 8 * 3600 * 1000);
             const generatedAt = `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')} ${String(tw.getUTCHours()).padStart(2, '0')}:${String(tw.getUTCMinutes()).padStart(2, '0')}`;
-            const html = renderReportHTML(stats, narrative, semesterName, generatedAt);
+            const html = renderReportHTML(stats, narrative, semesterName, generatedAt, narrativeSource);
 
             // 4. 上傳到 Firebase Storage (公開讀取)
             const fileName = `reports/${Date.now()}_${semesterName.replace(/\s+/g, '_')}.html`;
@@ -2739,12 +2737,12 @@ exports.generateSemesterReport = onRequest(
             await file.save(html, {
                 metadata: {
                     contentType: 'text/html; charset=utf-8',
-                    cacheControl: 'public, max-age=86400',
+                    cacheControl: 'private, no-store, max-age=0',
                 },
             });
-            await file.makePublic();
+            await file.makePrivate();
             // 注意：fileName 含中文字 (如「春季學期」) 必須 URL-encode 才能透過 https 存取
-            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName.split('/').map(encodeURIComponent).join('/')}`;
+            const publicUrl = 'https://cagoooo.github.io/schedule/?openReports=1';
 
             // 5. 寫入 Firestore (報告紀錄)
             const reportDoc = await db.collection('semesterReports').add({
@@ -2758,14 +2756,15 @@ exports.generateSemesterReport = onRequest(
                     totalActive: stats.totalActive,
                     cancellationRate: stats.cancellationRate,
                     topRoom: stats.classroomRanking[0]?.name || '無',
-                    topUser: stats.topUsersList[0]?.name || '無',
                 },
                 generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                generatedBy: req.body?.deviceId || 'system',
+                generatedBy: reportAdmin.uid,
+                narrativeSource,
+                privacyVersion: 1,
             });
 
             // 6. 推 LINE 給所有管理員 (v2.48.1: 細查 push results, 不再粉飾失敗)
-            const adminIds = await getAdminLineUserIds();
+            const adminIds = req.body?.notifyAdmins === false ? [] : await getAdminLineUserIds();
             const pushDiagnostics = {
                 adminCount: adminIds.length,
                 succeeded: 0,
@@ -2920,7 +2919,38 @@ exports.generateSemesterReport = onRequest(
 // 取得歷史報告清單 (供前端顯示)
 // ==========================================================================
 
+async function requireReportAdmin(req, res) {
+    res.set('Cache-Control', 'private, no-store');
+    const claims = await requireAdminAuth(req, res);
+    if (!claims) return null;
+    if (!require('./report-privacy').isReportAdmin(claims)) {
+        res.status(403).json({ error: '此報告僅限學校管理員查看' });
+        return null;
+    }
+    return claims;
+}
+
+exports.getSemesterReport = onRequest({ cors: true, region: 'asia-east1' }, async (req, res) => {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+    if (!await requireReportAdmin(req, res)) return;
+    const id = String(req.query.id || '');
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) return res.status(400).json({ error: '報告代碼無效' });
+    try {
+        const record = await db.collection('semesterReports').doc(id).get();
+        if (!record.exists) return res.status(404).json({ error: '報告不存在' });
+        const path = record.data().fileName;
+        if (!path?.startsWith('reports/') || path.includes('..')) return res.status(400).json({ error: '報告路徑無效' });
+        const [content] = await admin.storage().bucket().file(path).download();
+        res.json({ html: content.toString('utf8') });
+    } catch (err) {
+        logger.error('[getSemesterReport]', err);
+        res.status(500).json({ error: '報告讀取失敗' });
+    }
+});
+
 exports.listSemesterReports = onRequest({ cors: true }, async (req, res) => {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+    if (!await requireReportAdmin(req, res)) return;
     try {
         const snap = await db.collection('semesterReports')
             .orderBy('generatedAt', 'desc')
@@ -2933,8 +2963,8 @@ exports.listSemesterReports = onRequest({ cors: true }, async (req, res) => {
                 semesterName: data.semesterName,
                 startDate: data.startDate,
                 endDate: data.endDate,
-                publicUrl: data.publicUrl,
-                stats: data.stats,
+                privacyVersion: data.privacyVersion || 0,
+                stats: { totalBookings: data.stats?.totalBookings || 0, cancellationRate: data.stats?.cancellationRate || 0 },
                 generatedAt: data.generatedAt?.toMillis?.() || 0,
             };
         });

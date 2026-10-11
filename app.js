@@ -6831,8 +6831,8 @@ async function generateSemesterReport() {
     try {
         const res = await fetch(`${LINE_FUNCTIONS_BASE}/generateSemesterReport`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deviceId: getDeviceId() }),
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await firebase.auth().currentUser.getIdToken()}` },
+            body: JSON.stringify({ deviceId: getDeviceId(), notifyAdmins: !window.location.search.includes('reportDemo=1') }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '產出失敗');
@@ -6861,11 +6861,12 @@ async function generateSemesterReport() {
                 <div>🤖 AI 文案：${aiSourceLabel}</div>
                 <div>📲 LINE 推播：${lineLabel}</div>
             </div>
-            <a href="${data.publicUrl}" target="_blank" rel="noopener"
+            <button type="button" id="btnOpenGeneratedReport"
                style="display:inline-block;margin-top:10px;color:#6d28d9;font-weight:700;text-decoration:underline;">
                🔗 立即開啟 ${data.semesterName} 報告
-            </a>
+            </button>
         `;
+        document.getElementById('btnOpenGeneratedReport').addEventListener('click', () => openPrivateSemesterReport(data.reportId));
         const toastMsg = lp.adminCount === 0
             ? '✅ 報告產出成功（但無人訂閱告警，故未推 LINE）'
             : lp.failed === 0
@@ -6892,8 +6893,13 @@ async function loadReportsHistory() {
     list.innerHTML = '<div class="reports-loading">載入中...</div>';
 
     try {
-        const res = await fetch(`${LINE_FUNCTIONS_BASE}/listSemesterReports`);
+        const user = firebase.auth().currentUser;
+        if (!user) throw new Error('請先登入學校管理員');
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/listSemesterReports`, {
+            headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '讀取失敗');
 
         if (!data.reports || data.reports.length === 0) {
             list.innerHTML = '<div class="reports-empty">📭 尚無歷史報告</div>';
@@ -6916,15 +6922,39 @@ async function loadReportsHistory() {
                             ${r.stats?.cancellationRate ? `<span>❌ 取消率 ${r.stats.cancellationRate}%</span>` : ''}
                         </div>
                     </div>
-                    <a href="${r.publicUrl}" target="_blank" rel="noopener" class="btn-view-report">
+                    <button type="button" data-report-id="${escapeHtml(r.id)}" class="btn-view-report">
                         📄 查看
-                    </a>
+                    </button>
                 </div>
             `;
         }).join('');
+        list.querySelectorAll('[data-report-id]').forEach(btn => {
+            btn.addEventListener('click', () => openPrivateSemesterReport(btn.dataset.reportId));
+        });
     } catch (err) {
         console.error('[Report] 載入歷史失敗', err);
         list.innerHTML = '<div class="reports-empty">❌ 載入失敗</div>';
+    }
+}
+
+async function openPrivateSemesterReport(id) {
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) return showToast('請允許開啟報告視窗', 'warning');
+    popup.opener = null;
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) throw new Error('請先登入學校管理員');
+        const res = await fetch(`${LINE_FUNCTIONS_BASE}/getSemesterReport?id=${encodeURIComponent(id)}`, {
+            headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '報告讀取失敗');
+        const url = URL.createObjectURL(new Blob([data.html], { type: 'text/html;charset=utf-8' }));
+        popup.location.replace(url);
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+        popup.close();
+        showToast(err.message, 'error');
     }
 }
 
