@@ -324,7 +324,22 @@ function isSlotUnavailable(date, periodId, slots = unavailableSlots) {
 /**
  * 監聽登入狀態變化
  */
+// v2.59.5: 管理員白名單 (需與 firestore.rules 的 isAdmin() 一致)。
+// 非白名單帳號登入後立即登出，避免外人自建帳號後看到管理介面。
+const ADMIN_EMAILS = ['ipad@mail2.smes.tyc.edu.tw'];
+
+function isAdminAccount(user) {
+    return !!user && !user.isAnonymous && ADMIN_EMAILS.includes(String(user.email || '').toLowerCase());
+}
+
 auth.onAuthStateChanged((user) => {
+    if (user && !isAdminAccount(user)) {
+        currentUser = null;
+        auth.signOut().catch(() => { });
+        updateAuthUI();
+        showToast('此帳號不是管理員，已自動登出', 'warning');
+        return;
+    }
     currentUser = user;
     updateAuthUI();
     if (user && new URLSearchParams(location.search).get('openReports') === '1') {
@@ -466,7 +481,12 @@ async function doLogin() {
     }
 
     try {
-        await auth.signInWithEmailAndPassword(email, password);
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        if (!isAdminAccount(cred.user)) {
+            await auth.signOut();
+            document.getElementById('authError').textContent = '此帳號不是管理員帳號';
+            return;
+        }
         closeAuthModal();
         showToast('登入成功！', 'success');
     } catch (error) {

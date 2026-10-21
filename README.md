@@ -89,6 +89,25 @@
 - **取消預約** - 已登入管理員可取消預約
 - **資料管理** - Firestore 雲端資料庫儲存
 
+### 👤 管理員帳號怎麼新增（v2.59.5 起）
+
+網站上**不再提供建立帳號的頁面**（舊的 `create_admin.html` 已移除）。只有「白名單」裡的 Email 才算管理員，
+其他人就算自己註冊了帳號，也改不了、刪不了任何預約。
+
+目前白名單：`ipad@mail2.smes.tyc.edu.tw`
+
+新增一位管理員要做三件事：
+
+1. 到 [Firebase Console → schedule-10ed3 → Authentication → Users](https://console.firebase.google.com/project/schedule-10ed3/authentication/users)
+   按「新增使用者」，填 Email 與密碼（用專案擁有者帳號登入 Console）。
+2. 把同一個 Email（小寫）加進三個地方的白名單，三處要一致：
+   - `firestore.rules` 的 `isAdmin()`
+   - `app.js` 的 `ADMIN_EMAILS`
+   - `functions/report-privacy.js` 的 `isReportAdmin()`（後端 LINE 訂閱、學期報告用）
+3. 部署：`firebase deploy --only firestore:rules`（後端有改再部署對應 functions），前端 push 到 main 由 GitHub Pages 自動上線。
+
+改完規則請先跑 `npm run test:rules`（需要 Java，會自動啟動 Firestore 模擬器）確認老師免登入預約、原裝置取消仍正常。
+
 ### 📊 統計功能
 - **節次使用率** - 視覺化圓餅圖呈現
 - **預約者排行** - 顯示預約次數最多的使用者

@@ -1,6 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ===== v2.59.5: 管理員白名單 =====
+    // 以前只檢查「有沒有登入」，任何人自建帳號就能改刪全校預約。
+    // 現在只有白名單 Email（且非匿名登入）才算管理員；要新增管理員請改這裡與 app.js 的 ADMIN_EMAILS。
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() in ['ipad@mail2.smes.tyc.edu.tw']
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     match /bookings/{booking} {
       // 所有人可讀取預約資料
       allow read: if true;
@@ -8,11 +18,22 @@ service cloud.firestore {
       // 新增預約：完整欄位驗證
       allow create: if isValidBooking();
       
-      // 更新：需要已登入的管理員 或 持有正確 deviceId 的使用者 (自刪)
-      allow update: if request.auth != null || (resource.data.deviceId == request.resource.data.deviceId);
+      // 更新：管理員 或 原裝置老師自行取消 (只能減少節次，不能改人名/場地/日期/事由)
+      allow update: if isAdmin() || isOwnerCancel();
       
-      // 刪除：仍僅限管理員
-      allow delete: if request.auth != null;
+      // 刪除：僅限管理員
+      allow delete: if isAdmin();
+
+      function isOwnerCancel() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return ('deviceId' in before)
+          && after.deviceId == before.deviceId
+          && after.diff(before).affectedKeys().hasOnly(['periods'])
+          && after.periods is list
+          && after.periods.size() <= before.periods.size()
+          && before.periods.hasAll(after.periods);
+      }
       
       // ===== 驗證函數 =====
       function isValidBooking() {
@@ -53,14 +74,14 @@ service cloud.firestore {
       // 所有人可讀取場地設定 (用以視覺化不開放時段)
       allow read: if true;
       // 僅限管理員可建立與更新
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /audit_logs/{logId} {
       // 允許任何人新增日誌 (包含未登入的使用者操作，如訪客嘗試登入失敗、自刪預約)
       allow create: if true;
       // 僅限管理員讀取日誌
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       // 禁止修改與刪除日誌 (確保稽核完整性)
       allow update, delete: if false;
     }
@@ -86,7 +107,7 @@ service cloud.firestore {
       // 只能由 Cloud Function 寫入 (透過 subscribeAdminAlerts API)
       allow write: if false;
       // 僅管理員可讀取訂閱清單
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
     }
 
     // ===== v2.49.1: 教室預約通知訂閱者 (管理員專用) =====
@@ -94,7 +115,7 @@ service cloud.firestore {
       // 只能由 Cloud Function 寫入 (透過 subscribeRoomWatch API)
       allow write: if false;
       // 僅管理員可讀取訂閱清單
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
     }
 
     // ===== v2.49.2: 批次預約通知去重鎖 (僅 Cloud Function 使用) =====
@@ -112,7 +133,7 @@ service cloud.firestore {
     // ===== v2.54.0 (P1-3): 預約編輯歷史 (僅 Cloud Function 寫入) =====
     match /editTrail/{trailId} {
       // 僅管理員可讀 (含 deviceId 等資訊)
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       // 只能由 Cloud Function trackBookingChanges 寫入
       allow write: if false;
     }
@@ -145,7 +166,7 @@ service cloud.firestore {
       // 只能由 Cloud Function (scheduledReminder) 寫入
       allow write: if false;
       // 僅管理員可讀取
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
     }
 
     // ===== v2.47.0: 老師意見回饋 =====
@@ -153,7 +174,7 @@ service cloud.firestore {
       // 只能由 Cloud Function (submitFeedback) 寫入
       allow create: if false;
       // 僅管理員可讀寫 (修改 status 等)
-      allow read, update: if request.auth != null;
+      allow read, update: if isAdmin();
       allow delete: if false;
     }
 
@@ -162,9 +183,9 @@ service cloud.firestore {
       // 所有人可讀取公告 (預約彈窗會顯示)
       allow read: if true;
       // 僅管理員可建立、更新、刪除
-      allow create: if request.auth != null && isValidAnnouncement();
-      allow update: if request.auth != null && isValidAnnouncement();
-      allow delete: if request.auth != null;
+      allow create: if isAdmin() && isValidAnnouncement();
+      allow update: if isAdmin() && isValidAnnouncement();
+      allow delete: if isAdmin();
 
       function isValidAnnouncement() {
         let data = request.resource.data;

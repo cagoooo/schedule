@@ -1834,6 +1834,11 @@ async function requireAdminAuth(req, res) {
     }
     try {
         const decoded = await admin.auth().verifyIdToken(match[1]);
+        // v2.59.5: 只認白名單管理員，避免任何人自建帳號就通過
+        if (!require('./report-privacy').isReportAdmin(decoded)) {
+            res.status(403).json({ error: '此功能僅限管理員' });
+            return null;
+        }
         return decoded;
     } catch (err) {
         logger.warn('[requireAdminAuth] verifyIdToken 失敗', err.message);

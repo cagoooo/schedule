@@ -4,6 +4,28 @@
 
 ---
 
+## 🔒 v2.59.5 (2026-10-21) - 管理員權限漏洞修正
+
+### 🎯 問題
+- `create_admin.html` 沒有任何檢查，任何人填 Email＋密碼就能建立帳號。
+- `firestore.rules` 只檢查「有沒有登入」，所以自建帳號就能改刪全校預約、改場地設定、讀稽核日誌。
+- 未登入的更新規則只比對 `deviceId` 沒變，等於任何人都能改任一筆預約的人名、場地、事由。
+- 後端 `requireAdminAuth`（LINE 教室通知訂閱）同樣只驗證「有登入」。
+
+### ✅ 修正
+1. 移除 `create_admin.html`；管理員改由 Firebase Console 建立（步驟寫在 README）。
+2. `firestore.rules` 新增 `isAdmin()` 白名單（`ipad@mail2.smes.tyc.edu.tw`，且不可為匿名登入），所有原本 `request.auth != null` 的管理員判斷都改用它。
+3. 預約自行取消改為 `isOwnerCancel()`：必須是原裝置 `deviceId`、只能改 `periods`、只能減少既有節次；老師免登入新增預約不變。
+4. `app.js` 新增 `ADMIN_EMAILS`，非白名單帳號登入後自動登出，不顯示管理介面。
+5. 後端 `requireAdminAuth` 套用同一白名單（非白名單回 403）。
+6. 新增 `tests/rules/firestore-rules.test.mjs`（11 項）與 `npm run test:rules`（Firestore 模擬器）；同一組測試對舊規則會失敗 4 項，新規則全過。
+
+### 📋 盤點（唯讀，未刪除任何帳號或預約）
+- Firebase Auth 帳號共 1 個（即管理員本人，2026-01-24 建立），非管理員帳號 0 個。
+- 程式中沒有使用匿名登入。
+
+---
+
 ## 🧪 2026-07-23 P1-4 (F.1) 自動化測試建置（dev-only，無版本 bump）
 
 ### 🎯 目標
