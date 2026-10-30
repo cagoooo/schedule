@@ -69,6 +69,25 @@ test.describe('切換場地自動帶到日曆', () => {
     });
 });
 
+test.describe('手機版搜尋列 RWD', () => {
+    test('節次選單高度 44px 且文字有足夠空間', async ({ page }) => {
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.goto('/index.html');
+
+        const box = await page.locator('#searchPeriodFilter').evaluate((el) => {
+            const style = getComputedStyle(el);
+            return {
+                height: el.getBoundingClientRect().height,
+                contentHeight: el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+                fontSize: parseFloat(style.fontSize),
+            };
+        });
+
+        expect(box.height).toBe(44);
+        expect(box.contentHeight).toBeGreaterThanOrEqual(box.fontSize * 1.5);
+    });
+});
+
 test.describe('LINE 綁定碼自動帶入', () => {
     test('綁定碼產生後，QR 與手機按鈕共用 LINE 預填連結', async ({ page }) => {
         await page.goto('/index.html');

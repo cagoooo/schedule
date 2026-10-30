@@ -1,6 +1,6 @@
-// Service Worker v2.59.6 - 切換場地自動帶到日曆
-const CACHE_NAME = 'booking-system-v2.59.6';
-const APP_VERSION = 'v2.59.6';
+// Service Worker v2.59.7 - 手機版節次選單文字完整顯示
+const CACHE_NAME = 'booking-system-v2.59.7';
+const APP_VERSION = 'v2.59.7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

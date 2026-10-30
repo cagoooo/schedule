@@ -8106,6 +8106,12 @@ body {
     height: 40px;
     border-radius: var(--radius-md) !important;
 }
+/* v2.59.7: 固定高度下不留上下內距, 否則 iOS 文字可用高度只剩 17px 會被切掉 */
+.search-filter-select {
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: normal;
+}
 
 /* --- 響應式: header 在窄螢幕收回 sub title (避免擠壓) --- */
 @media (max-width: 768px) {
@@ -8119,6 +8125,13 @@ body {
     }
     .header-title .title-sub {
         display: none;
+    }
+    /* v2.59.7: 搜尋列在手機拉到 44px 觸控高度 */
+    .search-input,
+    .search-filter-select,
+    .btn-search-scope,
+    .btn-search-advanced {
+        height: 44px;
     }
 }
 
