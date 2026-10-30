@@ -1275,12 +1275,7 @@ function switchView(mode) {
     }
 
     // 自動滾動到日曆區域（改善手機端 UX）
-    const calendarContainer = document.querySelector('.calendar-container');
-    if (calendarContainer) {
-        setTimeout(() => {
-            calendarContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-    }
+    scrollToCalendar(100);
 }
 
 /**
@@ -2128,12 +2123,14 @@ function initEventListeners() {
     });
 
     // 場地切換連動
-    document.getElementById('roomSelect').addEventListener('change', () => {
+    document.getElementById('roomSelect').addEventListener('change', (e) => {
         if (viewMode === 'week') {
             loadBookingsFromFirebase();
         } else {
             loadMonthBookings();
         }
+        // v2.59.6: 使用者親手切換才帶到日曆; 複製預約等程式連動 (isTrusted=false) 不捲動
+        if (e.isTrusted) scrollToCalendar();
     });
 
     // 預約彈窗場地切換 -> 載入該場地設定後再刷新節次狀態
@@ -4946,12 +4943,15 @@ function checkSuggestionPeriod(periodId) {
 /**
  * 輔助：捲動至日曆區域
  */
-function scrollToCalendar() {
+function scrollToCalendar(delay = 300) {
     const calendarContainer = document.querySelector('.calendar-container');
     if (calendarContainer) {
         setTimeout(() => {
+            // v2.59.6: 頁首是 sticky 且手機登入後高度會變, 捲動前才量, 避免週次導覽被蓋住
+            const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
+            calendarContainer.style.scrollMarginTop = `${headerHeight + 12}px`;
             calendarContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
+        }, delay);
     }
 }
 // ===== 資料匯出與報表功能 =====

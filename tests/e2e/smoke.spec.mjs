@@ -29,6 +29,46 @@ test.describe('頁面載入', () => {
     });
 });
 
+test.describe('切換場地自動帶到日曆', () => {
+    const calendarTopGap = (page) => page.evaluate(() => {
+        const header = document.querySelector('.header').getBoundingClientRect();
+        const calendar = document.querySelector('.calendar-container').getBoundingClientRect();
+        return { gap: calendar.top - header.bottom, scrollY: window.scrollY };
+    });
+
+    test('手機版親手切換場地: 日曆頂端落在黏性頁首正下方', async ({ page }) => {
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.goto('/index.html');
+        await expect(page.getByRole('button', { name: '預約' }).first())
+            .toBeVisible({ timeout: 15_000 });
+        await page.waitForTimeout(500);
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
+        // 鍵盤操作才是瀏覽器原生 change (isTrusted=true), selectOption 是程式觸發
+        await page.locator('#roomSelect').focus();
+        await page.keyboard.press('ArrowDown');
+
+        await expect.poll(async () => (await calendarTopGap(page)).gap, { timeout: 5_000 })
+            .toBeGreaterThanOrEqual(8);
+        await expect.poll(async () => (await calendarTopGap(page)).gap, { timeout: 5_000 })
+            .toBeLessThanOrEqual(16);
+    });
+
+    test('程式連動切換場地不捲動 (複製預約時背景同步)', async ({ page }) => {
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.goto('/index.html');
+        await expect(page.getByRole('button', { name: '預約' }).first())
+            .toBeVisible({ timeout: 15_000 });
+        await page.waitForTimeout(500);
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
+        await page.locator('#roomSelect').selectOption({ index: 1 });
+        await page.waitForTimeout(800);
+
+        expect((await calendarTopGap(page)).scrollY).toBe(0);
+    });
+});
+
 test.describe('LINE 綁定碼自動帶入', () => {
     test('綁定碼產生後，QR 與手機按鈕共用 LINE 預填連結', async ({ page }) => {
         await page.goto('/index.html');

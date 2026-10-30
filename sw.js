@@ -1,6 +1,6 @@
-// Service Worker v2.59.5 - 管理員白名單權限修正
-const CACHE_NAME = 'booking-system-v2.59.5';
-const APP_VERSION = 'v2.59.5';
+// Service Worker v2.59.6 - 切換場地自動帶到日曆
+const CACHE_NAME = 'booking-system-v2.59.6';
+const APP_VERSION = 'v2.59.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
