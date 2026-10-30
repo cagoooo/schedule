@@ -8133,6 +8133,22 @@ body {
     .btn-search-advanced {
         height: 44px;
     }
+    /* v2.59.8: iOS 原生日期欄位有內建外觀與最小寬度, width: 100% 壓不住會超出外框 */
+    .date-input {
+        -webkit-appearance: none;
+        appearance: none;
+        display: block;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .date-input::-webkit-date-and-time-value {
+        margin: 0;
+        min-width: 0;
+        text-align: center;
+    }
 }
 
 

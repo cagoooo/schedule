@@ -1,6 +1,6 @@
-// Service Worker v2.59.7 - 手機版節次選單文字完整顯示
-const CACHE_NAME = 'booking-system-v2.59.7';
-const APP_VERSION = 'v2.59.7';
+// Service Worker v2.59.8 - 手機版日期欄位不超出外框
+const CACHE_NAME = 'booking-system-v2.59.8';
+const APP_VERSION = 'v2.59.8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

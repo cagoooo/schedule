@@ -88,6 +88,35 @@ test.describe('手機版搜尋列 RWD', () => {
     });
 });
 
+test.describe('手機版日期區塊 RWD', () => {
+    for (const width of [375, 320]) {
+        test(`${width}px: 日期欄位不超出外框內距且解除最小寬度`, async ({ page }) => {
+            await page.setViewportSize({ width, height: 812 });
+            await page.goto('/index.html');
+
+            const result = await page.evaluate(() => {
+                const group = document.querySelector('#startDate').closest('.control-group');
+                const style = getComputedStyle(group);
+                const innerRight = group.getBoundingClientRect().right
+                    - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
+                const inputs = ['#startDate', '#endDate'].map(id => document.querySelector(id));
+                return {
+                    innerRight,
+                    rights: inputs.map(el => el.getBoundingClientRect().right),
+                    heights: inputs.map(el => el.getBoundingClientRect().height),
+                    minWidths: inputs.map(el => getComputedStyle(el).minWidth),
+                    maxWidths: inputs.map(el => getComputedStyle(el).maxWidth),
+                };
+            });
+
+            result.rights.forEach(right => expect(right).toBeLessThanOrEqual(result.innerRight + 0.5));
+            result.heights.forEach(height => expect(height).toBeGreaterThanOrEqual(44));
+            expect(result.minWidths).toEqual(['0px', '0px']);
+            expect(result.maxWidths).toEqual(['100%', '100%']);
+        });
+    }
+});
+
 test.describe('LINE 綁定碼自動帶入', () => {
     test('綁定碼產生後，QR 與手機按鈕共用 LINE 預填連結', async ({ page }) => {
         await page.goto('/index.html');
