@@ -1,6 +1,6 @@
-// Service Worker v2.59.8 - 手機版日期欄位不超出外框
-const CACHE_NAME = 'booking-system-v2.59.8';
-const APP_VERSION = 'v2.59.8';
+// Service Worker v2.60.0 - 切換場地讀取中遮罩，資料到齊前不可借用
+const CACHE_NAME = 'booking-system-v2.60.0';
+const APP_VERSION = 'v2.60.0';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

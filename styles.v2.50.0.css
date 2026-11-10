@@ -10414,3 +10414,88 @@ body {
     .mybookings-modal-body { padding: 14px; }
     .mybookings-list .history-item { grid-template-columns: minmax(0, 1fr); grid-template-areas: "date" "room" "booker" "periods" "actions"; padding: 14px; gap: 10px; }
 }
+
+/* ===== v2.60.0: 日曆讀取遮罩 — 資料到齊前不可借用 ===== */
+.calendar-body {
+    position: relative;
+    min-width: 0;
+}
+.calendar-loading-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 220px;
+    padding: 40px 16px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border-radius: var(--radius-md);
+}
+.calendar-loading-mask.hidden { display: none; }
+.calendar-container.is-loading .calendar-body { min-height: 260px; }
+.calendar-container.is-loading .calendar-grid,
+.calendar-container.is-loading .month-calendar {
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.45;
+}
+.calendar-loading-card {
+    position: sticky;
+    top: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(420px, 100%);
+    padding: 22px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+}
+.calendar-loading-spinner {
+    width: 36px;
+    height: 36px;
+    border: 4px solid rgba(31, 77, 63, 0.15);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: calendarLoadingSpin 0.8s linear infinite;
+}
+@keyframes calendarLoadingSpin { to { transform: rotate(360deg); } }
+.calendar-loading-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+.calendar-loading-sub {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+.calendar-loading-retry {
+    min-height: 44px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 999px;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.calendar-loading-retry.hidden { display: none; }
+.calendar-loading-mask.is-error .calendar-loading-spinner { display: none; }
+.calendar-loading-mask.is-error .calendar-loading-text { color: var(--danger-color); }
+@media (prefers-reduced-motion: reduce) {
+    .calendar-loading-spinner { animation-duration: 2.4s; }
+}
+@media (max-width: 768px) {
+    .calendar-loading-mask { padding: 24px 12px; }
+    .calendar-loading-card { top: 90px; padding: 18px 14px; }
+    .calendar-loading-text { font-size: 1rem; }
+}

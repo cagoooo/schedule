@@ -196,3 +196,62 @@ test.describe('歷史查詢 (L.3 學期快速鍵)', () => {
         await page.locator('#btnHistoryClose').click();
     });
 });
+
+test.describe('v2.60.0 切換場地讀取遮罩', () => {
+    test('讀取中: 遮罩出現且預約按鈕不可用; 快速連切後只顯示最後選的場地', async ({ page }) => {
+        await page.goto('/index.html');
+        await expect(page.getByRole('button', { name: '預約' }).first())
+            .toBeVisible({ timeout: 15_000 });
+
+        // 把查詢放慢, 模擬學校網路慢的情況
+        await page.evaluate(() => {
+            const orig = window.statsTrackedGet;
+            window.statsTrackedGet = async (q) => {
+                await new Promise(r => setTimeout(r, 1500));
+                return orig(q);
+            };
+        });
+
+        const rooms = await page.locator('#roomSelect option').evaluateAll(os => os.map(o => o.value));
+        await page.locator('#roomSelect').selectOption(rooms[1]);
+        await page.locator('#roomSelect').selectOption(rooms[2]);
+
+        const mask = page.locator('#calendarLoadingMask');
+        await expect(mask).toBeVisible();
+        await expect(page.locator('#calendarLoadingText')).toContainText(rooms[2]);
+        await expect(page.locator('#calendarGrid')).toHaveAttribute('inert', '');
+        await expect(page.locator('#calendarGrid .btn-book')).toHaveCount(0);
+
+        await expect(mask).toBeHidden({ timeout: 20_000 });
+        await expect(page.locator('#calendarGrid')).not.toHaveAttribute('inert', '');
+        await expect(page.getByRole('button', { name: '預約' }).first()).toBeVisible();
+        const loadedRooms = await page.evaluate(() => [...new Set(bookings.map(b => b.room))]);
+        expect(loadedRooms.every(r => r === rooms[2])).toBe(true);
+    });
+
+    test('讀取失敗: 顯示重新讀取且不能開預約視窗, 重試後恢復', async ({ page }) => {
+        await page.goto('/index.html');
+        await expect(page.getByRole('button', { name: '預約' }).first())
+            .toBeVisible({ timeout: 15_000 });
+
+        await page.evaluate(() => {
+            const orig = window.statsTrackedGet;
+            window.__fail = true;
+            window.statsTrackedGet = async (q) => {
+                if (window.__fail) throw new Error('模擬斷網');
+                return orig(q);
+            };
+            loadBookingsFromFirebase(true);
+        });
+
+        await expect(page.locator('#calendarLoadingMask')).toHaveClass(/is-error/);
+        await expect(page.locator('#btnCalendarRetry')).toBeVisible();
+        await page.evaluate(() => openBookingModal('2026/11/12'));
+        await expect(page.locator('#modalOverlay')).not.toHaveClass(/active/);
+
+        await page.evaluate(() => { window.__fail = false; });
+        await page.locator('#btnCalendarRetry').click();
+        await expect(page.locator('#calendarLoadingMask')).toBeHidden({ timeout: 15_000 });
+        await expect(page.getByRole('button', { name: '預約' }).first()).toBeVisible();
+    });
+});
