@@ -1,6 +1,6 @@
-// Service Worker v2.60.0 - 切換場地讀取中遮罩，資料到齊前不可借用
-const CACHE_NAME = 'booking-system-v2.60.0';
-const APP_VERSION = 'v2.60.0';
+// Service Worker v2.60.1 - 本機開發不送 Sentry、告警環境欄位改顯示未提供
+const CACHE_NAME = 'booking-system-v2.60.1';
+const APP_VERSION = 'v2.60.1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -1652,7 +1652,16 @@ exports.sentryWebhook = onRequest(
             const level = String(src.level || body.level || 'error').toUpperCase();
             const project = (issue && issue.project && (issue.project.slug || issue.project.name))
                 || body.project_name || body.project || ev.project || 'schedule';
-            const environment = ev.environment || src.environment || 'unknown';
+            // 環境記在「事件」上；Internal Integration 的「新問題」通知只附問題摘要、不含環境，
+            // 讀不到時顯示「未提供」而非 unknown（2026-11-16 JAVASCRIPT-REACT-2E 告警顯示 unknown）。
+            // 本機開發的錯誤改由前端不送 Sentry 擋掉（index.html 只在 github.io 啟用），這裡的 development 過濾保留給事件型通知。
+            const envFromTags = Array.isArray(ev.tags)
+                ? (ev.tags.find((t) => Array.isArray(t) ? t[0] === 'environment' : t && t.key === 'environment') || null)
+                : null;
+            const environment = ev.environment || src.environment
+                || (envFromTags && (Array.isArray(envFromTags) ? envFromTags[1] : envFromTags.value))
+                || null;
+            const environmentLabel = environment || '未提供（Sentry 新問題通知不含環境）';
             const title = src.title || body.message || (ev.metadata && ev.metadata.value)
                 || (src.metadata && (src.metadata.value || src.metadata.type)) || '未知錯誤';
             const culprit = src.culprit || body.culprit || ev.culprit || '';
@@ -1689,7 +1698,7 @@ exports.sentryWebhook = onRequest(
             const text =
                 `${icon} 系統錯誤告警 (${level})\n\n` +
                 `📦 專案: ${project}\n` +
-                `🌐 環境: ${environment}\n` +
+                `🌐 環境: ${environmentLabel}\n` +
                 `❗ ${String(title).slice(0, 180)}\n` +
                 (culprit ? `📍 ${String(culprit).slice(0, 120)}\n` : '') +
                 `\n🔗 查看詳情:\n${issueUrl}`;
