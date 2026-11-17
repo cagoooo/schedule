@@ -1,6 +1,6 @@
-// Service Worker v2.60.1 - 本機開發不送 Sentry、告警環境欄位改顯示未提供
-const CACHE_NAME = 'booking-system-v2.60.1';
-const APP_VERSION = 'v2.60.1';
+// Service Worker v2.60.2 - 新增網站頁尾（作者署名連阿凱老師教育科技創新專區）
+const CACHE_NAME = 'booking-system-v2.60.2';
+const APP_VERSION = 'v2.60.2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

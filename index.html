@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禮堂&專科教室&IPAD平板車預約系統 v2.60.1</title>
+    <title>禮堂&專科教室&IPAD平板車預約系統 v2.60.2</title>
     <meta name="description" content="學校禮堂、專科教室及IPAD平板車線上預約借用系統">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.v2.50.0.css?v=2.60.1">
+    <link rel="stylesheet" href="styles.v2.50.0.css?v=2.60.2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1F4D3F">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -19,7 +19,7 @@
         // 在 Loader 載入前先定義設定：SDK 就緒時自動套用
         window.sentryOnLoad = function () {
             Sentry.init({
-                release: 'v2.60.1',
+                release: 'v2.60.2',
                 // v2.60.1: 只有正式站（github.io）送錯誤；本機開發不送，避免開發中的錯誤推播到管理員
                 // （Sentry「新問題」通知不含環境，後端無法分辨 development）
                 enabled: location.hostname.endsWith('github.io'),
@@ -41,7 +41,7 @@
         (function () {
             if (!('serviceWorker' in navigator)) return;
 
-            const APP_VERSION = 'v2.60.1';
+            const APP_VERSION = 'v2.60.2';
             const CHECK_INTERVAL = 30 * 60 * 1000; // 每 30 分鐘檢查一次新版
             const JUST_UPDATED_KEY = 'pwaJustUpdated'; // v2.52.0: 破除更新迴圈的一次性記號
             let isReloading = false;
@@ -580,6 +580,45 @@
             </div>
         </section>
     </main>
+
+    <!-- v2.60.2: 網站頁尾（品牌區・重點・快速連結・作者署名） -->
+    <footer class="site-footer" id="siteFooter">
+        <div class="site-footer-inner">
+            <div class="footer-brand">
+                <img src="favicon.png" alt="" width="48" height="48" loading="lazy">
+                <div>
+                    <strong>禮堂&amp;專科教室&amp;IPAD平板車預約系統</strong>
+                    <span>線上預約禮堂、專科教室與平板車，免紙本登記、不再撞期</span>
+                </div>
+            </div>
+            <ul class="footer-points">
+                <li><span class="fp-icon" aria-hidden="true">🗓️</span><div><strong>週曆、月曆一眼看</strong><small>借用狀況一目了然</small></div></li>
+                <li><span class="fp-icon" aria-hidden="true">🔔</span><div><strong>LINE 即時通知</strong><small>預約成立、取消都會推播</small></div></li>
+                <li><span class="fp-icon" aria-hidden="true">📱</span><div><strong>手機也好用</strong><small>加到主畫面，像 App 一樣用</small></div></li>
+            </ul>
+            <nav class="footer-links" aria-label="快速連結">
+                <button type="button" class="footer-link" data-footer-proxy="btnMyBookings">👤 我的預約</button>
+                <button type="button" class="footer-link" data-footer-proxy="btnLineBind">💬 綁定 LINE</button>
+                <button type="button" class="footer-link" data-footer-proxy="btnFeedbackFab">✉️ 意見回饋</button>
+            </nav>
+        </div>
+        <div class="site-footer-bottom">
+            <p class="site-credit">Made with <span class="site-credit__heart" aria-label="愛心">❤️</span> by
+                <a href="https://cagoooo.github.io/Akai/" target="_blank" rel="noopener noreferrer" class="site-credit__author" title="阿凱老師教育科技創新專區">阿凱老師</a>
+                <span class="footer-school"><span class="footer-dot" aria-hidden="true">・</span>桃園市龍潭區石門國民小學</span>
+            </p>
+            <p class="footer-version">v2.60.2</p>
+        </div>
+    </footer>
+    <script>
+        // v2.60.2: 頁尾快速連結 → 觸發頁首既有按鈕（沿用原本的開啟邏輯）
+        document.querySelectorAll('[data-footer-proxy]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var target = document.getElementById(btn.getAttribute('data-footer-proxy'));
+                if (target) target.click();
+            });
+        });
+    </script>
 
     <!-- 預約彈窗 -->
     <div class="modal-overlay" id="modalOverlay">
@@ -1515,7 +1554,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="config.js"></script>
-    <script src="app.js?v=2.60.1"></script>
+    <script src="app.js?v=2.60.2"></script>
     <script src="recurring-cancel.js"></script>
     <!-- PWA 安裝提示 (Glassmorphism) -->
     <div id="pwa-install-prompt" class="pwa-prompt hidden">
@@ -1779,7 +1818,7 @@
 
     <!-- v2.50.8: 設計系統識別膠囊 (Pine 深松綠 · 12px 圓角 · Compact 密度) -->
     <div class="design-stamp" id="designStamp">
-        v2.60.1 · Pine · Compact
+        v2.60.2 · Pine · Compact
         <span id="btnForceCheckUpdate" style="margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center;" title="手動檢查更新 (連點5次強制清理快取並重啟)">🔄</span>
     </div>
 </body>

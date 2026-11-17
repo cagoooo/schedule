@@ -10499,3 +10499,108 @@ body {
     .calendar-loading-card { top: 90px; padding: 18px 14px; }
     .calendar-loading-text { font-size: 1rem; }
 }
+
+/* ==========================================================================
+   v2.60.2 — 網站頁尾（品牌區・重點・快速連結・作者署名）
+   ========================================================================== */
+.site-footer {
+    margin-top: 2rem;
+    background: linear-gradient(180deg, #ECEADD 0%, #E4E1D1 100%);
+    border-top: 1px solid var(--border-color);
+    position: relative;
+    color: var(--text-secondary);
+}
+.site-footer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 60%, var(--accent-color) 100%);
+}
+.site-footer-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 1.5rem;
+    display: grid;
+    grid-template-columns: minmax(240px, 1.1fr) 2fr auto;
+    gap: 1.75rem;
+    align-items: start;
+}
+.footer-brand { display: flex; gap: 0.85rem; align-items: flex-start; }
+.footer-brand img {
+    width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+    box-shadow: var(--shadow-md); background: #fff;
+}
+.footer-brand strong {
+    display: block; color: var(--text-primary); font-size: 1rem; line-height: 1.4;
+    font-family: var(--font-display);
+}
+.footer-brand span { display: block; margin-top: 0.3rem; font-size: 0.875rem; line-height: 1.6; }
+.footer-points {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;
+}
+.footer-points li {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
+}
+.fp-icon {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); font-size: 1.05rem;
+}
+.footer-points strong { display: block; color: var(--text-primary); font-size: 0.9rem; }
+.footer-points small { display: block; margin-top: 0.15rem; font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
+.footer-links { display: flex; flex-direction: column; gap: 0.5rem; }
+.footer-link {
+    border: 1px solid var(--border-strong);
+    background: var(--card-bg);
+    color: var(--primary-color);
+    font: inherit; font-size: 0.875rem; font-weight: 600;
+    padding: 0.55rem 1rem; border-radius: 999px; cursor: pointer;
+    min-height: 40px; white-space: nowrap; text-align: left;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.footer-link:hover, .footer-link:focus-visible {
+    background: var(--primary-color); color: #fff; border-color: var(--primary-color);
+}
+.site-footer-bottom {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0.9rem 1.5rem 3.5rem; /* 底部留空：避開左下版本膠囊與右下意見回饋按鈕 */
+    border-top: 1px solid var(--border-strong);
+    display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+}
+.site-credit { margin: 0; font-size: 0.875rem; color: var(--text-secondary); }
+.site-credit__heart { display: inline-block; margin: 0 2px; filter: saturate(1.1); }
+.site-credit__author {
+    color: var(--primary-color); font-weight: 700; text-decoration: none;
+    border-bottom: 1px dotted currentColor; padding-bottom: 1px;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.site-credit__author:hover { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+.footer-version {
+    margin: 0; font-size: 0.75rem; font-weight: 600; color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.7); border: 1px solid var(--border-strong);
+    border-radius: 999px; padding: 0.2rem 0.7rem;
+}
+@media (max-width: 1024px) {
+    .site-footer-inner { grid-template-columns: 1fr 1fr; }
+    .footer-points { grid-column: 1 / -1; grid-row: 2; }
+    .footer-links { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+}
+@media (max-width: 640px) {
+    .site-footer-inner { grid-template-columns: 1fr; padding: 1.5rem 1rem 1.25rem; gap: 1.25rem; }
+    .footer-points { grid-template-columns: 1fr; grid-row: auto; }
+    .footer-links { justify-content: flex-start; }
+    .footer-link { flex: 1 1 auto; text-align: center; min-height: 48px; }
+    .site-footer-bottom { flex-direction: column; text-align: center; padding: 0.9rem 1rem 8.5rem; }
+    .footer-school { display: block; margin-top: 0.25rem; }
+    .footer-dot { display: none; }
+}
+@media print {
+    .site-footer { display: none !important; }
+}
