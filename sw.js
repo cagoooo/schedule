@@ -1,6 +1,7 @@
-// Service Worker v2.60.3 - 頁尾品牌說明縮短，避免桌機掉字
-const CACHE_NAME = 'booking-system-v2.60.3';
-const APP_VERSION = 'v2.60.3';
+// Service Worker v2.60.4 - 只清除本工具的快取，不再影響同網域其他工具
+const CACHE_PREFIX = 'booking-system-';
+const CACHE_NAME = CACHE_PREFIX + 'v2.60.4';
+const APP_VERSION = 'v2.60.4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -35,10 +36,10 @@ self.addEventListener('activate', event => {
     console.log(`[SW ${APP_VERSION}] Activating...`);
     event.waitUntil(
         Promise.all([
-            // 清理舊快取
+            // 清理舊快取（v2.60.4: 只清本工具 booking-system-* 的舊版，同網域其他工具的快取不能動）
             caches.keys().then(keyList => Promise.all(
                 keyList
-                    .filter(key => key !== CACHE_NAME)
+                    .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
                     .map(key => {
                         console.log(`[SW ${APP_VERSION}] Removing old cache:`, key);
                         return caches.delete(key);
