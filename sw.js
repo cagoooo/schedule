@@ -1,6 +1,6 @@
-// Service Worker v2.60.2 - 新增網站頁尾（作者署名連阿凱老師教育科技創新專區）
-const CACHE_NAME = 'booking-system-v2.60.2';
-const APP_VERSION = 'v2.60.2';
+// Service Worker v2.60.3 - 頁尾品牌說明縮短，避免桌機掉字
+const CACHE_NAME = 'booking-system-v2.60.3';
+const APP_VERSION = 'v2.60.3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
