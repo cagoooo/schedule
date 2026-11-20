@@ -5075,8 +5075,8 @@ async function scrollCalendarToToday() {
             todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
-        // 桌機/平板: 週曆在 .calendar-container 裡左右捲動, 今天被擠出畫面時才滑過去
-        const scroller = document.querySelector('.calendar-container');
+        // 桌機/平板: 週曆在 #calendarWeekScroll 裡左右捲動, 今天被擠出畫面時才滑過去
+        const scroller = document.getElementById('calendarWeekScroll');
         if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
         const sRect = scroller.getBoundingClientRect();
         const tRect = todayEl.getBoundingClientRect();

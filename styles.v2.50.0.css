@@ -10500,6 +10500,26 @@ body {
     .calendar-loading-text { font-size: 1rem; }
 }
 
+/* ===== v2.60.7: 週曆只有七天格子左右滑, 週次導覽與週/月切換固定不動 =====
+   原本整個 .calendar-container 一起水平捲動 (週曆最小寬 980px),
+   滑到週五時上方日期區間與週/月切換也被滑出畫面。改由 #calendarWeekScroll 單獨捲動。
+   容器用 clip 而非 hidden/auto: 不形成捲動容器, 讀取卡片的 sticky 仍以頁面為準 */
+.calendar-container {
+    overflow-x: visible;
+    overflow-x: clip;
+}
+.calendar-week-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-md);
+}
+@media (max-width: 600px) {
+    /* 手機週曆改直排, 不需要水平捲動; 不裁切卡片陰影 */
+    .calendar-week-scroll { overflow: visible; }
+}
+
 /* ==========================================================================
    v2.60.2 — 網站頁尾（品牌區・重點・快速連結・作者署名）
    ========================================================================== */

@@ -1,7 +1,7 @@
-// Service Worker v2.60.6 - 切換場地後自動捲到今天
+// Service Worker v2.60.7 - 週曆只有七天格子左右滑，週次導覽固定不動
 const CACHE_PREFIX = 'booking-system-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.60.6';
-const APP_VERSION = 'v2.60.6';
+const CACHE_NAME = CACHE_PREFIX + 'v2.60.7';
+const APP_VERSION = 'v2.60.7';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
