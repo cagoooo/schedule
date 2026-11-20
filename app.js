@@ -1796,10 +1796,11 @@ async function submitBooking() {
             : '預約成功！';
 
         // v2.40.0: V.5 預約撤銷按鈕 (Gmail 風格)
+        // v2.60.5: 倒數由 30 秒縮短為 5 秒 (老師反映 toast 停留太久)
         showToast(msg, 'success', {
             action: {
                 label: '↩ 撤銷',
-                countdown: 30,
+                countdown: UNDO_COUNTDOWN_SECONDS,
                 onClick: () => undoRecentBookings(createdRefs.map(r => r.id))
             }
         });
@@ -1976,9 +1977,11 @@ async function executeDeleteBooking() {
 }
 
 /**
- * v2.40.0 (V.5): 撤銷剛建立的預約 (Gmail 風格 30 秒回復)
+ * v2.40.0 (V.5): 撤銷剛建立的預約 (Gmail 風格; v2.60.5 起 5 秒內可回復)
  * @param {string[]} bookingIds Firestore doc IDs
  */
+const UNDO_COUNTDOWN_SECONDS = 5;
+
 async function undoRecentBookings(bookingIds) {
     if (!bookingIds || bookingIds.length === 0) return;
     try {
@@ -1992,7 +1995,7 @@ async function undoRecentBookings(bookingIds) {
         logSystemAction('UNDO_BOOKING', {
             count: bookingIds.length,
             ids: bookingIds,
-            method: 'gmail_style_undo_30s',
+            method: `gmail_style_undo_${UNDO_COUNTDOWN_SECONDS}s`,
         }, bookingIds.join(','));
     } catch (err) {
         console.error('[Undo] 撤銷失敗', err);
@@ -2023,7 +2026,7 @@ function showToast(message, type = 'info', options = {}) {
 
     // 構建 toast 內容
     if (action) {
-        const initial = action.countdown || 30;
+        const initial = action.countdown || UNDO_COUNTDOWN_SECONDS;
         toast.innerHTML = `
             <span class="toast-message">${message}</span>
             <button class="toast-action-btn" type="button">
@@ -2067,7 +2070,7 @@ function showToast(message, type = 'info', options = {}) {
         // 撤銷型 toast：用 countdown 控制關閉時機，超時後保留淡出
         toastDismissTimer = setTimeout(() => {
             toast.classList.remove('show');
-        }, (action.countdown || 30) * 1000 + 500);
+        }, (action.countdown || UNDO_COUNTDOWN_SECONDS) * 1000 + 500);
     }
 }
 
@@ -5298,7 +5301,8 @@ function formatAuditDetails(log) {
         case 'FORCE_DELETE_BOOKING':
             return `預約人: ${d.booker || '?'} | 原因: ${(d.reason || '無').substring(0, 40)} | 節次: ${d.period || 'ALL'}`;
         case 'UNDO_BOOKING':
-            return `撤銷 ${d.count || 0} 筆 (Gmail 風格 30 秒內)`;
+            // v2.60.5 前為 30 秒, 之後為 5 秒; 從紀錄的 method 讀實際秒數
+            return `撤銷 ${d.count || 0} 筆 (Gmail 風格 ${(/_(\d+)s$/.exec(d.method || '') || [, '30'])[1]} 秒內)`;
         case 'BATCH_CANCEL_BOOKINGS':
             return `批次取消 ${d.successCount || 0} / ${d.attemptedCount || 0} 筆 (執行者: ${d.executedBy || '?'}, 過濾: ${d.filteredOut || 0})`;
         case 'CREATE_ANNOUNCEMENT':
