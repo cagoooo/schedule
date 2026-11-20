@@ -1,7 +1,7 @@
-// Service Worker v2.60.5 - 預約成功的撤銷倒數縮短為 5 秒
+// Service Worker v2.60.6 - 切換場地後自動捲到今天
 const CACHE_PREFIX = 'booking-system-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.60.5';
-const APP_VERSION = 'v2.60.5';
+const CACHE_NAME = CACHE_PREFIX + 'v2.60.6';
+const APP_VERSION = 'v2.60.6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

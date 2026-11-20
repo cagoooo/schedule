@@ -2220,7 +2220,8 @@ function initEventListeners() {
             loadMonthBookings();
         }
         // v2.59.6: 使用者親手切換才帶到日曆; 複製預約等程式連動 (isTrusted=false) 不捲動
-        if (e.isTrusted) scrollToCalendar();
+        // v2.60.6: 資料到齊後再帶到「今天」那一格 (手機直排免自己往下滑)
+        if (e.isTrusted) scrollCalendarToToday();
     });
 
     // 預約彈窗場地切換 -> 載入該場地設定後再刷新節次狀態
@@ -5043,6 +5044,48 @@ function scrollToCalendar(delay = 300) {
             calendarContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, delay);
     }
+}
+
+/**
+ * v2.60.6: 切換場地後帶到「今天」
+ * - 先捲到日曆頂端 (讀取遮罩立即可見, 使用者知道有反應)
+ * - 資料到齊後: 手機直排週曆 → 捲到今天那一格; 可左右滑的週曆 → 把今天那一欄滑進畫面
+ * - 今天不在目前顯示的週次 / 月曆模式 / 讀取失敗 → 維持停在日曆頂端
+ */
+let scrollToTodayRequest = 0;
+async function scrollCalendarToToday() {
+    const requestId = ++scrollToTodayRequest;
+    scrollToCalendar(0);
+
+    const ready = await waitForCalendarReady();
+    // 等待期間使用者又切換一次場地 → 交給最新那次
+    if (!ready || requestId !== scrollToTodayRequest || viewMode !== 'week') return;
+
+    const grid = document.getElementById('calendarGrid');
+    const todayEl = grid?.querySelector('.calendar-day.today');
+    if (!todayEl) return;
+
+    // 等一個畫面週期, 讓剛渲染好的預約卡片撐出實際高度再量位置
+    requestAnimationFrame(() => {
+        if (requestId !== scrollToTodayRequest) return;
+        const isStacked = getComputedStyle(grid).flexDirection === 'column';
+        if (isStacked) {
+            const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
+            todayEl.style.scrollMarginTop = `${headerHeight + 12}px`;
+            todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+        // 桌機/平板: 週曆在 .calendar-container 裡左右捲動, 今天被擠出畫面時才滑過去
+        const scroller = document.querySelector('.calendar-container');
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+        const sRect = scroller.getBoundingClientRect();
+        const tRect = todayEl.getBoundingClientRect();
+        if (tRect.left >= sRect.left && tRect.right <= sRect.right) return;
+        scroller.scrollTo({
+            left: scroller.scrollLeft + (tRect.left - sRect.left) - 16,
+            behavior: 'smooth'
+        });
+    });
 }
 // ===== 資料匯出與報表功能 =====
 
